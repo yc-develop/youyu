@@ -1,0 +1,17 @@
+# macOS
+.DS_Store
+
+# 旧项目 / 与本应用无关的文件
+/build_mobile.py
+/icost-dashboard-mobile.html
+/src/
+
+# 构建与部署产物
+/yingji-netlify/
+/yingji-netlify.zip
+
+# 调试与测试临时文件
+/.tools/
+/.npm-cache/
+/shots/
+*.log
