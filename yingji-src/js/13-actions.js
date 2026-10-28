@@ -254,5 +254,5 @@ function bindGlobalEvents() {
 }
 
 window.addEventListener('error', function (e) {
-  console.error('盈迹运行错误', e.error || e.message);
+  console.error('有余运行错误', e.error || e.message);
 });

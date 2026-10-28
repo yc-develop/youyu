@@ -5,7 +5,7 @@ src = root / 'yingji-src'
 template = (src / 'template.html').read_text()
 style = (src / 'styles.css').read_text()
 parts = sorted((src / 'js').glob('*.js'))
-app = "/* 盈迹 · 投资组合 */\n(function(){\n'use strict';\n" + "\n\n".join(p.read_text() for p in parts) + "\n})();\n"
+app = "/* 有余 · 投资组合 */\n(function(){\n'use strict';\n" + "\n\n".join(p.read_text() for p in parts) + "\n})();\n"
 if '</script' in app:
     raise SystemExit('app contains </script>')
 html = template.replace('/*__STYLE__*/', style).replace('/*__APP__*/', app)

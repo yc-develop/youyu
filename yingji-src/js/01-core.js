@@ -3,7 +3,8 @@
    ========================================================= */
 'use strict';
 
-const APP_NAME = '盈迹';
+const APP_NAME = '有余';
+// 沿用旧存储键，避免改名后已有本地账本丢失
 const STORE_KEY = 'yingji.portfolio.v1';
 const SCHEMA = 3;
 const DAY_MS = 86400000;

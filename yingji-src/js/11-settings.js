@@ -12,7 +12,7 @@ function renderSettingsPage() {
     actions: '<button class="icon-btn" data-action="toggle-hide" aria-label="隐藏金额">' + icon(state.settings.hideAmounts ? 'eyeOff' : 'eye') + '</button>'
   }) +
   '<section class="profile-card">' +
-    '<div class="profile-top"><div class="profile-logo">盈</div><div><div class="profile-name">盈迹 · 投资组合</div><div class="profile-sub">iPhone 上的私人资产账本 · 无需登录</div></div></div>' +
+    '<div class="profile-top"><div class="profile-logo">余</div><div><div class="profile-name">有余 · 投资组合</div><div class="profile-sub">iPhone 上的私人资产账本 · 无需登录</div></div></div>' +
     '<div class="profile-stats"><div><div class="l">总资产</div><div class="v">' + fmtMoney(p.totalMarket, { compact: true }) + '</div></div><div><div class="l">累计收益</div><div class="v ' + pnlClass(p.profit) + '">' + pnlText(p.profit, { compact: true }) + '</div></div><div><div class="l">账户</div><div class="v">' + p.accounts.length + ' <span style="font-size:8px;color:var(--faint)">个</span></div></div></div>' +
   '</section>' +
   '<div class="install-card">' + icon('sparkles') + '<div><div class="t">把这个页面装进主屏幕</div><div class="s">在 Safari 中点「分享」→「添加到主屏幕」，即可像 App 一样全屏使用。数据保存在当前浏览器。</div></div></div>' +
@@ -48,7 +48,8 @@ function renderSettingsPage() {
   '</div></div>' +
   '<div class="settings-group"><div class="label">关于</div><div class="settings-card">' +
     '<div class="setting-row"><span class="setting-icon accent">' + icon('shield') + '</span><span class="setting-main"><span class="t">本地存储</span><span class="s">所有数据保存在浏览器 localStorage，不上传服务器。清除浏览器数据会丢失账本，请定期导出备份。</span></span></div>' +
-    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">盈迹 v1.0</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 离线可用</span></span></div>' +
+    '<div class="setting-row"><span class="setting-icon blue">' + icon('chart') + '</span><span class="setting-main"><span class="t">行情数据</span><span class="s">名称搜索来自新浪财经，最新报价来自腾讯行情；公开接口可能受网络影响，仅供估值参考。</span></span></div>' +
+    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v1.1</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
   '</div></div>' +
   '<div class="version">' + esc(APP_NAME) + ' · 投资组合<br>不构成投资建议 · 数据仅供参考</div>' +
   '<div style="height:8px"></div>';
@@ -135,7 +136,7 @@ function downloadBackup() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'yingji-backup-' + todayKey() + '.json';
+  a.download = 'youyu-backup-' + todayKey() + '.json';
   document.body.appendChild(a);
   a.click();
   setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 400);
