@@ -23,12 +23,12 @@
 ## 项目结构
 
 ```text
-yingji.html              # 构建后的单文件应用，可直接部署
-yingji-src/
+youyu.html              # 构建后的单文件应用，可直接部署
+youyu-src/
   template.html          # HTML 模板
   styles.css             # 样式
   js/                    # 按功能拆分的前端源码（含 12b-market.js 行情模块）
-build_yingji.py          # 构建脚本：内联 CSS/JS 生成 yingji.html
+build_youyu.py          # 构建脚本：内联 CSS/JS 生成 youyu.html
 previews/                # 页面截图
 ```
 
@@ -37,16 +37,16 @@ previews/                # 页面截图
 仅需 Python 3，无第三方依赖：
 
 ```bash
-python3 build_yingji.py
+python3 build_youyu.py
 ```
 
-输出 `yingji.html`。
+输出 `youyu.html`。
 
 ## 部署到 iPhone
 
 推荐 Netlify Drop：
 
-1. 将 `yingji.html` 复制或重命名为 `index.html`。
+1. 将 `youyu.html` 复制或重命名为 `index.html`。
 2. 打开 [Netlify Drop](https://app.netlify.com/drop)，拖入 `index.html` 或包含它的文件夹。
 3. 用 Safari 打开生成的 `https://` 地址。
 4. 分享 → 添加到主屏幕。

@@ -7,8 +7,8 @@
 /src/
 
 # 构建与部署产物
-/yingji-netlify/
-/yingji-netlify.zip
+/youyu-netlify/
+/youyu-netlify.zip
 
 # 调试与测试临时文件
 /.tools/
