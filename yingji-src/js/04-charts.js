@@ -157,8 +157,24 @@ function flowDiagramHTML(flow, opts) {
   const pnl = Number(f.profit) || 0;
   const pnlCls = pnl > 0 ? 'gain' : pnl < 0 ? 'loss' : '';
   const pnlSign = pnl > 0 ? '+' : pnl < 0 ? '-' : '';
+  const scope = o.scope || '';
+  const id = o.id || '';
+  const periodKey = o.periodKey || 'all';
+  const periods = o.periods || ['all'];
+  const periodLabel = f.periodLabel || flowPeriodLabel(periodKey);
+  const editable = !!o.editable && scope && id;
+  const node = (field, cls, label, valueHtml, extra) => {
+    const attr = editable ? ' data-action="edit-flow-field" data-scope="' + esc(scope) + '" data-id="' + esc(id) + '" data-period="' + esc(periodKey) + '" data-field="' + esc(field) + '"' : '';
+    const pen = editable ? '<span class="flow-edit">' + icon('pen') + '</span>' : '';
+    return '<button type="button" class="flow-node ' + cls + (editable ? ' editable' : '') + '"' + attr + '>' + pen + '<span class="l">' + label + '</span><span class="v">' + valueHtml + '</span>' + (extra || '') + '</button>';
+  };
+  const periodChips = periods.length > 1 ? '<div class="chip-row flow-period-row">' +
+    periods.map(p => '<button class="chip ' + (p === periodKey ? 'active' : '') + '" data-action="set-flow-period" data-scope="' + esc(scope) + '" data-id="' + esc(id) + '" data-period="' + esc(p) + '">' + flowPeriodLabel(p) + '</button>').join('') +
+    '</div>' : '';
   return '<div class="flow-card card">' +
-    '<div class="card-head" style="padding:0"><div><h2>资金流</h2><div class="sub">' + esc(f.label || '记账以来') + ' · 期初 + 净投入 + 盈亏 = 期末' + (o.isInstrument ? ' · 转出含分红' : '') + '</div></div><span class="pill-btn" style="height:26px;font-size:9px;padding:0 9px">' + icon('info') + '含收益</span></div>' +
+    '<div class="card-head" style="padding:0"><div><h2>资金流 ' + (f.adjusted ? '<span class="flow-adjusted">已校正</span>' : '') + '</h2><div class="sub">' + esc(periodLabel) + ' · 期初 + 净投入 + 盈亏 = 期末' + (o.isInstrument ? ' · 转出含分红' : '') + '</div></div>' +
+      (f.adjusted ? '<button class="text-btn" style="font-size:9px" data-action="reset-flow" data-scope="' + esc(scope) + '" data-id="' + esc(id) + '" data-period="' + esc(periodKey) + '">恢复自动</button>' : '<span class="pill-btn" style="height:26px;font-size:9px;padding:0 9px">' + icon('info') + '点击可校正</span>') + '</div>' +
+    periodChips +
     '<div class="flow-diagram">' +
       '<svg class="flow-svg" viewBox="0 0 100 100" preserveAspectRatio="none">' +
         '<path d="M25 20 L25 27 Q25 32 31 32 L44 32 Q50 32 50 38" fill="none" stroke="rgba(255,255,255,.13)" stroke-width=".7" vector-effect="non-scaling-stroke"/>' +
@@ -168,14 +184,15 @@ function flowDiagramHTML(flow, opts) {
         '<path d="M84 56 L84 64 Q84 69 77 69 L56 69 Q50 69 50 74" fill="none" stroke="rgba(255,255,255,.12)" stroke-width=".7" vector-effect="non-scaling-stroke"/>' +
         '<circle cx="50" cy="38" r=".8" fill="rgba(255,255,255,.35)"/><circle cx="50" cy="74" r=".8" fill="rgba(255,255,255,.35)"/>' +
       '</svg>' +
-      '<div class="flow-node flow-top"><span class="l">投入</span><span class="v gain">' + ((f.in || 0) > 0 ? '+' : '') + fmtMoney(f.in || 0, { compact: true }) + '</span></div>' +
-      '<div class="flow-node flow-top right"><span class="l">转出</span><span class="v">' + ((f.out || 0) > 0 ? '−' : '') + fmtMoney(f.out || 0, { compact: true }) + '</span></div>' +
-      '<div class="flow-node flow-mid a"><span class="l">期初金额</span><span class="v">' + fmtMoney(f.beginning || 0, { compact: true }) + '</span></div>' +
-      '<div class="flow-node flow-mid b accent"><span class="l">净投入</span><span class="v">' + ((f.net || 0) > 0 ? '+' : (f.net || 0) < 0 ? '−' : '') + fmtMoney(Math.abs(f.net || 0), { compact: true }) + '</span></div>' +
-      '<div class="flow-node flow-mid c ' + pnlCls + '"><span class="l">资产盈亏</span><span class="v">' + pnlSign + fmtMoney(Math.abs(pnl), { compact: true }) + '</span></div>' +
-      '<div class="flow-node flow-end total"><span class="l">期末金额</span><span class="v">' + fmtMoney(f.ending || 0, { compact: true }) + '</span></div>' +
+      node('in', 'flow-top', '投入', ((f.in || 0) > 0 ? '+' : '') + fmtMoney(f.in || 0)) +
+      node('out', 'flow-top right', '转出', ((f.out || 0) > 0 ? '−' : '') + fmtMoney(f.out || 0)) +
+      node('opening', 'flow-mid a', '期初金额', fmtMoney(f.beginning || 0)) +
+      '<div class="flow-node flow-mid b accent"><span class="l">净投入</span><span class="v">' + ((f.net || 0) > 0 ? '+' : (f.net || 0) < 0 ? '−' : '') + fmtMoney(Math.abs(f.net || 0)) + '</span></div>' +
+      node('profit', 'flow-mid c ' + pnlCls, '资产盈亏', pnlSign + fmtMoney(Math.abs(pnl))) +
+      node('ending', 'flow-end total', '期末金额', fmtMoney(f.ending || 0)) +
     '</div>' +
-    '<div class="flow-legend"><span class="dot"></span>净投入 + 资产盈亏 = 期末 − 期初</div>' +
+    '<div class="flow-legend"><span class="dot"></span>净投入 + 资产盈亏 = 期末 − 期初' + (editable ? ' · 点击金额可校正' : '') + '</div>' +
+    (f.adjusted ? '<div class="flow-adjusted-note">本周期使用手工校正值，仅影响资金流报表，不改变账户持仓市值。</div>' : '') +
   '</div>';
 }
 
@@ -191,10 +208,21 @@ function sankeyHTML(schemeId, mode) {
   const last = daily.n - 1;
   const scheme = gb.scheme;
   if (!scheme || gb.total <= 0) return chartEmptyHTML('还没有可用于桑基图的资产', 260);
-  const visibleGroups = gb.items.filter(g => g.value > 0.5 && g.id !== '__ungrouped');
+  let visibleGroups = gb.items.filter(g => g.value > 0.5 && g.id !== '__ungrouped');
   if (gb.ungrouped && gb.ungrouped.value > 0.5) visibleGroups.push(gb.ungrouped);
   if (!visibleGroups.length) return chartEmptyHTML('还没有可用于桑基图的资产', 260);
   const total = sum(visibleGroups, g => g.value);
+  let restGroupIds = new Set();
+  if (visibleGroups.length > 6) {
+    const sorted = visibleGroups.slice().sort((a, b) => b.value - a.value);
+    const rest = sorted.slice(5);
+    rest.forEach(g => restGroupIds.add(g.id));
+    visibleGroups = sorted.slice(0, 5).concat([{
+      id: '__sankey_other', name: '其他 ' + rest.length + ' 组', color: '#6b7280',
+      value: sum(rest, x => x.value), pct: sum(rest, x => x.pct), target: 0,
+      normalizedTarget: 0, status: 'auto', synthetic: true
+    }]);
+  }
 
   // group -> leaves
   const groupData = [];
@@ -203,7 +231,9 @@ function sankeyHTML(schemeId, mode) {
     daily.components.forEach(comp => {
       const account = comp.account;
       const inst = comp.inst || null;
-      if (resolveGroupId(scheme, account, inst) !== g.id && !(g.id === '__ungrouped' && !resolveGroupId(scheme, account, inst))) return;
+      const compGroup = resolveGroupId(scheme, account, inst) || '__ungrouped';
+      const match = g.id === '__sankey_other' ? restGroupIds.has(compGroup) : compGroup === g.id;
+      if (!match) return;
       const value = comp.values[last] || 0;
       if (value <= 0.5) return;
       let key, label, sub;
@@ -223,14 +253,12 @@ function sankeyHTML(schemeId, mode) {
       if (!leafMap.has(key)) leafMap.set(key, { key, label, sub, value: 0, groupId: g.id, color: g.color });
       leafMap.get(key).value += value;
     });
-    const leaves = Array.from(leafMap.values()).sort((a, b) => b.value - a.value);
-    if (leaves.length > 10) {
-      const rest = leaves.slice(9);
-      const other = { key: 'other:' + g.id, label: '其他 ' + rest.length + ' 项', sub: '', value: sum(rest, x => x.value), groupId: g.id, color: g.color };
-      groupData.push({ group: g, leaves: leaves.slice(0, 9).concat(other) });
-    } else {
-      groupData.push({ group: g, leaves });
+    let leaves = Array.from(leafMap.values()).sort((a, b) => b.value - a.value);
+    if (leaves.length > 6) {
+      const rest = leaves.slice(5);
+      leaves = leaves.slice(0, 5).concat([{ key: 'other:' + g.id, label: '其他 ' + rest.length + ' 项', sub: '', value: sum(rest, x => x.value), groupId: g.id, color: g.color }]);
     }
+    groupData.push({ group: g, leaves });
   });
 
   // unique leaves across groups
@@ -242,17 +270,15 @@ function sankeyHTML(schemeId, mode) {
   const leaves = Array.from(leafTotals.values()).sort((a, b) => b.value - a.value);
 
   const nG = groupData.length, nL = leaves.length;
-  const H = Math.max(404, 82 + Math.max(nG * 50, nL * 40));
+  const H = clamp(340 + Math.max(0, nG - 2) * 10 + Math.max(0, nL - 6) * 8, 340, 480);
   const W = 360;
-  const top = 60, bottom = 24;
+  const top = 58, bottom = 22;
   const x0 = 8, x1 = 116, x2 = 250;
   const nodeW = 9;
   const avail = H - top - bottom;
-  const gapG = nG > 1 ? 14 : 0;
-  const gapL = nL > 1 ? 7 : 0;
+  const gapG = nG > 1 ? 12 : 0;
+  const gapL = nL > 1 ? 6 : 0;
   const scale = Math.max(0, (avail - Math.max(gapG * (nG - 1), gapL * (nL - 1))) / Math.max(1, total));
-  const stageGap = Math.max(gapG * (nG - 1), gapL * (nL - 1));
-  const stageH = Math.max(120, Math.min(avail - stageGap, total * scale));
 
   // group y
   let gy = top;
@@ -333,8 +359,8 @@ function sankeyHTML(schemeId, mode) {
   groupData.forEach(gd => {
     nodesSvg += '<rect x="' + x1 + '" y="' + gd.y.toFixed(2) + '" width="' + nodeW + '" height="' + gd.h.toFixed(2) + '" rx="4" fill="' + gd.group.color + '"/>';
     const cy = gd.y + gd.h / 2;
-    labelsSvg += '<text class="sankey-label" x="' + (x1 - 8) + '" y="' + (cy - 3).toFixed(2) + '" text-anchor="end">' + esc(shortLabel(gd.group.name, 7)) + '</text>' +
-      '<text class="sankey-sub" x="' + (x1 - 8) + '" y="' + (cy + 8).toFixed(2) + '" text-anchor="end">' + esc(fmtMoney(gd.group.value, { compact: true })) + '</text>';
+    labelsSvg += '<text class="sankey-label" x="' + (x1 - 8) + '" y="' + (cy + (gd.h >= 24 ? -2 : 3)).toFixed(2) + '" text-anchor="end">' + esc(shortLabel(gd.group.name, 7)) + '</text>' +
+      (gd.h >= 24 ? '<text class="sankey-sub" x="' + (x1 - 8) + '" y="' + (cy + 9).toFixed(2) + '" text-anchor="end">' + esc(fmtMoney(gd.group.value, { compact: true })) + '</text>' : '');
   });
   leaves.forEach(l => {
     nodesSvg += '<rect x="' + x2 + '" y="' + l.y.toFixed(2) + '" width="8" height="' + l.h.toFixed(2) + '" rx="3" fill="' + l.color + '"/>';

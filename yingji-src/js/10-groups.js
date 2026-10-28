@@ -4,6 +4,7 @@
 function renderGroupsPage(schemeId) {
   const scheme = schemeById(schemeId || (schemes()[0] && schemes()[0].id));
   if (!scheme) return backHead('分组管理') + '<div class="detail-body">' + emptyBlock('没有分组方式', '', '<a class="btn primary sm" href="#/settings">返回设置</a>', 'grid') + '</div>';
+  if (isBuiltinScheme(scheme)) return renderBuiltinSchemePage(scheme);
   const gb = groupBreakdown(scheme.id);
   const current = new Map(gb.items.map(x => [x.id, x]));
   const totalTarget = schemeTargetTotal(scheme);
@@ -38,10 +39,27 @@ function renderGroupsPage(schemeId) {
   '</div>';
 }
 
+function renderBuiltinSchemePage(scheme) {
+  const gb = groupBreakdown(scheme.id);
+  const cards = gb.items.filter(x => x.value > 0.5).map(it => '<div class="group-card" style="padding-bottom:12px">' +
+    '<div class="group-card-head"><span class="group-color" style="background:' + it.color + '"></span><div class="gc-main"><div class="gc-name">' + esc(it.name) + '<span class="gc-target">自动</span></div>' +
+    '<div class="gc-sub">' + fmtMoney(it.value) + ' · 占比 ' + (it.pct * 100).toFixed(1) + '%</div></div></div></div>').join('');
+  return backHead(scheme.name, '', '#/settings') +
+  '<div class="detail-body">' +
+    '<div class="group-scheme-card"><div class="eyebrow">DEFAULT GROUPING</div><div class="group-scheme-name">' + esc(scheme.name) + '</div>' +
+    '<div class="group-scheme-desc">' + esc(scheme.desc) + ' · 系统按当前持仓自动生成，不需要维护成员。</div>' +
+    '<div class="group-scheme-stats"><div><span>分组</span><b>' + gb.items.length + '</b></div><div><span>目标合计</span><b>自动</b></div><div><span>未分组</span><b>' + (gb.ungrouped ? fmtMoney(gb.ungrouped.value) : '无') + '</b></div></div></div>' +
+    '<div class="info-banner">' + icon('sparkles') + '<div>这是内置的只读分组。你仍然可以在统计页和日历页切换使用；如需自定义目标，请使用“自定义分组”。</div></div>' +
+    '<div class="section-head" style="margin-top:18px"><div><h2>当前分组</h2><div class="sub">按当前市值</div></div><span class="tiny">' + gb.items.length + ' 组</span></div>' +
+    '<div class="group-list">' + (cards || '<div class="card">' + emptyBlock('暂无资产', '添加账户或标的后，这里会自动出现分组。', '', 'grid') + '</div>') + '</div>' +
+    '<div class="group-links"><a class="btn ghost sm" href="#/stats">查看统计</a><a class="btn ghost sm" href="#/settings">管理自定义分组</a></div>' +
+  '</div>';
+}
+
 /* ---------- group editor ---------- */
 function openGroupEditor(schemeId, groupId) {
   const scheme = schemeById(schemeId);
-  if (!scheme) return;
+  if (!scheme || isBuiltinScheme(scheme)) { if (scheme && isBuiltinScheme(scheme)) toast('默认分组不可编辑', 'error'); return; }
   const editing = groupId ? scheme.groups.find(g => g.id === groupId) : null;
   const g = editing || {
     id: '', name: '', color: GROUP_COLORS[scheme.groups.length % GROUP_COLORS.length],
@@ -155,7 +173,7 @@ function openNewSchemeSheet() {
 }
 function openEditSchemeSheet(schemeId) {
   const scheme = schemeById(schemeId);
-  if (!scheme) return;
+  if (!scheme || isBuiltinScheme(scheme)) return;
   const body = '<form id="scheme-edit-form"><div class="form-grid">' + fieldHTML({ id: 'scheme-name-edit', label: '名称', value: scheme.name, full: true }) +
     fieldHTML({ id: 'scheme-desc-edit', label: '说明', value: scheme.desc || '', full: true }) + '</div></form>';
   const wrap = openSheet({

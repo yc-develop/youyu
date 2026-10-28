@@ -28,22 +28,30 @@ const SEED_INSTRUMENTS = {
   cash: [],
   boc: [],
   alipayfund: [
-    { id: 'bondfund', name: '易方达稳健收益债券A', symbol: '110008', cls: 'bondFund', currency: 'CNY', color: '#5b8cff', color2: '#365fd6', note: '中低风险 · 债券型' },
-    { id: 'equityfund', name: '华夏沪深300ETF联接A', symbol: '000051', cls: 'equityFund', currency: 'CNY', color: '#ff9f45', color2: '#d97823', note: '宽基指数 · 股票型' }
+    { id: 'bondfund', name: '易方达稳健收益债券A', symbol: '110008', cls: 'bondFund', currency: 'CNY', color: '#5b8cff', color2: '#365fd6', note: '中低风险 · 债券型', market: { provider: 'tencent', code: 'jj110008', marketType: 'FUND', label: '基金', symbol: '110008', currency: 'CNY', cls: 'bondFund' } },
+    { id: 'equityfund', name: '华夏沪深300ETF联接A', symbol: '000051', cls: 'equityFund', currency: 'CNY', color: '#ff9f45', color2: '#d97823', note: '宽基指数 · 股票型', market: { provider: 'tencent', code: 'jj000051', marketType: 'FUND', label: '基金', symbol: '000051', currency: 'CNY', cls: 'equityFund' } }
   ],
   deposit: [
     { id: 'cd', name: '三年期大额存单', symbol: 'CD', cls: 'deposit', currency: 'CNY', color: '#6d7cff', color2: '#4453c7', note: '年化 2.90% · 到期 2028' }
   ],
   longbridge: [
-    { id: 'aapl', name: '苹果', symbol: 'AAPL', cls: 'stock', currency: 'USD', color: '#c9d1d9', color2: '#6e7681', note: 'Apple Inc.' },
-    { id: 'tsla', name: '特斯拉', symbol: 'TSLA', cls: 'stock', currency: 'USD', color: '#ef4444', color2: '#991b1b', note: 'Tesla, Inc.' },
-    { id: 'voo', name: '标普500 ETF', symbol: 'VOO', cls: 'etf', currency: 'USD', color: '#b18cff', color2: '#7448d6', note: 'Vanguard S&P 500' }
+    { id: 'aapl', name: '苹果', symbol: 'AAPL', cls: 'stock', currency: 'USD', color: '#c9d1d9', color2: '#6e7681', note: 'Apple Inc.', market: { provider: 'tencent', code: 'usAAPL', marketType: 'US', label: '美股', symbol: 'AAPL', currency: 'USD', cls: 'stock' } },
+    { id: 'tsla', name: '特斯拉', symbol: 'TSLA', cls: 'stock', currency: 'USD', color: '#ef4444', color2: '#991b1b', note: 'Tesla, Inc.', market: { provider: 'tencent', code: 'usTSLA', marketType: 'US', label: '美股', symbol: 'TSLA', currency: 'USD', cls: 'stock' } },
+    { id: 'voo', name: '标普500 ETF', symbol: 'VOO', cls: 'etf', currency: 'USD', color: '#b18cff', color2: '#7448d6', note: 'Vanguard S&P 500', market: { provider: 'tencent', code: 'usVOO', marketType: 'US', label: '美股', symbol: 'VOO', currency: 'USD', cls: 'etf' } }
   ],
   futu: [
-    { id: 'tencent', name: '腾讯控股', symbol: '0700.HK', cls: 'stock', currency: 'HKD', color: '#3b82f6', color2: '#1e40af', note: 'Tencent Holdings' },
-    { id: 'xiaomi', name: '小米集团-W', symbol: '1810.HK', cls: 'stock', currency: 'HKD', color: '#f59e0b', color2: '#b45309', note: 'Xiaomi Corporation' }
+    { id: 'tencent', name: '腾讯控股', symbol: '0700.HK', cls: 'stock', currency: 'HKD', color: '#3b82f6', color2: '#1e40af', note: 'Tencent Holdings', market: { provider: 'tencent', code: 'hk00700', marketType: 'HK', label: '港股', symbol: '00700', currency: 'HKD', cls: 'stock' } },
+    { id: 'xiaomi', name: '小米集团-W', symbol: '1810.HK', cls: 'stock', currency: 'HKD', color: '#f59e0b', color2: '#b45309', note: 'Xiaomi Corporation', market: { provider: 'tencent', code: 'hk01810', marketType: 'HK', label: '港股', symbol: '01810', currency: 'HKD', cls: 'stock' } }
   ]
 };
+
+const SEED_MARKET_MAP = (() => {
+  const map = {};
+  Object.keys(SEED_INSTRUMENTS).forEach(acc => (SEED_INSTRUMENTS[acc] || []).forEach(inst => {
+    if (inst.market) map[inst.id] = inst.market;
+  }));
+  return map;
+})();
 
 const SEED_SPECS = {
   alipay: {
@@ -357,7 +365,7 @@ function buildSeed() {
       id: 'scheme_risk', name: '风险属性', desc: '按资金的风险用途划分',
       groups: [
         { id: 'g_liquid', name: '活钱', color: '#43d6b0', target: 10, includeAccounts: ['alipay', 'wechat', 'cash'], includeClasses: ['moneyFund'], includeInstruments: [] },
-        { id: 'g_steady', name: '稳健投资', color: '#5b8cff', target: 38, includeAccounts: ['boc', 'deposit'], includeClasses: ['bondFund', 'deposit'], includeInstruments: [] },
+        { id: 'g_steady', name: '稳健投资', color: '#5b8cff', target: 38, includeAccounts: ['boc', 'deposit'], includeClasses: ['bondFund', 'bond', 'deposit'], includeInstruments: [] },
         { id: 'g_risk', name: '风险投资', color: '#ff5d6c', target: 52, includeAccounts: ['alipayfund', 'longbridge', 'futu'], includeClasses: ['stock', 'etf', 'equityFund'], includeInstruments: [] }
       ]
     }

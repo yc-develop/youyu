@@ -1073,6 +1073,61 @@ body.has-overlay .toast-root{top:calc(var(--safe-top) + 14px);bottom:auto}
   .stats-donut-layout .donut-legend{width:100%}
 }
 
+.auto-tag{display:inline-block;font-size:7px;line-height:1;padding:2px 4px;border-radius:4px;background:rgba(91,140,255,.12);color:var(--blue);font-weight:600;vertical-align:1px}
+
+.rec-actions{display:flex;align-items:center;gap:1px;margin-left:1px;flex:0 0 auto}
+.rec-edit{width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:8px;color:rgba(255,255,255,.24)}
+.rec-edit:active{background:rgba(91,140,255,.12);color:var(--blue)}
+.rec-edit .icon{width:13px;height:13px}
+.rec-val{max-width:112px}
+.rec-val .gain,.rec-val .loss{white-space:nowrap}
+
+/* ---------- flow corrections ---------- */
+.flow-adjusted{display:inline-block;font-size:7.5px;font-weight:600;color:var(--blue);background:var(--blue-soft);border:1px solid rgba(91,140,255,.16);border-radius:4px;padding:2px 4px;vertical-align:2px;margin-left:4px}
+.flow-period-row{margin:12px 0 2px;gap:6px}
+.flow-period-row .chip{height:28px;font-size:9.5px;padding:0 10px}
+.flow-node.editable{transition:background .15s,border-color .15s,transform .15s;text-align:center}
+.flow-node.editable:active{transform:scale(.98);background:rgba(255,159,69,.1);border-color:rgba(255,159,69,.3)}
+.flow-edit{position:absolute;top:5px;right:6px;width:13px;height:13px;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.26)}
+.flow-edit .icon{width:10px;height:10px}
+.flow-node .v{font-size:10.5px;letter-spacing:-.03em}
+.flow-node.total .v{font-size:12px}
+.flow-node.flow-top .v{font-size:10px}
+.flow-adjusted-note{font-size:8px;color:var(--faint);text-align:center;margin-top:6px;line-height:1.4}
+.flow-edit-current{display:flex;align-items:center;justify-content:space-between;padding:8px 2px;border-bottom:1px solid var(--line);font-size:9.5px;color:var(--muted)}
+.flow-edit-current:last-child{border-bottom:0}
+.flow-edit-current b{font-size:10.5px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.flow-edit-current + .flow-edit-current{margin-top:0}
+@media (max-width:380px){
+  .account-detail-stats .v{font-size:9.5px!important}
+  .account-detail-stats > div{padding-right:2px}
+  .account-detail-stats > div + div{padding-left:5px}
+  .flow-node .v{font-size:9.5px}
+  .flow-node.flow-top .v{font-size:9.2px}
+  .flow-node.total .v{font-size:10.5px}
+}
+
+/* ---------- market data ---------- */
+.market-search-block{padding:12px;border-radius:14px;background:rgba(91,140,255,.045);border:1px solid rgba(91,140,255,.1);margin-bottom:16px}
+.market-search-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:9.5px;color:var(--ink-2);font-weight:600;margin-bottom:8px}
+.market-source{font-size:7.5px;color:var(--faint);font-weight:400}
+.market-search-row{display:flex;gap:7px;align-items:center}
+.market-search-row .input{flex:1;height:39px;font-size:14px;padding:0 10px}
+.market-search-row .btn{height:39px;flex:0 0 auto;padding:0 11px;font-size:10px}
+.market-results{margin-top:7px;display:flex;flex-direction:column;max-height:220px;overflow-y:auto;border-radius:10px;overflow-x:hidden}
+.market-results:empty{display:none}
+.market-result{display:flex;align-items:center;gap:8px;text-align:left;width:100%;padding:8px 9px;border-radius:9px;background:rgba(255,255,255,.035);border:1px solid transparent;margin-bottom:3px}
+.market-result:active{background:rgba(255,159,69,.09);border-color:rgba(255,159,69,.18)}
+.mr-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.mr-main b{font-size:10.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mr-main em{font-style:normal;font-size:8px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mr-arrow{color:rgba(255,255,255,.2)}
+.mr-arrow .icon{width:12px;height:12px}
+.market-status{font-size:8px;color:var(--faint);line-height:1.5;margin-top:7px}
+.market-status.ok{color:var(--teal)}
+.market-status.warn{color:var(--warning)}
+.market-connected{font-size:7px;color:var(--teal);border:1px solid rgba(67,214,176,.2);background:rgba(67,214,176,.07);border-radius:4px;padding:1px 4px;margin-left:5px;white-space:nowrap}
+
 </style>
 </head>
 <body>
@@ -1111,6 +1166,7 @@ const ASSET_CLASSES = {
   cash:      { name: '现金',       short: '现金', color: '#8e9aaf', group: 'cash' },
   moneyFund: { name: '货币基金',   short: '货基', color: '#43d6b0', group: 'cash' },
   bondFund:  { name: '债券基金',   short: '债基', color: '#5b8cff', group: 'income' },
+  bond:      { name: '债券',       short: '债券', color: '#7c9cff', group: 'income' },
   deposit:   { name: '银行存款',   short: '定存', color: '#7c9cff', group: 'income' },
   equityFund:{ name: '股票基金',   short: '股基', color: '#ff9f45', group: 'equity' },
   stock:     { name: '股票',       short: '股票', color: '#ff5d6c', group: 'equity' },
@@ -1258,7 +1314,7 @@ function fmtMoney(n, opts) {
   const sign = o.sign ? (v > 0 ? '+' : v < 0 ? '-' : '') : (v < 0 ? '-' : '');
   if (state && state.settings && state.settings.hideAmounts && !o.reveal) return sign + sym + '••••';
   const compact = o.compact && Math.abs(v) >= 10000 && !o.full;
-  const body = fmtNumber(Math.abs(v), { decimals: o.decimals, compact: compact });
+  const body = fmtNumber(Math.abs(v), { decimals: o.decimals == null ? 2 : o.decimals, compact: compact });
   return sign + sym + (o.space === false ? '' : '') + body;
 }
 function fmtPct(v, digits, signed) {
@@ -1423,22 +1479,30 @@ const SEED_INSTRUMENTS = {
   cash: [],
   boc: [],
   alipayfund: [
-    { id: 'bondfund', name: '易方达稳健收益债券A', symbol: '110008', cls: 'bondFund', currency: 'CNY', color: '#5b8cff', color2: '#365fd6', note: '中低风险 · 债券型' },
-    { id: 'equityfund', name: '华夏沪深300ETF联接A', symbol: '000051', cls: 'equityFund', currency: 'CNY', color: '#ff9f45', color2: '#d97823', note: '宽基指数 · 股票型' }
+    { id: 'bondfund', name: '易方达稳健收益债券A', symbol: '110008', cls: 'bondFund', currency: 'CNY', color: '#5b8cff', color2: '#365fd6', note: '中低风险 · 债券型', market: { provider: 'tencent', code: 'jj110008', marketType: 'FUND', label: '基金', symbol: '110008', currency: 'CNY', cls: 'bondFund' } },
+    { id: 'equityfund', name: '华夏沪深300ETF联接A', symbol: '000051', cls: 'equityFund', currency: 'CNY', color: '#ff9f45', color2: '#d97823', note: '宽基指数 · 股票型', market: { provider: 'tencent', code: 'jj000051', marketType: 'FUND', label: '基金', symbol: '000051', currency: 'CNY', cls: 'equityFund' } }
   ],
   deposit: [
     { id: 'cd', name: '三年期大额存单', symbol: 'CD', cls: 'deposit', currency: 'CNY', color: '#6d7cff', color2: '#4453c7', note: '年化 2.90% · 到期 2028' }
   ],
   longbridge: [
-    { id: 'aapl', name: '苹果', symbol: 'AAPL', cls: 'stock', currency: 'USD', color: '#c9d1d9', color2: '#6e7681', note: 'Apple Inc.' },
-    { id: 'tsla', name: '特斯拉', symbol: 'TSLA', cls: 'stock', currency: 'USD', color: '#ef4444', color2: '#991b1b', note: 'Tesla, Inc.' },
-    { id: 'voo', name: '标普500 ETF', symbol: 'VOO', cls: 'etf', currency: 'USD', color: '#b18cff', color2: '#7448d6', note: 'Vanguard S&P 500' }
+    { id: 'aapl', name: '苹果', symbol: 'AAPL', cls: 'stock', currency: 'USD', color: '#c9d1d9', color2: '#6e7681', note: 'Apple Inc.', market: { provider: 'tencent', code: 'usAAPL', marketType: 'US', label: '美股', symbol: 'AAPL', currency: 'USD', cls: 'stock' } },
+    { id: 'tsla', name: '特斯拉', symbol: 'TSLA', cls: 'stock', currency: 'USD', color: '#ef4444', color2: '#991b1b', note: 'Tesla, Inc.', market: { provider: 'tencent', code: 'usTSLA', marketType: 'US', label: '美股', symbol: 'TSLA', currency: 'USD', cls: 'stock' } },
+    { id: 'voo', name: '标普500 ETF', symbol: 'VOO', cls: 'etf', currency: 'USD', color: '#b18cff', color2: '#7448d6', note: 'Vanguard S&P 500', market: { provider: 'tencent', code: 'usVOO', marketType: 'US', label: '美股', symbol: 'VOO', currency: 'USD', cls: 'etf' } }
   ],
   futu: [
-    { id: 'tencent', name: '腾讯控股', symbol: '0700.HK', cls: 'stock', currency: 'HKD', color: '#3b82f6', color2: '#1e40af', note: 'Tencent Holdings' },
-    { id: 'xiaomi', name: '小米集团-W', symbol: '1810.HK', cls: 'stock', currency: 'HKD', color: '#f59e0b', color2: '#b45309', note: 'Xiaomi Corporation' }
+    { id: 'tencent', name: '腾讯控股', symbol: '0700.HK', cls: 'stock', currency: 'HKD', color: '#3b82f6', color2: '#1e40af', note: 'Tencent Holdings', market: { provider: 'tencent', code: 'hk00700', marketType: 'HK', label: '港股', symbol: '00700', currency: 'HKD', cls: 'stock' } },
+    { id: 'xiaomi', name: '小米集团-W', symbol: '1810.HK', cls: 'stock', currency: 'HKD', color: '#f59e0b', color2: '#b45309', note: 'Xiaomi Corporation', market: { provider: 'tencent', code: 'hk01810', marketType: 'HK', label: '港股', symbol: '01810', currency: 'HKD', cls: 'stock' } }
   ]
 };
+
+const SEED_MARKET_MAP = (() => {
+  const map = {};
+  Object.keys(SEED_INSTRUMENTS).forEach(acc => (SEED_INSTRUMENTS[acc] || []).forEach(inst => {
+    if (inst.market) map[inst.id] = inst.market;
+  }));
+  return map;
+})();
 
 const SEED_SPECS = {
   alipay: {
@@ -1752,7 +1816,7 @@ function buildSeed() {
       id: 'scheme_risk', name: '风险属性', desc: '按资金的风险用途划分',
       groups: [
         { id: 'g_liquid', name: '活钱', color: '#43d6b0', target: 10, includeAccounts: ['alipay', 'wechat', 'cash'], includeClasses: ['moneyFund'], includeInstruments: [] },
-        { id: 'g_steady', name: '稳健投资', color: '#5b8cff', target: 38, includeAccounts: ['boc', 'deposit'], includeClasses: ['bondFund', 'deposit'], includeInstruments: [] },
+        { id: 'g_steady', name: '稳健投资', color: '#5b8cff', target: 38, includeAccounts: ['boc', 'deposit'], includeClasses: ['bondFund', 'bond', 'deposit'], includeInstruments: [] },
         { id: 'g_risk', name: '风险投资', color: '#ff5d6c', target: 52, includeAccounts: ['alipayfund', 'longbridge', 'futu'], includeClasses: ['stock', 'etf', 'equityFund'], includeInstruments: [] }
       ]
     }
@@ -1795,7 +1859,8 @@ const RECORD_META = {
   interest: { label: '利息',     icon: 'percent',       tone: 'gain' },
   fee:      { label: '费用',     icon: 'minus',         tone: 'loss' },
   price:    { label: '更新估值', icon: 'refresh',       tone: 'blue' },
-  fx:       { label: '换汇',     icon: 'swap',          tone: 'blue' }
+  fx:       { label: '换汇',     icon: 'swap',          tone: 'blue' },
+  flow:     { label: '资金流校正', icon: 'pen',          tone: 'blue' }
 };
 
 /* ---------- persistence ---------- */
@@ -1824,6 +1889,7 @@ function normalizeState(obj) {
       i.cls = ASSET_CLASSES[i.cls] ? i.cls : 'other';
       i.color = i.color || ASSET_CLASSES[i.cls].color;
       i.color2 = i.color2 || i.color;
+      if (!i.market && SEED_MARKET_MAP[i.id]) i.market = JSON.parse(JSON.stringify(SEED_MARKET_MAP[i.id]));
     });
   });
   obj.records.forEach(r => {
@@ -1839,6 +1905,12 @@ function normalizeState(obj) {
   obj.prices = obj.prices || {};
   obj.fxHistory = obj.fxHistory || {};
   if (!Array.isArray(obj.schemes) || !obj.schemes.length) obj.schemes = buildSeed().schemes;
+  const seedRisk = obj.schemes.find(s => s.id === 'scheme_risk');
+  const seedSteady = seedRisk && Array.isArray(seedRisk.groups) ? seedRisk.groups.find(g => g.id === 'g_steady') : null;
+  if (seedSteady) {
+    seedSteady.includeClasses = Array.isArray(seedSteady.includeClasses) ? seedSteady.includeClasses : [];
+    if (seedSteady.includeClasses.indexOf('bond') < 0) seedSteady.includeClasses.push('bond');
+  }
   obj.schemes.forEach(s => {
     s.id = s.id || uid('sch');
     s.groups = Array.isArray(s.groups) ? s.groups : [];
@@ -1899,7 +1971,52 @@ function ensureRates() {
 /* ---------- lookup ---------- */
 function accounts() { return state.accounts || []; }
 function accountById(id) { return accounts().find(a => a.id === id); }
-function schemes() { return state.schemes || []; }
+function customSchemes() { return state.schemes || []; }
+function builtinSchemes() {
+  const acctGroups = accounts().map(a => ({
+    id: '__auto_acc_' + a.id,
+    name: a.name,
+    color: a.color || '#ff9f45',
+    target: 0,
+    auto: true,
+    includeAccounts: [a.id],
+    includeClasses: [],
+    includeInstruments: []
+  }));
+  const instGroups = [];
+  accounts().forEach(a => {
+    instGroups.push({
+      id: '__auto_cash_' + a.id,
+      name: a.name + ' · 现金',
+      color: a.color || '#8e9aaf',
+      target: 0,
+      auto: true,
+      cashOnly: true,
+      includeAccounts: [a.id],
+      includeClasses: [],
+      includeInstruments: []
+    });
+    (a.instruments || []).forEach(inst => {
+      instGroups.push({
+        id: '__auto_inst_' + inst.id,
+        name: inst.name,
+        color: inst.color || ASSET_CLASSES[inst.cls] && ASSET_CLASSES[inst.cls].color || '#ff9f45',
+        target: 0,
+        auto: true,
+        includeAccounts: [],
+        includeClasses: [],
+        includeInstruments: [inst.id]
+      });
+    });
+  });
+  return [
+    { id: '__auto_account', name: '账户分组', desc: '按资金所在账户自动分组', builtin: true, type: 'account', groups: acctGroups },
+    { id: '__auto_instrument', name: '标的分组', desc: '按具体持仓自动分组', builtin: true, type: 'instrument', groups: instGroups }
+  ];
+}
+function schemes() { return builtinSchemes().concat(state.schemes || []); }
+function isBuiltinScheme(scheme) { return !!(scheme && scheme.builtin); }
+function schemesForRebalance() { return state.schemes || []; }
 function schemeById(id) { return schemes().find(s => s.id === id) || schemes()[0]; }
 function groupById(schemeId, groupId) {
   const s = schemeById(schemeId);
@@ -2216,11 +2333,13 @@ function portfolioSummary() {
 function groupMatches(group, account, inst) {
   if (!group) return false;
   if (inst) {
+    if (group.cashOnly) return false;
     if ((group.includeInstruments || []).indexOf(inst.id) >= 0) return true;
     if ((group.includeClasses || []).indexOf(inst.cls) >= 0) return true;
     if ((group.includeAccounts || []).indexOf(account.id) >= 0) return true;
     return false;
   }
+  if (group.cashOnly) return (group.includeAccounts || []).indexOf(account.id) >= 0;
   if ((group.includeAccounts || []).indexOf(account.id) >= 0) return true;
   if ((group.includeClasses || []).indexOf('cash') >= 0) return true;
   return false;
@@ -2521,6 +2640,7 @@ function groupBreakdown(schemeId) {
   const tolerance = Number(state.settings.tolerance) || 0;
   items.forEach(it => {
     if (it.id === '__ungrouped') { it.status = 'unassigned'; return; }
+    if (gs.scheme && gs.scheme.builtin) { it.status = 'auto'; return; }
     it.status = it.drift > tolerance ? 'high' : it.drift < -tolerance ? 'low' : 'ok';
   });
   return { scheme: gs.scheme, items, total, tolerance, targetTotal, dates: daily.dates, ungrouped: items.find(x => x.id === '__ungrouped') || null };
@@ -2539,24 +2659,129 @@ function groupPeriodSummary(schemeId, days) {
 }
 
 /* ---------- flow / waterfall ---------- */
-function accountFlow(accountId) {
-  const am = computeAccountMetrics(accountId);
-  if (!am) return null;
-  return {
-    in: am.deposits, out: am.withdrawals, net: am.netDeposits,
-    beginning: 0, profit: am.marketBase - am.netDeposits, ending: am.marketBase,
-    label: '记账以来'
-  };
+const FLOW_FIELD_META = {
+  opening: { label: '期初金额', title: '期初金额更新' },
+  ending:  { label: '期末余额', title: '期末金额更新' },
+  profit:  { label: '资产盈亏', title: '资产盈亏更新' },
+  in:      { label: '投入',     title: '存入金额更新' },
+  out:     { label: '转出',     title: '取出金额更新' }
+};
+
+function flowPeriodLabel(periodKey) {
+  return periodKey === 'all' ? '记账以来' : periodKey + '年';
 }
-function instrumentFlow(instrumentId) {
+function flowPeriodBounds(periodKey) {
+  if (!periodKey || periodKey === 'all') return { start: null, end: todayKey(), label: '记账以来' };
+  const year = String(periodKey).slice(0, 4);
+  let end = year + '-12-31';
+  if (end > todayKey()) end = todayKey();
+  return { start: year + '-01-01', end: end, label: year + '年' };
+}
+function flowPeriods(scope, id) {
+  const values = new Set(['all']);
+  const recs = scope === 'account' ? recordsForAccount(id) : recordsForInstrument(id);
+  recs.forEach(r => { if (r.date) values.add(String(r.date).slice(0, 4)); });
+  (state.records || []).forEach(r => {
+    if (r.type !== 'flow' || r.periodKey === 'all') return;
+    if (scope === 'account' ? (r.accountId === id && !r.instrumentId) : r.instrumentId === id) values.add(String(r.periodKey));
+  });
+  if (recs.length) values.add(todayKey().slice(0, 4));
+  return Array.from(values).sort((a, b) => a === 'all' ? -1 : b === 'all' ? 1 : Number(b) - Number(a));
+}
+function flowPeriodKey(scope, id) {
+  const map = scope === 'account' ? (ui.flowAccountPeriod || {}) : (ui.flowInstrumentPeriod || {});
+  const key = map[id];
+  return flowPeriods(scope, id).indexOf(key) >= 0 ? key : 'all';
+}
+function flowValueAt(series, date) {
+  if (!series) return 0;
+  const daily = buildDailyAnalytics();
+  let idx = daily.indexMap.get(date);
+  if (idx == null) {
+    for (let i = daily.dates.length - 1; i >= 0; i--) {
+      if (daily.dates[i] <= date) { idx = i; break; }
+    }
+  }
+  return idx == null ? 0 : (series.values[idx] || 0);
+}
+function flowRecordBase(rec, ccy, mode) {
+  const amount = Number(rec.amount) || 0;
+  const fee = Number(rec.fee) || 0;
+  const rate = recordFx(rec, ccy) / rateCNY(baseCurrency());
+  if (mode === 'buy') return (amount + fee) * rate;
+  if (mode === 'sell') return (amount - fee) * rate;
+  if (mode === 'income') return amount * rate;
+  return amount * rate;
+}
+function flowInPeriod(rec, bounds) {
+  if (!rec || !rec.date) return false;
+  if (bounds.start && rec.date < bounds.start) return false;
+  if (bounds.end && rec.date > bounds.end) return false;
+  return true;
+}
+function latestFlowAdjustment(scope, id, periodKey) {
+  const list = (state.records || []).filter(r => {
+    if (r.type !== 'flow' || r.periodKey !== periodKey) return false;
+    return scope === 'account' ? (r.accountId === id && !r.instrumentId) : r.instrumentId === id;
+  });
+  if (!list.length) return null;
+  list.sort((a, b) => String(a.createdAt || a.date).localeCompare(String(b.createdAt || b.date)));
+  return list[list.length - 1];
+}
+function applyFlowAdjustment(scope, id, periodKey, base) {
+  const rec = latestFlowAdjustment(scope, id, periodKey);
+  if (!rec || !rec.flowSnapshot) return base;
+  const out = Object.assign({}, base, rec.flowSnapshot, { adjusted: true, adjustmentId: rec.id });
+  out.net = (Number(out.in) || 0) - (Number(out.out) || 0);
+  return out;
+}
+function accountFlow(accountId, periodKey) {
+  const account = accountById(accountId);
+  if (!account) return null;
+  const key = periodKey || 'all';
+  const bounds = flowPeriodBounds(key);
+  const daily = buildDailyAnalytics();
+  const series = daily.byAccount.get(accountId);
+  const beginning = bounds.start ? flowValueAt(series, addDays(bounds.start, -1)) : 0;
+  const ending = flowValueAt(series, bounds.end);
+  let inAmt = 0, outAmt = 0;
+  recordsForAccount(accountId).forEach(r => {
+    if (!flowInPeriod(r, bounds)) return;
+    if (r.type === 'deposit') inAmt += flowRecordBase(r, account.currency);
+    else if (r.type === 'withdraw') outAmt += flowRecordBase(r, account.currency);
+  });
+  const net = inAmt - outAmt;
+  const profit = ending - beginning - net;
+  return applyFlowAdjustment('account', accountId, key, {
+    scope: 'account', periodKey: key, periodLabel: bounds.label,
+    beginning, in: inAmt, out: outAmt, net, profit, ending,
+    label: bounds.label
+  });
+}
+function instrumentFlow(instrumentId, periodKey) {
   const im = computeInstrumentMetrics(instrumentId);
   if (!im) return null;
-  const out = (im.totalSellNative || 0) * im.curFx + (im.dividendBase || 0);
-  return {
-    in: im.totalBuyBase, out: out, net: im.totalBuyBase - out,
-    beginning: 0, profit: im.marketBase - (im.totalBuyBase - out), ending: im.marketBase,
-    label: '记账以来'
-  };
+  const inst = im.inst;
+  const key = periodKey || 'all';
+  const bounds = flowPeriodBounds(key);
+  const daily = buildDailyAnalytics();
+  const series = daily.byInstrument.get(instrumentId);
+  const beginning = bounds.start ? flowValueAt(series, addDays(bounds.start, -1)) : 0;
+  const ending = flowValueAt(series, bounds.end);
+  let inAmt = 0, outAmt = 0;
+  recordsForInstrument(instrumentId).forEach(r => {
+    if (!flowInPeriod(r, bounds)) return;
+    if (r.type === 'buy') inAmt += flowRecordBase(r, inst.currency, 'buy');
+    else if (r.type === 'sell') outAmt += flowRecordBase(r, inst.currency, 'sell');
+    else if (r.type === 'dividend') outAmt += flowRecordBase(r, inst.currency, 'income');
+  });
+  const net = inAmt - outAmt;
+  const profit = ending - beginning - net;
+  return applyFlowAdjustment('instrument', instrumentId, key, {
+    scope: 'instrument', periodKey: key, periodLabel: bounds.label,
+    beginning, in: inAmt, out: outAmt, net, profit, ending,
+    label: bounds.label
+  });
 }
 
 /* ---------- current snapshot for a group ---------- */
@@ -2594,6 +2819,7 @@ function priceSeriesRange(instrumentId, days) {
 function recordAccount(rec) { return accountById(rec.accountId); }
 function recordInstrument(rec) { return rec.instrumentId ? instrumentById(rec.instrumentId) : null; }
 function recordCurrency(rec) {
+  if (rec.type === 'flow') return baseCurrency();
   const inst = recordInstrument(rec);
   if (inst) return inst.currency;
   const acc = recordAccount(rec);
@@ -2606,6 +2832,10 @@ function recordTitle(rec) {
   if (rec.type === 'fx') {
     return '换汇 ' + (rec.fromCcy || '') + ' → ' + (rec.toCcy || '');
   }
+  if (rec.type === 'flow') {
+    const fm = FLOW_FIELD_META[rec.flowField] || FLOW_FIELD_META.opening;
+    return (inst ? inst.name : acc ? acc.name : '') + ' · ' + fm.title + ' · ' + flowPeriodLabel(rec.periodKey);
+  }
   if (rec.type === 'price') return inst ? inst.name + ' · 估值更新' : '估值更新';
   if (rec.type === 'buy' || rec.type === 'sell' || rec.type === 'dividend') {
     return (inst ? inst.name : acc ? acc.name : '') + ' · ' + meta.label;
@@ -2617,11 +2847,18 @@ function recordAmountHTML(rec) {
   const inst = recordInstrument(rec);
   const ccy = recordCurrency(rec);
   if (rec.type === 'price') return '<span class="mono">' + fmtPrice(rec.price, ccy) + '</span>';
-  if (rec.type === 'fx') return '<span class="mono">' + fmtMoney(rec.fromAmount || 0, { currency: rec.fromCcy, decimals: 0 }) + ' → ' + fmtMoney(rec.toAmount || 0, { currency: rec.toCcy, decimals: 0 }) + '</span>';
+  if (rec.type === 'flow') {
+    const v = Number(rec.amount) || 0;
+    const sign = rec.flowField === 'out' ? '−' : rec.flowField === 'in' ? '+' : rec.flowField === 'profit' ? (v > 0 ? '+' : v < 0 ? '-' : '') : '';
+    const cls = rec.flowField === 'out' ? 'loss' : (rec.flowField === 'in' || (rec.flowField === 'profit' && v > 0)) ? 'gain' : (rec.flowField === 'profit' && v < 0 ? 'loss' : '');
+    const body = (rec.flowField === 'opening' || rec.flowField === 'ending') ? fmtMoney(v, { currency: ccy }) : sign + fmtMoney(Math.abs(v), { currency: ccy });
+    return '<span class="' + cls + '">' + body + '</span>';
+  }
+  if (rec.type === 'fx') return '<span class="mono">' + fmtMoney(rec.fromAmount || 0, { currency: rec.fromCcy }) + ' → ' + fmtMoney(rec.toAmount || 0, { currency: rec.toCcy }) + '</span>';
   const positive = rec.type === 'deposit' || rec.type === 'sell' || rec.type === 'dividend' || rec.type === 'interest';
   const cls = positive ? 'gain' : (rec.type === 'withdraw' || rec.type === 'buy' || rec.type === 'fee' ? 'loss' : '');
   const sign = positive ? '+' : '-';
-  return '<span class="' + cls + '">' + sign + fmtMoney(rec.amount, { currency: ccy, compact: Math.abs(rec.amount) >= 10000 }) + '</span>';
+  return '<span class="' + cls + '">' + sign + fmtMoney(rec.amount, { currency: ccy }) + '</span>';
 }
 function recordSubHTML(rec) {
   const parts = [rec.date];
@@ -2631,14 +2868,17 @@ function recordSubHTML(rec) {
     if (rec.fee) parts.push('费用 ' + fmtMoney(rec.fee, { currency: recordCurrency(rec) }));
   } else if (rec.type === 'price') {
     // 价格已在上方金额位置展示，避免重复
+  } else if (rec.type === 'flow') {
+    parts.push(flowPeriodLabel(rec.periodKey));
+    parts.push('手工校正');
   }
-  if (rec.note && !(rec.type === 'price' && /估值更新|价格更新/.test(rec.note))) parts.push(rec.note);
+  if (rec.note && !(rec.type === 'price' && /估值更新|价格更新/.test(rec.note)) && rec.type !== 'flow') parts.push(rec.note);
   return parts.map(esc).join(' · ');
 }
 function recordTone(rec) {
   if (rec.type === 'deposit' || rec.type === 'sell' || rec.type === 'dividend' || rec.type === 'interest') return 'gain';
   if (rec.type === 'withdraw' || rec.type === 'buy' || rec.type === 'fee') return 'loss';
-  if (rec.type === 'price') return 'blue';
+  if (rec.type === 'price' || rec.type === 'flow') return 'blue';
   return 'accent';
 }
 
@@ -2660,9 +2900,16 @@ function addRecord(rec) {
   }, rec));
   saveState();
 }
+function removePricePoint(instrumentId, date, price) {
+  const list = state.prices[instrumentId];
+  if (!list) return;
+  const idx = list.findIndex(([d, p]) => d === date && Math.abs(Number(p) - Number(price)) < 1e-9);
+  if (idx >= 0) list.splice(idx, 1);
+}
 function deleteRecord(recId) {
   const rec = state.records.find(r => r.id === recId);
   if (!rec) return;
+  if (rec.type === 'price' && rec.pricePoint) removePricePoint(rec.instrumentId, rec.date, rec.price);
   state.records = state.records.filter(r => r.id !== recId);
   saveState();
 }
@@ -2854,8 +3101,24 @@ function flowDiagramHTML(flow, opts) {
   const pnl = Number(f.profit) || 0;
   const pnlCls = pnl > 0 ? 'gain' : pnl < 0 ? 'loss' : '';
   const pnlSign = pnl > 0 ? '+' : pnl < 0 ? '-' : '';
+  const scope = o.scope || '';
+  const id = o.id || '';
+  const periodKey = o.periodKey || 'all';
+  const periods = o.periods || ['all'];
+  const periodLabel = f.periodLabel || flowPeriodLabel(periodKey);
+  const editable = !!o.editable && scope && id;
+  const node = (field, cls, label, valueHtml, extra) => {
+    const attr = editable ? ' data-action="edit-flow-field" data-scope="' + esc(scope) + '" data-id="' + esc(id) + '" data-period="' + esc(periodKey) + '" data-field="' + esc(field) + '"' : '';
+    const pen = editable ? '<span class="flow-edit">' + icon('pen') + '</span>' : '';
+    return '<button type="button" class="flow-node ' + cls + (editable ? ' editable' : '') + '"' + attr + '>' + pen + '<span class="l">' + label + '</span><span class="v">' + valueHtml + '</span>' + (extra || '') + '</button>';
+  };
+  const periodChips = periods.length > 1 ? '<div class="chip-row flow-period-row">' +
+    periods.map(p => '<button class="chip ' + (p === periodKey ? 'active' : '') + '" data-action="set-flow-period" data-scope="' + esc(scope) + '" data-id="' + esc(id) + '" data-period="' + esc(p) + '">' + flowPeriodLabel(p) + '</button>').join('') +
+    '</div>' : '';
   return '<div class="flow-card card">' +
-    '<div class="card-head" style="padding:0"><div><h2>资金流</h2><div class="sub">' + esc(f.label || '记账以来') + ' · 期初 + 净投入 + 盈亏 = 期末' + (o.isInstrument ? ' · 转出含分红' : '') + '</div></div><span class="pill-btn" style="height:26px;font-size:9px;padding:0 9px">' + icon('info') + '含收益</span></div>' +
+    '<div class="card-head" style="padding:0"><div><h2>资金流 ' + (f.adjusted ? '<span class="flow-adjusted">已校正</span>' : '') + '</h2><div class="sub">' + esc(periodLabel) + ' · 期初 + 净投入 + 盈亏 = 期末' + (o.isInstrument ? ' · 转出含分红' : '') + '</div></div>' +
+      (f.adjusted ? '<button class="text-btn" style="font-size:9px" data-action="reset-flow" data-scope="' + esc(scope) + '" data-id="' + esc(id) + '" data-period="' + esc(periodKey) + '">恢复自动</button>' : '<span class="pill-btn" style="height:26px;font-size:9px;padding:0 9px">' + icon('info') + '点击可校正</span>') + '</div>' +
+    periodChips +
     '<div class="flow-diagram">' +
       '<svg class="flow-svg" viewBox="0 0 100 100" preserveAspectRatio="none">' +
         '<path d="M25 20 L25 27 Q25 32 31 32 L44 32 Q50 32 50 38" fill="none" stroke="rgba(255,255,255,.13)" stroke-width=".7" vector-effect="non-scaling-stroke"/>' +
@@ -2865,14 +3128,15 @@ function flowDiagramHTML(flow, opts) {
         '<path d="M84 56 L84 64 Q84 69 77 69 L56 69 Q50 69 50 74" fill="none" stroke="rgba(255,255,255,.12)" stroke-width=".7" vector-effect="non-scaling-stroke"/>' +
         '<circle cx="50" cy="38" r=".8" fill="rgba(255,255,255,.35)"/><circle cx="50" cy="74" r=".8" fill="rgba(255,255,255,.35)"/>' +
       '</svg>' +
-      '<div class="flow-node flow-top"><span class="l">投入</span><span class="v gain">' + ((f.in || 0) > 0 ? '+' : '') + fmtMoney(f.in || 0, { compact: true }) + '</span></div>' +
-      '<div class="flow-node flow-top right"><span class="l">转出</span><span class="v">' + ((f.out || 0) > 0 ? '−' : '') + fmtMoney(f.out || 0, { compact: true }) + '</span></div>' +
-      '<div class="flow-node flow-mid a"><span class="l">期初金额</span><span class="v">' + fmtMoney(f.beginning || 0, { compact: true }) + '</span></div>' +
-      '<div class="flow-node flow-mid b accent"><span class="l">净投入</span><span class="v">' + ((f.net || 0) > 0 ? '+' : (f.net || 0) < 0 ? '−' : '') + fmtMoney(Math.abs(f.net || 0), { compact: true }) + '</span></div>' +
-      '<div class="flow-node flow-mid c ' + pnlCls + '"><span class="l">资产盈亏</span><span class="v">' + pnlSign + fmtMoney(Math.abs(pnl), { compact: true }) + '</span></div>' +
-      '<div class="flow-node flow-end total"><span class="l">期末金额</span><span class="v">' + fmtMoney(f.ending || 0, { compact: true }) + '</span></div>' +
+      node('in', 'flow-top', '投入', ((f.in || 0) > 0 ? '+' : '') + fmtMoney(f.in || 0)) +
+      node('out', 'flow-top right', '转出', ((f.out || 0) > 0 ? '−' : '') + fmtMoney(f.out || 0)) +
+      node('opening', 'flow-mid a', '期初金额', fmtMoney(f.beginning || 0)) +
+      '<div class="flow-node flow-mid b accent"><span class="l">净投入</span><span class="v">' + ((f.net || 0) > 0 ? '+' : (f.net || 0) < 0 ? '−' : '') + fmtMoney(Math.abs(f.net || 0)) + '</span></div>' +
+      node('profit', 'flow-mid c ' + pnlCls, '资产盈亏', pnlSign + fmtMoney(Math.abs(pnl))) +
+      node('ending', 'flow-end total', '期末金额', fmtMoney(f.ending || 0)) +
     '</div>' +
-    '<div class="flow-legend"><span class="dot"></span>净投入 + 资产盈亏 = 期末 − 期初</div>' +
+    '<div class="flow-legend"><span class="dot"></span>净投入 + 资产盈亏 = 期末 − 期初' + (editable ? ' · 点击金额可校正' : '') + '</div>' +
+    (f.adjusted ? '<div class="flow-adjusted-note">本周期使用手工校正值，仅影响资金流报表，不改变账户持仓市值。</div>' : '') +
   '</div>';
 }
 
@@ -2888,10 +3152,21 @@ function sankeyHTML(schemeId, mode) {
   const last = daily.n - 1;
   const scheme = gb.scheme;
   if (!scheme || gb.total <= 0) return chartEmptyHTML('还没有可用于桑基图的资产', 260);
-  const visibleGroups = gb.items.filter(g => g.value > 0.5 && g.id !== '__ungrouped');
+  let visibleGroups = gb.items.filter(g => g.value > 0.5 && g.id !== '__ungrouped');
   if (gb.ungrouped && gb.ungrouped.value > 0.5) visibleGroups.push(gb.ungrouped);
   if (!visibleGroups.length) return chartEmptyHTML('还没有可用于桑基图的资产', 260);
   const total = sum(visibleGroups, g => g.value);
+  let restGroupIds = new Set();
+  if (visibleGroups.length > 6) {
+    const sorted = visibleGroups.slice().sort((a, b) => b.value - a.value);
+    const rest = sorted.slice(5);
+    rest.forEach(g => restGroupIds.add(g.id));
+    visibleGroups = sorted.slice(0, 5).concat([{
+      id: '__sankey_other', name: '其他 ' + rest.length + ' 组', color: '#6b7280',
+      value: sum(rest, x => x.value), pct: sum(rest, x => x.pct), target: 0,
+      normalizedTarget: 0, status: 'auto', synthetic: true
+    }]);
+  }
 
   // group -> leaves
   const groupData = [];
@@ -2900,7 +3175,9 @@ function sankeyHTML(schemeId, mode) {
     daily.components.forEach(comp => {
       const account = comp.account;
       const inst = comp.inst || null;
-      if (resolveGroupId(scheme, account, inst) !== g.id && !(g.id === '__ungrouped' && !resolveGroupId(scheme, account, inst))) return;
+      const compGroup = resolveGroupId(scheme, account, inst) || '__ungrouped';
+      const match = g.id === '__sankey_other' ? restGroupIds.has(compGroup) : compGroup === g.id;
+      if (!match) return;
       const value = comp.values[last] || 0;
       if (value <= 0.5) return;
       let key, label, sub;
@@ -2920,14 +3197,12 @@ function sankeyHTML(schemeId, mode) {
       if (!leafMap.has(key)) leafMap.set(key, { key, label, sub, value: 0, groupId: g.id, color: g.color });
       leafMap.get(key).value += value;
     });
-    const leaves = Array.from(leafMap.values()).sort((a, b) => b.value - a.value);
-    if (leaves.length > 10) {
-      const rest = leaves.slice(9);
-      const other = { key: 'other:' + g.id, label: '其他 ' + rest.length + ' 项', sub: '', value: sum(rest, x => x.value), groupId: g.id, color: g.color };
-      groupData.push({ group: g, leaves: leaves.slice(0, 9).concat(other) });
-    } else {
-      groupData.push({ group: g, leaves });
+    let leaves = Array.from(leafMap.values()).sort((a, b) => b.value - a.value);
+    if (leaves.length > 6) {
+      const rest = leaves.slice(5);
+      leaves = leaves.slice(0, 5).concat([{ key: 'other:' + g.id, label: '其他 ' + rest.length + ' 项', sub: '', value: sum(rest, x => x.value), groupId: g.id, color: g.color }]);
     }
+    groupData.push({ group: g, leaves });
   });
 
   // unique leaves across groups
@@ -2939,17 +3214,15 @@ function sankeyHTML(schemeId, mode) {
   const leaves = Array.from(leafTotals.values()).sort((a, b) => b.value - a.value);
 
   const nG = groupData.length, nL = leaves.length;
-  const H = Math.max(404, 82 + Math.max(nG * 50, nL * 40));
+  const H = clamp(340 + Math.max(0, nG - 2) * 10 + Math.max(0, nL - 6) * 8, 340, 480);
   const W = 360;
-  const top = 60, bottom = 24;
+  const top = 58, bottom = 22;
   const x0 = 8, x1 = 116, x2 = 250;
   const nodeW = 9;
   const avail = H - top - bottom;
-  const gapG = nG > 1 ? 14 : 0;
-  const gapL = nL > 1 ? 7 : 0;
+  const gapG = nG > 1 ? 12 : 0;
+  const gapL = nL > 1 ? 6 : 0;
   const scale = Math.max(0, (avail - Math.max(gapG * (nG - 1), gapL * (nL - 1))) / Math.max(1, total));
-  const stageGap = Math.max(gapG * (nG - 1), gapL * (nL - 1));
-  const stageH = Math.max(120, Math.min(avail - stageGap, total * scale));
 
   // group y
   let gy = top;
@@ -3030,8 +3303,8 @@ function sankeyHTML(schemeId, mode) {
   groupData.forEach(gd => {
     nodesSvg += '<rect x="' + x1 + '" y="' + gd.y.toFixed(2) + '" width="' + nodeW + '" height="' + gd.h.toFixed(2) + '" rx="4" fill="' + gd.group.color + '"/>';
     const cy = gd.y + gd.h / 2;
-    labelsSvg += '<text class="sankey-label" x="' + (x1 - 8) + '" y="' + (cy - 3).toFixed(2) + '" text-anchor="end">' + esc(shortLabel(gd.group.name, 7)) + '</text>' +
-      '<text class="sankey-sub" x="' + (x1 - 8) + '" y="' + (cy + 8).toFixed(2) + '" text-anchor="end">' + esc(fmtMoney(gd.group.value, { compact: true })) + '</text>';
+    labelsSvg += '<text class="sankey-label" x="' + (x1 - 8) + '" y="' + (cy + (gd.h >= 24 ? -2 : 3)).toFixed(2) + '" text-anchor="end">' + esc(shortLabel(gd.group.name, 7)) + '</text>' +
+      (gd.h >= 24 ? '<text class="sankey-sub" x="' + (x1 - 8) + '" y="' + (cy + 9).toFixed(2) + '" text-anchor="end">' + esc(fmtMoney(gd.group.value, { compact: true })) + '</text>' : '');
   });
   leaves.forEach(l => {
     nodesSvg += '<rect x="' + x2 + '" y="' + l.y.toFixed(2) + '" width="8" height="' + l.h.toFixed(2) + '" rx="3" fill="' + l.color + '"/>';
@@ -3225,6 +3498,7 @@ function instrumentIconHTML(inst, extraCls) {
 function qtyUnit(cls) {
   if (cls === 'stock' || cls === 'etf') return '股';
   if (cls === 'deposit') return '笔';
+  if (cls === 'bond') return '张';
   return '份';
 }
 
@@ -3262,7 +3536,10 @@ function recordRowHTML(rec, opts) {
     '<div class="rec-val">' + recordAmountHTML(rec) +
       (rec.type === 'buy' || rec.type === 'sell' ? '<span class="small">' + esc(meta.label) + '</span>' : '') +
     '</div>' +
-    (o.deletable ? '<button class="rec-del" data-action="delete-record" data-id="' + esc(rec.id) + '" aria-label="删除记录">' + icon('trash') + '</button>' : '') +
+    ((o.editable || o.deletable) ? '<div class="rec-actions">' +
+      (o.editable ? '<button class="rec-edit" data-action="edit-record" data-id="' + esc(rec.id) + '" aria-label="编辑记录">' + icon('pen') + '</button>' : '') +
+      (o.deletable ? '<button class="rec-del" data-action="delete-record" data-id="' + esc(rec.id) + '" aria-label="删除记录">' + icon('trash') + '</button>' : '') +
+    '</div>' : '') +
   '</div>';
 }
 function recordsCardHTML(records, opts) {
@@ -3294,8 +3571,9 @@ function signedPct(v, digits) { return fmtPct(v, digits == null ? 2 : digits, tr
 function tinyMoney(v) { return fmtMoney(v, { compact: true, decimals: 2 }); }
 
 /* ---------- tabs / chips ---------- */
-function schemeChipsHTML(activeId, actionName) {
-  return '<div class="scheme-strip">' + schemes().map(s => '<button class="chip ' + (s.id === activeId ? 'active' : '') + '" data-action="' + (actionName || 'select-scheme') + '" data-id="' + esc(s.id) + '">' + esc(s.name) + '</button>').join('') +
+function schemeChipsHTML(activeId, actionName, list) {
+  const source = Array.isArray(list) ? list : schemes();
+  return '<div class="scheme-strip">' + source.map(s => '<button class="chip ' + (s.id === activeId ? 'active' : '') + '" data-action="' + (actionName || 'select-scheme') + '" data-id="' + esc(s.id) + '">' + esc(s.name) + '</button>').join('') +
     '<button class="chip add" data-action="new-scheme" aria-label="新建分组方式">' + icon('plus') + '方式</button></div>';
 }
 
@@ -3512,6 +3790,7 @@ function renderAccountPage(accountId) {
   const money = moneyParts(am.marketBase);
   const composition = accountComposition(am);
   const records = recordsForAccount(accountId).slice().reverse();
+  const flowPeriod = flowPeriodKey('account', accountId);
   return backHead(a.name, '<button class="icon-btn sm" data-action="open-account-menu" data-id="' + esc(a.id) + '" aria-label="更多">' + icon('more') + '</button>', '#/assets') +
   '<div class="detail-body">' +
     '<section class="detail-hero with-color" style="--accent-color:' + a.color + '">' +
@@ -3522,10 +3801,10 @@ function renderAccountPage(accountId) {
       '<div class="detail-pnl"><b class="' + pnlClass(am.profit) + '">' + (am.profit >= 0 ? '+' : '') + fmtMoney(am.profit) + '</b><span class="' + pnlClass(am.profit) + '">' + (am.profitPct == null ? '—' : fmtPct(am.profitPct, 2)) + '</span><span class="muted">累计收益</span>' +
         '<span class="' + pnlClass(todayPnl) + '" style="margin-left:auto;font-size:9.5px">今日 ' + pnlText(todayPnl) + '</span></div>' +
       '<div class="detail-stats account-detail-stats">' +
-        '<div><div class="l">可用现金</div><div class="v">' + fmtMoney(am.cashBase, { compact: true }) + '</div></div>' +
-        '<div><div class="l">持仓市值</div><div class="v">' + fmtMoney(am.holdingsBase, { compact: true }) + '</div></div>' +
-        '<div><div class="l">持仓浮盈</div><div class="v ' + pnlClass(am.unrealized) + '">' + pnlText(am.unrealized, { compact: true }) + '</div></div>' +
-        '<div><div class="l">累计已实现</div><div class="v ' + pnlClass(am.realizedBase) + '">' + pnlText(am.realizedBase, { compact: true }) + '</div></div>' +
+        '<div><div class="l">可用现金</div><div class="v">' + fmtMoney(am.cashBase) + '</div></div>' +
+        '<div><div class="l">持仓市值</div><div class="v">' + fmtMoney(am.holdingsBase) + '</div></div>' +
+        '<div><div class="l">持仓浮盈</div><div class="v ' + pnlClass(am.unrealized) + '">' + pnlText(am.unrealized) + '</div></div>' +
+        '<div><div class="l">累计已实现</div><div class="v ' + pnlClass(am.realizedBase) + '">' + pnlText(am.realizedBase) + '</div></div>' +
       '</div>' +
     '</section>' +
     (a.currency !== baseCurrency() ? '<div class="info-banner" style="margin-top:12px;margin-bottom:0">' + icon('swap') + '<div>1 ' + a.currency + ' = ' + fmtPrice(fxToBase(a.currency), baseCurrency()) + ' · 汇兑影响 <b class="' + pnlClass(am.fxPnl) + '">' + pnlText(am.fxPnl) + '</b> ' + (state.settings.considerFx ? '已计入累计收益' : '未计入累计收益') + '。<button class="text-btn" style="font-size:9px;margin-left:3px" data-action="toggle-fx">切换</button></div></div>' : '') +
@@ -3533,7 +3812,7 @@ function renderAccountPage(accountId) {
     '<div class="detail-section"><div class="section-head"><div><h2>资产构成</h2><div class="sub">现金与持仓 · 按当前市值</div></div><span class="tiny">' + baseCurrency() + '</span></div>' +
       '<div class="card pad" style="padding-top:12px;padding-bottom:14px"><div class="donut-layout">' + donutBoxHTML(composition.items, { size: 132, stroke: 15, centerValue: fmtMoney(am.marketBase, { compact: true }), centerLabel: '账户资产' }) +
       '<div class="donut-legend">' + donutLegendHTML(composition.items, { compact: true }) + '</div></div></div></div>' +
-    '<div class="detail-section" style="margin-top:14px">' + flowDiagramHTML(accountFlow(accountId)) + '</div>' +
+    '<div class="detail-section" style="margin-top:14px">' + flowDiagramHTML(accountFlow(accountId, flowPeriod), { scope: 'account', id: accountId, periodKey: flowPeriod, periods: flowPeriods('account', accountId), editable: true }) + '</div>' +
     '<div class="detail-section"><div class="section-head"><div><h2>持仓</h2><div class="sub">按市值排序 · 点击查看标的</div></div><button class="text-btn" data-action="open-add-instrument" data-account="' + esc(a.id) + '">' + icon('plus') + '添加</button></div>' +
       (am.instruments.filter(x => x.qty > 0.000001).length ? '<div class="list-card">' + am.instruments.filter(x => x.qty > 0.000001).sort((x, y) => y.marketBase - x.marketBase).map(holdingRowHTML).join('') + '</div>' :
         '<div class="list-card">' + emptyBlock('这个账户还没有标的', '添加基金、股票或存单，记录买入与估值。', '<button class="btn primary sm" data-action="open-add-instrument" data-account="' + esc(a.id) + '">添加标的</button>', 'fund') + '</div>') +
@@ -3612,11 +3891,12 @@ function renderInstrumentPage(instrumentId) {
   const money = moneyParts(im.marketBase);
   const records = recordsForInstrument(instrumentId).slice().reverse();
   const isForeign = inst.currency !== baseCurrency();
+  const flowPeriod = flowPeriodKey('instrument', instrumentId);
   return backHead(inst.name, '<button class="icon-btn sm" data-action="open-instrument-menu" data-id="' + esc(inst.id) + '" aria-label="更多">' + icon('more') + '</button>', '#/account/' + encodeURIComponent(a.id)) +
   '<div class="detail-body">' +
     '<section class="detail-hero with-color" style="--accent-color:' + inst.color + '">' +
       '<div class="detail-head">' + instrumentIconHTML(inst) +
-        '<div class="dh-main"><div class="dh-name">' + esc(inst.name) + '</div><div class="dh-sub"><span class="instrument-symbol">' + esc(inst.symbol) + '</span><span class="dot"></span><span>' + esc(assetClassName(inst.cls)) + '</span><span class="dot"></span><span>' + esc(a.name) + '</span></div></div>' +
+        '<div class="dh-main"><div class="dh-name">' + esc(inst.name) + '</div><div class="dh-sub"><span class="instrument-symbol">' + esc(inst.symbol) + '</span><span class="dot"></span><span>' + esc(assetClassName(inst.cls)) + '</span><span class="dot"></span><span>' + esc(a.name) + '</span>' + (inst.market ? '<span class="market-connected">行情</span>' : '') + '</div></div>' +
         '<span class="ccy" style="font-size:9px;border:1px solid var(--line);border-radius:5px;padding:3px 5px;color:var(--faint)">' + inst.currency + '</span></div>' +
       '<div class="detail-total"><span class="cur">' + money.sym + '</span><span>' + money.main + '</span>' + (money.dec ? '<span class="cur" style="font-size:15px">.' + money.dec + '</span>' : '') + '</div>' +
       '<div class="detail-pnl"><b class="' + pnlClass(im.profit) + '">' + (im.profit >= 0 ? '+' : '') + fmtMoney(im.profit) + '</b><span class="' + pnlClass(im.returnPct) + '">' + fmtPct(im.returnPct, 2) + '</span><span class="muted">累计收益</span>' +
@@ -3636,15 +3916,16 @@ function renderInstrumentPage(instrumentId) {
         positionRow('累计已实现', '<span class="' + pnlClass(im.realized) + '">' + pnlText(im.realized) + '</span>', '已卖出部分') +
         (im.dividendBase > 0 ? positionRow('累计分红', '<span class="gain">' + pnlText(im.dividendBase) + '</span>', '已计入收益') : '') +
         positionRow('持有天数', im.firstDate ? im.holdingDays + ' 天' : '—', im.firstDate ? '首次买入 ' + im.firstDate : '暂无交易') +
+        (inst.market ? positionRow('行情来源', esc('腾讯行情 · ' + (inst.market.label || '') + ' ' + (inst.market.symbol || '')), inst.market.lastUpdated ? '最近同步 ' + inst.market.lastUpdated : '尚未同步，可点击刷新行情') : '') +
       '</div></div>' +
-    '<div class="detail-section" style="margin-top:14px">' + flowDiagramHTML(instrumentFlow(instrumentId), { isInstrument: true }) + '</div>' +
+    '<div class="detail-section" style="margin-top:14px">' + flowDiagramHTML(instrumentFlow(instrumentId, flowPeriod), { isInstrument: true, scope: 'instrument', id: instrumentId, periodKey: flowPeriod, periods: flowPeriods('instrument', instrumentId), editable: true }) + '</div>' +
     (isForeign ? '<div class="info-banner">' + icon('swap') + '<div>以 ' + inst.currency + ' 计价，按当前汇率 <b>1 ' + inst.currency + ' = ' + fmtPrice(fxToBase(inst.currency), baseCurrency()) + '</b> 折算。汇兑损益 <b class="' + pnlClass(im.fxPnl) + '">' + pnlText(im.fxPnl) + '</b> ' + (state.settings.considerFx ? '已计入' : '未计入') + '累计收益。</div></div>' : '') +
     '<div class="detail-section"><div class="section-head"><div><h2>更新记录</h2><div class="sub">买入、卖出、分红与估值更新</div></div><button class="text-btn" data-action="open-records" data-scope="instrument" data-id="' + esc(inst.id) + '">全部 ' + records.length + '</button></div>' +
       recordsCardHTML(records, { limit: 7 }) + '</div>' +
     '<div style="height:12px"></div>' +
   '</div>' +
   '<div class="actionbar"><button class="btn primary" data-action="add-record-instrument" data-instrument="' + esc(inst.id) + '">' + icon('plus') + '记一笔</button>' +
-    '<button class="btn ghost" data-action="open-price-update" data-instrument="' + esc(inst.id) + '">' + icon('refresh') + '更新价格</button></div>';
+    (inst.market ? '<button class="btn ghost" data-action="refresh-quote" data-id="' + esc(inst.id) + '">' + icon('refresh') + '刷新行情</button>' : '<button class="btn ghost" data-action="open-price-update" data-instrument="' + esc(inst.id) + '">' + icon('refresh') + '更新价格</button>') + '</div>';
 }
 
 function positionRow(label, value, sub) {
@@ -3680,7 +3961,7 @@ function instrumentChartCard(im) {
       '<div class="metric"><div class="lab">最新价</div><div class="val">' + fmtPrice(endPrice, inst.currency) + '</div><div class="sub">' + inst.currency + '</div></div>' +
     '</div>';
   } else {
-    chartHTML = chartEmptyHTML('还没有足够的价格历史', 174);
+    chartHTML = chartEmptyHTML(inst.market ? '行情已接入，价格历史会随每日刷新积累' : '还没有足够的价格历史', 174);
   }
   return '<div class="detail-chart-card">' +
     '<div class="chart-head"><div><h2>价格走势</h2><div class="sub">' + (rangeText || '暂无数据') + ' · ' + inst.currency + ' 原币计价' + '</div></div>' +
@@ -3696,7 +3977,7 @@ function instrumentChartCard(im) {
    07 · 统计 / 资产构成 / 桑基图 / 组合走势
    ========================================================= */
 function statsSchemeId() {
-  if (!ui.statsSchemeId || !schemeById(ui.statsSchemeId)) ui.statsSchemeId = schemes()[0] ? schemes()[0].id : '';
+  if (!ui.statsSchemeId || !schemes().some(s => s.id === ui.statsSchemeId)) ui.statsSchemeId = '__auto_account';
   return ui.statsSchemeId;
 }
 
@@ -3705,16 +3986,17 @@ function renderStatsPage() {
   const scheme = schemeById(sid);
   const gb = groupBreakdown(sid);
   const p = portfolioSummary();
-  const items = gb.items.filter(x => x.value > 0.5).map(x => ({ name: x.name, value: x.value, color: x.color }));
+  const items = visualGroupItems(gb.items.filter(x => x.value > 0.5), 8);
   const groupReturns = groupPeriodSummary(sid, 365);
   const retMap = new Map(groupReturns.map(x => [x.group.id, x]));
   const sankeyMode = ui.sankeyMode || 'account';
-  const trend = portfolioTrendCard(p);
+  const builtin = !!scheme.builtin;
+  const manageSid = builtin ? (customSchemes()[0] ? customSchemes()[0].id : '') : sid;
   return pageTop({
     eyebrow: 'ALLOCATION & FLOW',
     title: '统计',
     sub: '从整体到细项，看清资产的结构。',
-    actions: '<a class="icon-btn" href="#/groups/' + encodeURIComponent(sid) + '" aria-label="管理分组">' + icon('sliders') + '</a>' +
+    actions: (manageSid ? '<a class="icon-btn" href="#/groups/' + encodeURIComponent(manageSid) + '" aria-label="管理自定义分组">' + icon('sliders') + '</a>' : '') +
       '<button class="icon-btn" data-action="toggle-hide" aria-label="隐藏金额">' + icon(state.settings.hideAmounts ? 'eyeOff' : 'eye') + '</button>'
   }) +
   schemeChipsHTML(sid, 'select-stats-scheme') +
@@ -3723,11 +4005,11 @@ function renderStatsPage() {
   '<section class="card pad" style="margin-top:12px">' +
     '<div class="card-head" style="padding:0"><div><h2>资产构成</h2><div class="sub">' + esc(scheme ? scheme.name : '') + ' · 按当前市值</div></div><span class="tiny">' + esc(baseCurrency()) + '</span></div>' +
     '<div class="donut-layout stats-donut-layout" style="margin-top:16px">' + donutBoxHTML(items, { size: 150, stroke: 16, centerValue: fmtMoney(gb.total, { compact: true }), centerLabel: '总资产' }) +
-      '<div class="donut-legend">' + donutLegendHTML(items) + '</div></div>' +
+      '<div class="donut-legend">' + donutLegendHTML(items, { compact: !!scheme.builtin }) + '</div></div>' +
     (gb.ungrouped ? '<div class="info-banner warn" style="margin-top:14px">' + icon('alert') + '<div>有 ' + fmtMoney(gb.ungrouped.value, { compact: true }) + ' 资产尚未归入分组。前往分组管理把账户或标的加入分组。</div></div>' : '') +
     '<div class="divider-line"></div>' +
-    '<div class="row-between"><span class="tiny">目标配置：' + (gb.items.filter(x => x.id !== '__ungrouped').map(x => x.normalizedTarget.toFixed(0) + '%').join(' / ') || '未设置') + '</span>' +
-      '<button class="text-btn" data-action="go" data-href="#/rebalance">查看再平衡 ' + icon('chevronRight') + '</button></div>' +
+    '<div class="row-between"><span class="tiny">' + (builtin ? '默认自动分组 · 按当前持仓实时计算' : '目标配置：' + (gb.items.filter(x => x.id !== '__ungrouped').map(x => x.normalizedTarget.toFixed(0) + '%').join(' / ') || '未设置')) + '</span>' +
+      (builtin ? '<button class="text-btn" data-action="go" data-href="#/settings">管理分组 ' + icon('chevronRight') + '</button>' : '<button class="text-btn" data-action="go" data-href="#/rebalance">查看再平衡 ' + icon('chevronRight') + '</button>') + '</div>' +
   '</section>' +
   '<section class="card" style="margin-top:14px;padding:18px 18px 13px">' +
     '<div class="card-head" style="padding:0"><div><h2>资金流向</h2><div class="sub">总资产 → 分组 → ' + (sankeyMode === 'instrument' ? '底层标的' : '账户') + '</div></div>' +
@@ -3735,19 +4017,30 @@ function renderStatsPage() {
     sankeyHTML(sid, sankeyMode) +
     '<div class="sankey-hint">' + icon('swap') + '色带代表分组资金 · 按当前市值</div>' +
   '</section>' +
-  trend +
   '<section class="detail-section" style="margin:18px 0 0"><div class="section-head"><div><h2>分组明细</h2><div class="sub">实际占比与近一年表现</div></div><span class="tiny">点击查看构成</span></div>' +
-    '<div class="card pad" style="padding-top:4px;padding-bottom:6px">' + statsGroupRows(gb, retMap) + '</div></section>' +
+    '<div class="card pad" style="padding-top:4px;padding-bottom:6px">' + statsGroupRows(gb, retMap, scheme) + '</div></section>' +
   '<div style="height:8px"></div>';
 }
 
-function statsGroupRows(gb, retMap) {
-  return gb.items.map(it => {
+function visualGroupItems(items, max) {
+  const list = (items || []).slice().sort((a, b) => (b.value || 0) - (a.value || 0));
+  const limit = max || 8;
+  if (list.length <= limit) return list.map(x => ({ name: x.name, value: x.value, color: x.color }));
+  const head = list.slice(0, limit - 1).map(x => ({ name: x.name, value: x.value, color: x.color }));
+  const rest = list.slice(limit - 1);
+  head.push({ name: '其他 ' + rest.length + ' 项', value: sum(rest, x => x.value), color: '#6b7280' });
+  return head;
+}
+
+function statsGroupRows(gb, retMap, scheme) {
+  const auto = !!(scheme && scheme.builtin);
+  const rows = auto ? gb.items.filter(x => x.value > 0.5) : gb.items;
+  return rows.map(it => {
     const ret = retMap.get(it.id);
     return '<button class="stats-row" data-action="open-group-detail" data-id="' + esc(it.id) + '">' +
       '<span class="dot" style="background:' + it.color + '"></span>' +
-      '<span class="main"><span class="t">' + esc(it.name) + (it.status === 'high' ? ' <span style="font-size:8px;color:var(--gain)">超配</span>' : it.status === 'low' ? ' <span style="font-size:8px;color:var(--blue)">低配</span>' : '') + '</span>' +
-        '<span class="s">' + fmtMoney(it.value, { compact: true }) + ' · 目标 ' + (it.id === '__ungrouped' ? '—' : it.normalizedTarget.toFixed(1) + '%') + '</span></span>' +
+      '<span class="main"><span class="t">' + esc(it.name) + (!auto && it.status === 'high' ? ' <span style="font-size:8px;color:var(--gain)">超配</span>' : !auto && it.status === 'low' ? ' <span style="font-size:8px;color:var(--blue)">低配</span>' : '') + '</span>' +
+        '<span class="s">' + fmtMoney(it.value, { compact: true }) + (auto ? ' · 自动分组' : ' · 目标 ' + (it.id === '__ungrouped' ? '—' : it.normalizedTarget.toFixed(1) + '%')) + '</span></span>' +
       '<span class="val"><b>' + (gb.total > 0 ? (it.pct * 100).toFixed(1) + '%' : '—') + '</b>' +
         '<span class="' + (ret ? pnlClass(ret.returnPct) : 'faint') + '">' + (ret ? fmtPct(ret.returnPct, 1) : '—') + ' · 近一年</span></span>' +
       '<span class="chev">' + icon('chevronRight') + '</span></button>';
@@ -3755,7 +4048,7 @@ function statsGroupRows(gb, retMap) {
 }
 
 function portfolioTrendCard(p) {
-  const days = Number(ui.statsPeriod == null ? 365 : ui.statsPeriod);
+  const days = Number(ui.trendPeriod == null ? 365 : ui.trendPeriod);
   const daily = buildDailyAnalytics();
   const tw = twrStats(daily.total, days || daily.n - 1);
   const start = days ? Math.max(0, daily.n - 1 - days) : 0;
@@ -3776,7 +4069,7 @@ function portfolioTrendCard(p) {
       '<div class="metric"><div class="lab">年化收益</div><div class="val ' + pnlClass(tw.annualized) + '">' + fmtPct(tw.annualized, 2) + '</div><div class="sub">参考</div></div>' +
       '<div class="metric"><div class="lab">正收益天</div><div class="val">' + (tw.positiveRate * 100).toFixed(0) + '%</div><div class="sub">胜率</div></div>' +
     '</div>' +
-    '<div class="period-row"><div class="segmented small">' + [30, 90, 365, 0].map(d => '<button class="seg ' + (days === d ? 'active' : '') + '" data-action="set-stats-period" data-value="' + d + '">' + labels[d] + '</button>').join('') + '</div>' +
+    '<div class="period-row"><div class="segmented small">' + [30, 90, 365, 0].map(d => '<button class="seg ' + (days === d ? 'active' : '') + '" data-action="set-trend-period" data-value="' + d + '">' + labels[d] + '</button>').join('') + '</div>' +
       '<span class="tiny">更新至 ' + shortDate(todayKey()) + '</span></div>' +
   '</section>';
 }
@@ -3790,6 +4083,7 @@ function openGroupDetailSheet(groupId, schemeId) {
   const item = gb.items.find(x => x.id === groupId);
   const comps = groupComponents(sid, groupId);
   const total = item ? item.value : sum(comps, c => c.value);
+  const builtin = !!scheme.builtin;
   const ret = groupPeriodSummary(sid, 365).find(x => x.group.id === groupId);
   const list = comps.length ? comps.map(c => {
     const pct = total > 0 ? c.value / total : 0;
@@ -3803,7 +4097,7 @@ function openGroupDetailSheet(groupId, schemeId) {
     '<div class="info-banner" style="margin-top:14px">' + icon('info') + '<div>' + esc(groupIncludeSummary(g)) + '</div></div>' +
     '<div class="bar-list" style="margin-top:16px">' + list + '</div>' +
     '<div style="height:8px"></div>';
-  openSheet({ title: g.name, sub: '分组构成与表现', body, footer: '<button class="btn ghost" data-action="open-group-editor" data-id="' + esc(g.id) + '" data-scheme="' + esc(sid) + '">编辑分组</button><button class="btn primary" data-action="open-target-editor" data-scheme="' + esc(sid) + '">调整目标</button>' });
+  openSheet({ title: g.name, sub: '分组构成与表现', body, footer: builtin ? '<button class="btn ghost" data-sheet-close>关闭</button>' : '<button class="btn ghost" data-action="open-group-editor" data-id="' + esc(g.id) + '" data-scheme="' + esc(sid) + '">编辑分组</button><button class="btn primary" data-action="open-target-editor" data-scheme="' + esc(sid) + '">调整目标</button>' });
 }
 
 
@@ -3811,7 +4105,7 @@ function openGroupDetailSheet(groupId, schemeId) {
    08 · 收益日历（日 / 周 / 月 / 年）
    ========================================================= */
 function calendarSchemeId() {
-  if (!ui.calendarSchemeId || !schemeById(ui.calendarSchemeId)) ui.calendarSchemeId = schemes()[0] ? schemes()[0].id : '';
+  if (!ui.calendarSchemeId || !schemes().some(s => s.id === ui.calendarSchemeId)) ui.calendarSchemeId = '__auto_account';
   return ui.calendarSchemeId;
 }
 function calendarGroupId(schemeId) {
@@ -3909,6 +4203,8 @@ function renderCalendarPage() {
 
   return header + controls + summaryHTML + nav + bodyHTML +
     '<div class="cal-legend"><span>' + (mode === 'day' || mode === 'week' ? '当月每日盈亏' : mode === 'month' ? '本年每月盈亏' : '年度收益') + '</span><div class="scale"><span class="loss">亏</span><i class="l3"></i><i class="l2"></i><i class="l1"></i><i></i><i class="g1"></i><i class="g2"></i><i class="g3"></i><span class="gain">盈</span></div></div>' +
+    '<div style="height:10px"></div>' +
+    portfolioTrendCard(portfolioSummary()) +
     '<div style="height:10px"></div>';
 }
 
@@ -4084,7 +4380,9 @@ function openCalendarDaySheet(date) {
    09 · 再平衡 / 目标配置
    ========================================================= */
 function rebalanceSchemeId() {
-  if (!ui.rebalanceSchemeId || !schemeById(ui.rebalanceSchemeId)) ui.rebalanceSchemeId = schemes()[0] ? schemes()[0].id : '';
+  const custom = schemesForRebalance();
+  const found = custom.find(s => s.id === ui.rebalanceSchemeId);
+  if (!found) ui.rebalanceSchemeId = (custom[1] || custom[0]) ? (custom[1] || custom[0]).id : '';
   return ui.rebalanceSchemeId;
 }
 
@@ -4107,7 +4405,7 @@ function renderRebalancePage() {
     actions: '<button class="icon-btn" data-action="open-target-editor" data-scheme="' + esc(sid) + '" aria-label="调整目标">' + icon('sliders') + '</button>' +
       '<a class="icon-btn" href="#/groups/' + encodeURIComponent(sid) + '" aria-label="管理分组">' + icon('grid') + '</a>'
   }) +
-  schemeChipsHTML(sid, 'select-rebalance-scheme') +
+  schemeChipsHTML(sid, 'select-rebalance-scheme', schemesForRebalance()) +
   '<section class="card" style="padding:16px 14px 14px;margin-top:2px">' +
     '<div class="card-head" style="padding:0"><div><h2>当前 vs 目标</h2><div class="sub">' + esc(scheme ? scheme.name : '') + ' · 目标为 ' + baseCurrency() + ' 口径</div></div><span class="tiny">±' + tolerance.toFixed(1) + '% 容忍</span></div>' +
     '<div class="donut-pair" style="margin-top:16px">' +
@@ -4153,7 +4451,7 @@ function rebalanceRows(items, tolerance) {
 
 function openTargetEditor(sid) {
   const scheme = schemeById(sid || rebalanceSchemeId());
-  if (!scheme) return;
+  if (!scheme || isBuiltinScheme(scheme)) return;
   const tolerance = Number(state.settings.tolerance) || 0;
   const body = '<form id="target-form">' +
     '<div class="info-banner" style="margin-top:0">' + icon('target') + '<div>目标比例合计建议为 100%。你可以为每个分组设定一个目标占比，允许 ±' + tolerance.toFixed(1) + '% 的偏离。</div></div>' +
@@ -4259,6 +4557,7 @@ function openRebalancePlanSheet(sid) {
 function renderGroupsPage(schemeId) {
   const scheme = schemeById(schemeId || (schemes()[0] && schemes()[0].id));
   if (!scheme) return backHead('分组管理') + '<div class="detail-body">' + emptyBlock('没有分组方式', '', '<a class="btn primary sm" href="#/settings">返回设置</a>', 'grid') + '</div>';
+  if (isBuiltinScheme(scheme)) return renderBuiltinSchemePage(scheme);
   const gb = groupBreakdown(scheme.id);
   const current = new Map(gb.items.map(x => [x.id, x]));
   const totalTarget = schemeTargetTotal(scheme);
@@ -4293,10 +4592,27 @@ function renderGroupsPage(schemeId) {
   '</div>';
 }
 
+function renderBuiltinSchemePage(scheme) {
+  const gb = groupBreakdown(scheme.id);
+  const cards = gb.items.filter(x => x.value > 0.5).map(it => '<div class="group-card" style="padding-bottom:12px">' +
+    '<div class="group-card-head"><span class="group-color" style="background:' + it.color + '"></span><div class="gc-main"><div class="gc-name">' + esc(it.name) + '<span class="gc-target">自动</span></div>' +
+    '<div class="gc-sub">' + fmtMoney(it.value) + ' · 占比 ' + (it.pct * 100).toFixed(1) + '%</div></div></div></div>').join('');
+  return backHead(scheme.name, '', '#/settings') +
+  '<div class="detail-body">' +
+    '<div class="group-scheme-card"><div class="eyebrow">DEFAULT GROUPING</div><div class="group-scheme-name">' + esc(scheme.name) + '</div>' +
+    '<div class="group-scheme-desc">' + esc(scheme.desc) + ' · 系统按当前持仓自动生成，不需要维护成员。</div>' +
+    '<div class="group-scheme-stats"><div><span>分组</span><b>' + gb.items.length + '</b></div><div><span>目标合计</span><b>自动</b></div><div><span>未分组</span><b>' + (gb.ungrouped ? fmtMoney(gb.ungrouped.value) : '无') + '</b></div></div></div>' +
+    '<div class="info-banner">' + icon('sparkles') + '<div>这是内置的只读分组。你仍然可以在统计页和日历页切换使用；如需自定义目标，请使用“自定义分组”。</div></div>' +
+    '<div class="section-head" style="margin-top:18px"><div><h2>当前分组</h2><div class="sub">按当前市值</div></div><span class="tiny">' + gb.items.length + ' 组</span></div>' +
+    '<div class="group-list">' + (cards || '<div class="card">' + emptyBlock('暂无资产', '添加账户或标的后，这里会自动出现分组。', '', 'grid') + '</div>') + '</div>' +
+    '<div class="group-links"><a class="btn ghost sm" href="#/stats">查看统计</a><a class="btn ghost sm" href="#/settings">管理自定义分组</a></div>' +
+  '</div>';
+}
+
 /* ---------- group editor ---------- */
 function openGroupEditor(schemeId, groupId) {
   const scheme = schemeById(schemeId);
-  if (!scheme) return;
+  if (!scheme || isBuiltinScheme(scheme)) { if (scheme && isBuiltinScheme(scheme)) toast('默认分组不可编辑', 'error'); return; }
   const editing = groupId ? scheme.groups.find(g => g.id === groupId) : null;
   const g = editing || {
     id: '', name: '', color: GROUP_COLORS[scheme.groups.length % GROUP_COLORS.length],
@@ -4410,7 +4726,7 @@ function openNewSchemeSheet() {
 }
 function openEditSchemeSheet(schemeId) {
   const scheme = schemeById(schemeId);
-  if (!scheme) return;
+  if (!scheme || isBuiltinScheme(scheme)) return;
   const body = '<form id="scheme-edit-form"><div class="form-grid">' + fieldHTML({ id: 'scheme-name-edit', label: '名称', value: scheme.name, full: true }) +
     fieldHTML({ id: 'scheme-desc-edit', label: '说明', value: scheme.desc || '', full: true }) + '</div></form>';
   const wrap = openSheet({
@@ -4449,12 +4765,18 @@ function renderSettingsPage() {
     settingRowHTML('隐藏金额', state.settings.hideAmounts ? '已隐藏' : '显示金额', state.settings.hideAmounts ? 'eyeOff' : 'eye', 'toggle-hide', '适合在公共场合查看', '<span class="switch ' + (state.settings.hideAmounts ? 'on' : '') + '"></span>') +
     settingRowHTML('再平衡容忍带', '±' + (Number(state.settings.tolerance) || 0).toFixed(1) + '%', 'scale', 'open-tolerance', '偏离目标多少时提示再平衡') +
   '</div></div>' +
-  '<div class="settings-group"><div class="label">分组方式</div><div class="settings-card">' +
-    schemes().map(s => '<a class="scheme-manage-row" href="#/groups/' + encodeURIComponent(s.id) + '">' +
+  '<div class="settings-group"><div class="label">默认分组 · 自动</div><div class="settings-card">' +
+    builtinSchemes().map(s => '<div class="scheme-manage-row">' +
+      '<span class="dot" style="background:' + ((s.groups.find(g => g.id.indexOf('__auto_cash_') !== 0) || s.groups[0] || {}).color || '#ff9f45') + '"></span>' +
+      '<span class="sm-main"><span class="t">' + esc(s.name) + ' <span class="auto-tag">自动</span></span><span class="s">' + s.groups.length + ' 个分组 · 按' + (s.type === 'account' ? '账户' : '标的') + '实时生成</span></span>' +
+      '<span class="setting-value" style="font-size:8.5px">只读</span></div>').join('') +
+  '</div></div>' +
+  '<div class="settings-group"><div class="label">自定义分组</div><div class="settings-card">' +
+    customSchemes().map(s => '<a class="scheme-manage-row" href="#/groups/' + encodeURIComponent(s.id) + '">' +
       '<span class="dot" style="background:' + ((s.groups[0] && s.groups[0].color) || '#ff9f45') + '"></span>' +
       '<span class="sm-main"><span class="t">' + esc(s.name) + '</span><span class="s">' + s.groups.length + ' 个分组 · 目标 ' + schemeTargetTotal(s).toFixed(0) + '%</span></span>' +
       '<span class="chev">' + icon('chevronRight') + '</span></a>').join('') +
-    '<button class="setting-row" data-action="new-scheme"><span class="setting-icon accent">' + icon('plus') + '</span><span class="setting-main"><span class="t">新建分组方式</span><span class="s">用不同视角切分同一份资产</span></span><span class="setting-value">' + icon('chevronRight') + '</span></button>' +
+    '<button class="setting-row" data-action="new-scheme"><span class="setting-icon accent">' + icon('plus') + '</span><span class="setting-main"><span class="t">新建自定义分组</span><span class="s">用不同视角切分同一份资产</span></span><span class="setting-value">' + icon('chevronRight') + '</span></button>' +
   '</div></div>' +
   '<div class="settings-group"><div class="label">多币种汇率</div><div class="settings-card">' +
     '<button class="setting-row" data-action="open-rates"><span class="setting-icon blue">' + icon('swap') + '</span><span class="setting-main"><span class="t">汇率管理</span><span class="s">1 USD = ' + fmtPrice(rateCNY('USD') / rateCNY(base), base) + ' · 手动维护</span></span><span class="setting-value">管理' + icon('chevronRight') + '</span></button>' +
@@ -4734,7 +5056,14 @@ function openInstrumentForm(accountId, instrumentId) {
   const editing = instrumentId ? instrumentById(instrumentId) : null;
   const classes = Object.keys(ASSET_CLASSES).filter(c => c !== 'cash').map(c => ({ value: c, label: ASSET_CLASSES[c].name }));
   const colors = ['#ff6b35', '#ff9f45', '#5b8cff', '#b18cff', '#43d6b0', '#f2c45c', '#ff7a00', '#2b6bf3', '#c9d1d9', '#9ca3af'];
-  const body = '<form id="instrument-form"><div class="form-grid">' +
+  const body = '<form id="instrument-form">' +
+    '<div class="market-search-block">' +
+      '<div class="market-search-head"><span>行情匹配</span><span class="market-source">新浪搜索 · 腾讯报价 · 仅供估值参考</span></div>' +
+      '<div class="market-search-row"><input class="input" id="market-query" placeholder="搜索名称 / 代码：茅台、AAPL、110008、国债ETF" autocomplete="off" spellcheck="false"><button type="button" class="btn sm" id="market-search-btn">' + icon('search') + '搜索</button></div>' +
+      '<div id="market-results" class="market-results"></div>' +
+      '<div id="market-status" class="market-status">支持 A股、场外基金、场内 ETF、美股、港股、债券。选中后自动填入最新价格。</div>' +
+    '</div>' +
+    '<div class="form-grid">' +
     fieldHTML({ id: 'inst-name', label: '标的名称', value: editing ? editing.name : '', placeholder: '例如：苹果 / 沪深300ETF', full: true }) +
     fieldHTML({ id: 'inst-symbol', label: '代码 / 简称', value: editing ? editing.symbol : '', placeholder: 'AAPL / 000051' }) +
     fieldHTML({ id: 'inst-class', label: '资产类别', type: 'select', value: editing ? editing.cls : 'stock', options: classes }) +
@@ -4753,6 +5082,84 @@ function openInstrumentForm(accountId, instrumentId) {
     body, footer: '<button class="btn ghost" data-sheet-close>取消</button><button class="btn primary" data-inst-save>' + (editing ? '保存' : '添加标的') + '</button>'
   });
   const form = wrap.querySelector('#instrument-form');
+  let selectedMarket = editing && editing.market ? JSON.parse(JSON.stringify(editing.market)) : null;
+  const marketStatus = form.querySelector('#market-status');
+  const marketResults = form.querySelector('#market-results');
+  const marketQuery = form.querySelector('#market-query');
+  let searchTimer = null;
+  const setMarketStatus = (html, cls) => {
+    if (!marketStatus) return;
+    marketStatus.className = 'market-status ' + (cls || '');
+    marketStatus.innerHTML = html;
+  };
+  const showMarketStatus = () => {
+    if (selectedMarket) {
+      setMarketStatus('已连接 <b>' + esc(selectedMarket.label || '') + '</b> · ' + esc(selectedMarket.symbol || '') + (selectedMarket.lastUpdated ? ' · ' + esc(selectedMarket.lastUpdated) : '') + ' · 可手动刷新行情', 'ok');
+    } else if (!editing) {
+      setMarketStatus('支持 A股、场外基金、场内 ETF、美股、港股、债券。选中后自动填入最新价格。');
+    }
+  };
+  const fillFromMarket = (meta, quote) => {
+    form.querySelector('#inst-name').value = meta.name || '';
+    form.querySelector('#inst-symbol').value = meta.symbol || meta.code || '';
+    const clsSel = form.querySelector('#inst-class');
+    if (clsSel && meta.cls) clsSel.value = meta.cls;
+    const ccySel2 = form.querySelector('#inst-currency');
+    if (ccySel2 && !editing && meta.currency) ccySel2.value = meta.currency;
+    const priceInput = form.querySelector('#inst-price');
+    if (priceInput && quote && quote.price > 0) priceInput.value = String(quote.price);
+    const unit = form.querySelector('#inst-cost-unit');
+    if (unit && meta.currency) unit.textContent = meta.currency;
+    selectedMarket = Object.assign({}, meta, quote ? { lastPrice: quote.price, lastUpdated: normalizeMarketTime(quote.time) } : {});
+    showMarketStatus();
+  };
+  const pickMarketResult = async (meta) => {
+    if (editing && meta.currency && editing.currency && meta.currency !== editing.currency) {
+      setMarketStatus('该行情币种为 ' + esc(meta.currency) + '，与当前标的币种 ' + esc(editing.currency) + ' 不一致，请新建对应币种的标的。', 'warn');
+      return;
+    }
+    marketResults.innerHTML = '';
+    setMarketStatus('正在获取 <b>' + esc(meta.name) + '</b> 的最新行情…');
+    try {
+      const quote = await fetchTencentQuote(meta);
+      fillFromMarket(meta, quote);
+      setMarketStatus('已匹配 <b>' + esc(meta.name) + '</b> · 最新价 ' + fmtPrice(quote.price, meta.currency) + ' · ' + esc(normalizeMarketTime(quote.time)), 'ok');
+    } catch (e) {
+      fillFromMarket(meta, null);
+      setMarketStatus('已选择 <b>' + esc(meta.name) + '</b>，但行情获取失败，请手动填写价格后保存。', 'warn');
+    }
+  };
+  const runMarketSearch = async () => {
+    const q = marketQuery.value.trim();
+    if (!q) { marketResults.innerHTML = ''; setMarketStatus('输入名称或代码后搜索，例如：贵州茅台、AAPL、110008。'); return; }
+    setMarketStatus('正在搜索「' + esc(q) + '」…');
+    try {
+      const results = await marketSearch(q);
+      if (!results.length) {
+        marketResults.innerHTML = '';
+        setMarketStatus('没有匹配到「' + esc(q) + '」。可尝试输入代码，或直接手动填写。', 'warn');
+        return;
+      }
+      marketResults.innerHTML = results.map((r, i) => '<button type="button" class="market-result" data-market-index="' + i + '"><span class="mr-main"><b>' + esc(r.name) + '</b><em>' + esc(r.symbol) + ' · ' + esc(r.label) + '</em></span><span class="mr-arrow">' + icon('chevronRight') + '</span></button>').join('');
+      marketResults.querySelectorAll('[data-market-index]').forEach(btn => btn.addEventListener('click', () => pickMarketResult(results[Number(btn.getAttribute('data-market-index'))])));
+      setMarketStatus('找到 ' + results.length + ' 个匹配，选择一个自动填入。', 'ok');
+    } catch (e) {
+      marketResults.innerHTML = '';
+      setMarketStatus('行情搜索暂不可用，请检查网络，或直接手动填写。', 'warn');
+    }
+  };
+  if (marketQuery) {
+    marketQuery.addEventListener('input', () => {
+      clearTimeout(searchTimer);
+      const q = marketQuery.value.trim();
+      if (q.length < 2) { marketResults.innerHTML = ''; setMarketStatus('输入至少 2 个字符开始搜索。'); return; }
+      searchTimer = setTimeout(runMarketSearch, 450);
+    });
+    marketQuery.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); runMarketSearch(); } });
+  }
+  const searchBtn = form.querySelector('#market-search-btn');
+  if (searchBtn) searchBtn.addEventListener('click', runMarketSearch);
+  showMarketStatus();
   form.querySelectorAll('.color-dot').forEach(btn => btn.addEventListener('click', () => {
     form.querySelectorAll('.color-dot').forEach(x => x.classList.remove('active'));
     btn.classList.add('active');
@@ -4779,6 +5186,7 @@ function openInstrumentForm(accountId, instrumentId) {
     if (editing) {
       editing.name = name; editing.symbol = symbol; editing.cls = cls; editing.color = color;
       editing.note = note; editing.color2 = shadeColor(color, -18);
+      editing.market = selectedMarket || null;
       if (price > 0 && Math.abs(price - priceNow(editing.id)) > 0.0000001) {
         upsertPricePoint(editing.id, todayKey(), price);
         state.records.push({ id: uid('rec'), date: todayKey(), type: 'price', accountId: account.id, instrumentId: editing.id, amount: 0, qty: 0, price, fee: 0, fxRate: fxAt(currency, todayKey()), note: '估值更新', createdAt: nowISO() });
@@ -4786,7 +5194,7 @@ function openInstrumentForm(accountId, instrumentId) {
       saveState(); closeSheet(wrap); toast('标的已更新', 'success'); refreshPage(); return;
     }
     const id = uid('inst');
-    const inst = { id, accountId: account.id, name, symbol, cls, currency, color, color2: shadeColor(color, -18), note };
+    const inst = { id, accountId: account.id, name, symbol, cls, currency, color, color2: shadeColor(color, -18), note, market: selectedMarket || null };
     account.instruments.push(inst);
     state.prices[id] = [[todayKey(), price > 0 ? price : 1]];
     const qty = Math.max(0, parseNumber(form.querySelector('#inst-qty') ? form.querySelector('#inst-qty').value : 0));
@@ -4837,17 +5245,27 @@ function openRecordChooser(accountId, instrumentId) {
     setTimeout(() => openRecordForm(account.id, t, instrumentId), 60);
   }));
 }
-function fxRateFieldHTML(ccy, full) {
+function fxRateFieldHTML(ccy, full, value) {
   if (!ccy || ccy === 'CNY') return '';
-  return fieldHTML({ id: 'record-fxrate', label: '成交汇率（可选）', placeholder: '留空则按日期自动取汇率', unit: 'CNY / ' + ccy, inputmode: 'decimal', full: !!full, hint: '用于计算这笔交易的汇兑损益' });
+  return fieldHTML({ id: 'record-fxrate', label: '成交汇率（可选）', value: value == null ? '' : value, placeholder: '留空则按日期自动取汇率', unit: 'CNY / ' + ccy, inputmode: 'decimal', full: !!full, hint: '用于计算这笔交易的汇兑损益' });
 }
 
-function openRecordForm(accountId, type, instrumentId) {
+function openRecordForm(accountId, type, instrumentId, editId) {
+  const editRec = editId ? state.records.find(r => r.id === editId) : null;
+  if (editRec) {
+    type = editRec.type;
+    accountId = editRec.accountId;
+    instrumentId = editRec.instrumentId;
+  }
   const account = accountById(accountId);
   if (!account) return;
   const insts = account.instruments || [];
   const chosen = instrumentId ? insts.find(i => i.id === instrumentId) : (insts[0] || null);
   const info = RECORD_TYPE_INFO[type] || RECORD_TYPE_INFO.deposit;
+  const valueOf = (key, fallback) => editRec && editRec[key] != null ? editRec[key] : (fallback == null ? '' : fallback);
+  const dateVal = valueOf('date', todayKey());
+  const noteVal = valueOf('note', '');
+  const fxVal = editRec && editRec.fxRate ? editRec.fxRate : '';
   const instSelect = () => fieldHTML({
     id: 'record-instrument', label: '标的', type: 'select', full: true,
     value: chosen ? chosen.id : '',
@@ -4855,46 +5273,46 @@ function openRecordForm(accountId, type, instrumentId) {
   });
   let fields = '';
   if (type === 'deposit' || type === 'withdraw') {
-    fields = '<div class="form-grid">' + fieldHTML({ id: 'record-amount', label: '金额', placeholder: '0.00', unit: account.currency, inputmode: 'decimal', full: true }) +
-      fieldHTML({ id: 'record-date', label: '日期', type: 'date', value: todayKey(), attrs: 'max="' + todayKey() + '"' }) +
-      fieldHTML({ id: 'record-note', label: '备注（可选）', placeholder: '例如：工资 / 家庭支出' }) + '</div>' + fxRateFieldHTML(account.currency, true);
+    fields = '<div class="form-grid">' + fieldHTML({ id: 'record-amount', label: '金额', value: valueOf('amount', ''), placeholder: '0.00', unit: account.currency, inputmode: 'decimal', full: true }) +
+      fieldHTML({ id: 'record-date', label: '日期', type: 'date', value: dateVal, attrs: 'max="' + todayKey() + '"' }) +
+      fieldHTML({ id: 'record-note', label: '备注（可选）', value: noteVal, placeholder: '例如：工资 / 家庭支出' }) + '</div>' + fxRateFieldHTML(account.currency, true, fxVal);
   } else if (type === 'buy' || type === 'sell') {
     fields = '<div class="form-grid">' + instSelect() +
-      fieldHTML({ id: 'record-qty', label: '数量', placeholder: '0', inputmode: 'decimal' }) +
-      fieldHTML({ id: 'record-price', label: '成交价', placeholder: '0.00', unit: chosen ? chosen.currency : account.currency, inputmode: 'decimal' }) +
-      fieldHTML({ id: 'record-fee', label: '费用（可选）', placeholder: '0.00', unit: chosen ? chosen.currency : account.currency, inputmode: 'decimal' }) +
-      fieldHTML({ id: 'record-date', label: '日期', type: 'date', value: todayKey(), attrs: 'max="' + todayKey() + '"' }) +
-      fieldHTML({ id: 'record-note', label: '备注（可选）', placeholder: '买入 / 卖出原因', full: true }) + '</div>' +
-      fxRateFieldHTML(chosen ? chosen.currency : account.currency, true) +
+      fieldHTML({ id: 'record-qty', label: '数量', value: valueOf('qty', ''), placeholder: '0', inputmode: 'decimal' }) +
+      fieldHTML({ id: 'record-price', label: '成交价', value: valueOf('price', ''), placeholder: '0.00', unit: chosen ? chosen.currency : account.currency, inputmode: 'decimal' }) +
+      fieldHTML({ id: 'record-fee', label: '费用（可选）', value: valueOf('fee', ''), placeholder: '0.00', unit: chosen ? chosen.currency : account.currency, inputmode: 'decimal' }) +
+      fieldHTML({ id: 'record-date', label: '日期', type: 'date', value: dateVal, attrs: 'max="' + todayKey() + '"' }) +
+      fieldHTML({ id: 'record-note', label: '备注（可选）', value: noteVal, placeholder: '买入 / 卖出原因', full: true }) + '</div>' +
+      fxRateFieldHTML(chosen ? chosen.currency : account.currency, true, fxVal) +
       '<div class="record-preview" id="record-preview">成交金额 <b>—</b></div>';
   } else if (type === 'dividend' || type === 'price') {
     fields = '<div class="form-grid">' + instSelect() +
-      (type === 'dividend' ? fieldHTML({ id: 'record-amount', label: '分红金额', placeholder: '0.00', unit: chosen ? chosen.currency : account.currency, inputmode: 'decimal' }) : '') +
-      fieldHTML({ id: 'record-price', label: type === 'price' ? '最新价格 / 净值' : '价格（可选）', placeholder: '0.00', unit: chosen ? chosen.currency : account.currency, inputmode: 'decimal', full: type === 'price' }) +
-      fieldHTML({ id: 'record-date', label: '日期', type: 'date', value: todayKey(), attrs: 'max="' + todayKey() + '"' }) +
-      fieldHTML({ id: 'record-note', label: '备注（可选）', placeholder: type === 'price' ? '收盘价 / 净值' : '现金分红', full: true }) + '</div>' +
-      (type === 'dividend' ? fxRateFieldHTML(chosen ? chosen.currency : account.currency, true) : '') +
+      (type === 'dividend' ? fieldHTML({ id: 'record-amount', label: '分红金额', value: valueOf('amount', ''), placeholder: '0.00', unit: chosen ? chosen.currency : account.currency, inputmode: 'decimal' }) : '') +
+      fieldHTML({ id: 'record-price', label: type === 'price' ? '最新价格 / 净值' : '价格（可选）', value: valueOf('price', ''), placeholder: '0.00', unit: chosen ? chosen.currency : account.currency, inputmode: 'decimal', full: type === 'price' }) +
+      fieldHTML({ id: 'record-date', label: '日期', type: 'date', value: dateVal, attrs: 'max="' + todayKey() + '"' }) +
+      fieldHTML({ id: 'record-note', label: '备注（可选）', value: noteVal, placeholder: type === 'price' ? '收盘价 / 净值' : '现金分红', full: true }) + '</div>' +
+      (type === 'dividend' ? fxRateFieldHTML(chosen ? chosen.currency : account.currency, true, fxVal) : '') +
       (type === 'price' ? '<div class="info-banner" style="margin-top:12px">' + icon('info') + '<div>更新价格会同时写入价格曲线，并影响持仓市值与收益。</div></div>' : '');
   } else if (type === 'interest' || type === 'fee') {
-    fields = '<div class="form-grid">' + fieldHTML({ id: 'record-amount', label: type === 'interest' ? '利息金额' : '费用金额', placeholder: '0.00', unit: account.currency, inputmode: 'decimal', full: true }) +
-      fieldHTML({ id: 'record-date', label: '日期', type: 'date', value: todayKey(), attrs: 'max="' + todayKey() + '"' }) +
-      fieldHTML({ id: 'record-note', label: '备注（可选）', placeholder: type === 'interest' ? '结息' : '管理费' }) + '</div>';
+    fields = '<div class="form-grid">' + fieldHTML({ id: 'record-amount', label: type === 'interest' ? '利息金额' : '费用金额', value: valueOf('amount', ''), placeholder: '0.00', unit: account.currency, inputmode: 'decimal', full: true }) +
+      fieldHTML({ id: 'record-date', label: '日期', type: 'date', value: dateVal, attrs: 'max="' + todayKey() + '"' }) +
+      fieldHTML({ id: 'record-note', label: '备注（可选）', value: noteVal, placeholder: type === 'interest' ? '结息' : '管理费' }) + '</div>';
   } else if (type === 'fx') {
     fields = '<div class="form-grid">' +
-      fieldHTML({ id: 'fx-from-ccy', label: '从', type: 'select', value: account.currency === 'CNY' ? 'CNY' : account.currency, options: currencyOptions() }) +
-      fieldHTML({ id: 'fx-to-ccy', label: '换到', type: 'select', value: account.currency === 'CNY' ? 'USD' : 'CNY', options: currencyOptions() }) +
-      fieldHTML({ id: 'fx-from-amount', label: '换出金额', placeholder: '0.00', inputmode: 'decimal' }) +
-      fieldHTML({ id: 'fx-to-amount', label: '换入金额', placeholder: '0.00', inputmode: 'decimal' }) +
-      fieldHTML({ id: 'fx-rate', label: '成交汇率（可选）', placeholder: '自动按当前汇率', inputmode: 'decimal', full: true }) +
-      fieldHTML({ id: 'record-date', label: '日期', type: 'date', value: todayKey(), attrs: 'max="' + todayKey() + '"' }) +
-      fieldHTML({ id: 'record-note', label: '备注（可选）', placeholder: '银行换汇' }) + '</div>' +
+      fieldHTML({ id: 'fx-from-ccy', label: '从', type: 'select', value: editRec ? editRec.fromCcy : (account.currency === 'CNY' ? 'CNY' : account.currency), options: currencyOptions() }) +
+      fieldHTML({ id: 'fx-to-ccy', label: '换到', type: 'select', value: editRec ? editRec.toCcy : (account.currency === 'CNY' ? 'USD' : 'CNY'), options: currencyOptions() }) +
+      fieldHTML({ id: 'fx-from-amount', label: '换出金额', value: valueOf('fromAmount', ''), placeholder: '0.00', inputmode: 'decimal' }) +
+      fieldHTML({ id: 'fx-to-amount', label: '换入金额', value: valueOf('toAmount', ''), placeholder: '0.00', inputmode: 'decimal' }) +
+      fieldHTML({ id: 'fx-rate', label: '成交汇率（可选）', value: fxVal, placeholder: '自动按当前汇率', inputmode: 'decimal', full: true }) +
+      fieldHTML({ id: 'record-date', label: '日期', type: 'date', value: dateVal, attrs: 'max="' + todayKey() + '"' }) +
+      fieldHTML({ id: 'record-note', label: '备注（可选）', value: noteVal, placeholder: '银行换汇' }) + '</div>' +
       '<div class="info-banner" style="margin-top:12px">' + icon('info') + '<div>换汇记录用于保留成交汇率与操作痕迹，不会改变账户总资产。跨币种持仓按最新汇率折算。</div></div>';
   }
-  const body = '<form id="record-form"><div class="record-type-banner"><span class="rec-icon ' + (['deposit','sell','dividend','interest'].indexOf(type) >= 0 ? 'gain' : ['withdraw','buy','fee'].indexOf(type) >= 0 ? 'loss' : 'blue') + '">' + icon(info.icon) + '</span><div><div class="record-type-title">' + info.label + '</div><div class="record-type-sub">' + info.desc + ' · ' + esc(account.name) + '</div></div></div>' +
+  const body = '<form id="record-form"><div class="record-type-banner"><span class="rec-icon ' + (['deposit','sell','dividend','interest'].indexOf(type) >= 0 ? 'gain' : ['withdraw','buy','fee'].indexOf(type) >= 0 ? 'loss' : 'blue') + '">' + icon(info.icon) + '</span><div><div class="record-type-title">' + (editRec ? '编辑 · ' + info.label : info.label) + '</div><div class="record-type-sub">' + info.desc + ' · ' + esc(account.name) + '</div></div></div>' +
     fields + '</form>';
   const wrap = openSheet({
-    title: info.label, sub: account.name + ' · ' + account.currency,
-    body, footer: '<button class="btn ghost" data-sheet-close>取消</button><button class="btn primary" data-record-save>' + (type === 'price' ? '更新价格' : '保存记录') + '</button>'
+    title: editRec ? '编辑记录' : info.label, sub: account.name + ' · ' + account.currency,
+    body, footer: '<button class="btn ghost" data-sheet-close>取消</button><button class="btn primary" data-record-save>' + (editRec ? '保存修改' : (type === 'price' ? '更新价格' : '保存记录')) + '</button>'
   });
   const form = wrap.querySelector('#record-form');
   const instSel = form.querySelector('#record-instrument');
@@ -4910,19 +5328,6 @@ function openRecordForm(accountId, type, instrumentId) {
   if (preview) {
     form.querySelectorAll('input').forEach(inp => inp.addEventListener('input', updatePreview));
     updatePreview();
-  }
-  if (instSel && chosen) {
-    instSel.addEventListener('change', () => {
-      const i = insts.find(x => x.id === instSel.value);
-      if (i) {
-        form.querySelectorAll('.amount-input .unit').forEach((u, idx) => {
-          // 保持简单：价格/费用单位跟随标的币种
-          if (idx >= 0 && form.querySelector('#record-price')) {
-            // 不强制替换所有单位，币种通常在创建时已确定
-          }
-        });
-      }
-    });
   }
   wrap.querySelector('[data-record-save]').addEventListener('click', () => {
     const date = (form.querySelector('#record-date') || {}).value || todayKey();
@@ -4943,7 +5348,9 @@ function openRecordForm(accountId, type, instrumentId) {
       if (!(qty > 0) || !(price > 0)) { toast('请填写数量和价格', 'error'); return; }
       if (type === 'sell') {
         const im = computeInstrumentMetrics(inst.id);
-        if (qty > im.qty + 0.000001) { toast('卖出数量超过当前持仓（' + fmtQty(im.qty) + '）', 'error'); return; }
+        let available = im.qty;
+        if (editRec && editRec.type === 'sell' && editRec.instrumentId === inst.id) available += Number(editRec.qty) || 0;
+        if (qty > available + 0.000001) { toast('卖出数量超过当前持仓（' + fmtQty(available) + '）', 'error'); return; }
       }
       baseRec.type = type; baseRec.instrumentId = inst.id; baseRec.qty = qty; baseRec.price = price;
       baseRec.amount = round(qty * price, 2); baseRec.fee = fee; baseRec.fxRate = fxInput > 0 ? fxInput : fxAt(inst.currency, date);
@@ -4959,6 +5366,8 @@ function openRecordForm(accountId, type, instrumentId) {
       const price = parseNumber(priceInput.value);
       if (!(price > 0)) { toast('请输入最新价格', 'error'); return; }
       baseRec.type = type; baseRec.instrumentId = inst.id; baseRec.price = price; baseRec.fxRate = fxAt(inst.currency, date);
+      baseRec.pricePoint = true;
+      if (editRec && editRec.pricePoint) removePricePoint(editRec.instrumentId, editRec.date, editRec.price);
       upsertPricePoint(inst.id, date, price);
     } else if (type === 'fx') {
       const fromCcy = form.querySelector('#fx-from-ccy').value;
@@ -4971,12 +5380,22 @@ function openRecordForm(accountId, type, instrumentId) {
     } else {
       toast('暂不支持这种记录', 'error'); return;
     }
-    baseRec.id = uid('rec');
     state.isDemo = false;
-    state.records.push(baseRec);
-    saveState();
-    closeAllSheets();
-    toast(type === 'price' ? '价格已更新' : '记录已保存', 'success');
+    if (editRec) {
+      const keepId = editRec.id;
+      const keepCreated = editRec.createdAt;
+      Object.keys(editRec).forEach(k => { if (['id', 'createdAt'].indexOf(k) < 0) delete editRec[k]; });
+      Object.assign(editRec, baseRec, { id: keepId, createdAt: keepCreated });
+      saveState();
+      closeAllSheets();
+      toast('记录已更新', 'success');
+    } else {
+      baseRec.id = uid('rec');
+      state.records.push(baseRec);
+      saveState();
+      closeAllSheets();
+      toast(type === 'price' ? '价格已更新' : '记录已保存', 'success');
+    }
     refreshPage();
   });
 }
@@ -4987,12 +5406,12 @@ function openRecordsSheet(scope, id) {
   const isAccount = scope === 'account';
   const list = isAccount ? recordsForAccount(id) : recordsForInstrument(id);
   const title = isAccount ? (accountById(id) ? accountById(id).name + ' · 记录' : '账户记录') : (instrumentById(id) ? instrumentById(id).name + ' · 记录' : '标的记录');
-  const body = list.length ? '<div class="list-card" style="background:transparent;border:0">' + list.slice().reverse().map(r => recordRowHTML(r, { deletable: true })).join('') + '</div>' :
+  const body = list.length ? '<div class="list-card" style="background:transparent;border:0">' + list.slice().reverse().map(r => recordRowHTML(r, { deletable: true, editable: true })).join('') + '</div>' :
     '<div class="empty-state" style="padding:32px 10px"><div class="ico">' + icon('file') + '</div><h3>还没有记录</h3><p>买入、卖出、存入与估值更新都会出现在这里。</p></div>';
   const footer = isAccount ?
     '<button class="btn ghost" data-sheet-close>关闭</button><button class="btn primary" data-action="add-record-account" data-account="' + esc(id) + '">记一笔</button>' :
     '<button class="btn ghost" data-sheet-close>关闭</button><button class="btn primary" data-action="add-record-instrument" data-instrument="' + esc(id) + '">记一笔</button>';
-  openSheet({ title, sub: list.length + ' 条记录 · 点击垃圾桶删除', body, footer });
+  openSheet({ title, sub: list.length + ' 条记录 · 铅笔编辑 / 垃圾桶删除', body, footer });
 }
 
 /* ---------- menus ---------- */
@@ -5012,7 +5431,8 @@ function openInstrumentMenu(instrumentId) {
   if (!i) return;
   const body = '<div class="detail-menu">' +
     '<button class="menu-item" data-action="edit-instrument" data-id="' + esc(i.id) + '">' + icon('edit') + '编辑标的信息' + '<span class="arrow">' + icon('chevronRight') + '</span></button>' +
-    '<button class="menu-item" data-action="open-price-update" data-instrument="' + esc(i.id) + '">' + icon('refresh') + '更新最新价格' + '<span class="arrow">' + icon('chevronRight') + '</span></button>' +
+    (i.market ? '<button class="menu-item" data-action="refresh-quote" data-id="' + esc(i.id) + '">' + icon('refresh') + '刷新行情 · ' + esc(i.market.symbol || i.market.code || '') + '<span class="arrow">' + icon('chevronRight') + '</span></button>' : '<button class="menu-item" data-action="match-market" data-id="' + esc(i.id) + '">' + icon('search') + '匹配行情数据' + '<span class="arrow">' + icon('chevronRight') + '</span></button>') +
+    '<button class="menu-item" data-action="open-price-update" data-instrument="' + esc(i.id) + '">' + icon('refresh') + '手动更新价格' + '<span class="arrow">' + icon('chevronRight') + '</span></button>' +
     '<button class="menu-item" data-action="open-records" data-scope="instrument" data-id="' + esc(i.id) + '">' + icon('file') + '查看全部记录' + '<span class="arrow">' + icon('chevronRight') + '</span></button>' +
     '<button class="menu-item danger" data-action="delete-instrument" data-id="' + esc(i.id) + '">' + icon('trash') + '删除标的' + '<span class="arrow">' + icon('chevronRight') + '</span></button>' +
   '</div>';
@@ -5067,22 +5487,321 @@ function shadeColor(hex, percent) {
   return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
 }
 
+/* ---------- flow corrections ---------- */
+function flowAdjustmentRecords(scope, id, periodKey) {
+  return (state.records || []).filter(r => {
+    if (r.type !== 'flow' || r.periodKey !== periodKey) return false;
+    return scope === 'account' ? (r.accountId === id && !r.instrumentId) : r.instrumentId === id;
+  });
+}
+function openFlowFieldEditor(scope, id, periodKey, field) {
+  const flow = scope === 'account' ? accountFlow(id, periodKey) : instrumentFlow(id, periodKey);
+  if (!flow) return;
+  const meta = FLOW_FIELD_META[field];
+  if (!meta) return;
+  const scopeName = scope === 'account' ? (accountById(id) || {}).name : (instrumentById(id) || {}).name;
+  if (!scopeName) return;
+  const current = Number(flow[field]) || 0;
+  const descriptions = {
+    opening: '修改期初金额后，期末保持不变，资产盈亏会按公式重新计算。',
+    ending: '输入当前期末余额后，资产盈亏会重新计算。',
+    profit: '输入资产盈亏后，期末余额 = 期初 + 净投入 + 盈亏。',
+    in: '输入本期投入总额后，净投入和期末金额会按当前盈亏重算。',
+    out: '输入本期取出总额后，净投入和期末金额会按当前盈亏重算。'
+  };
+  const body = '<form id="flow-edit-form">' +
+    '<div class="info-banner" style="margin-top:0">' + icon('pen') + '<div>' + esc(descriptions[field] || '') + '<br><span class="faint">保存后会写入一条「' + esc(meta.title) + '」记录，便于审计。</span></div></div>' +
+    '<div class="form-section">' + esc(meta.label) + '</div>' +
+    fieldHTML({ id: 'flow-edit-value', label: meta.label, value: Number(current).toFixed(2), inputmode: 'decimal', unit: baseCurrency(), full: true }) +
+    '<div class="flow-edit-current"><span>当前周期</span><b>' + esc(flow.periodLabel || flowPeriodLabel(periodKey)) + '</b></div>' +
+    '<div class="flow-edit-current"><span>当前净投入</span><b>' + fmtMoney(flow.net) + '</b></div>' +
+    '<div class="flow-edit-current"><span>当前期末</span><b>' + fmtMoney(flow.ending) + '</b></div>' +
+  '</form>';
+  const wrap = openSheet({
+    title: '校正' + meta.label, sub: scopeName + ' · ' + (flow.periodLabel || flowPeriodLabel(periodKey)),
+    body, footer: '<button class="btn ghost" data-sheet-close>取消</button><button class="btn primary" data-flow-save>保存校正</button>'
+  });
+  wrap.querySelector('[data-flow-save]').addEventListener('click', () => {
+    const raw = wrap.querySelector('#flow-edit-value').value;
+    if (String(raw).trim() === '') { toast('请输入金额', 'error'); return; }
+    const value = round(parseNumber(raw), 2);
+    if ((field === 'in' || field === 'out') && value < 0) { toast('投入/转出不能为负数', 'error'); return; }
+    const snap = {
+      beginning: round(Number(flow.beginning) || 0, 2),
+      in: round(Number(flow.in) || 0, 2),
+      out: round(Number(flow.out) || 0, 2),
+      ending: round(Number(flow.ending) || 0, 2),
+      profit: round(Number(flow.profit) || 0, 2)
+    };
+    snap.net = round(snap.in - snap.out, 2);
+    if (field === 'opening') {
+      snap.beginning = value;
+      snap.profit = round(snap.ending - snap.beginning - snap.net, 2);
+    } else if (field === 'ending') {
+      snap.ending = value;
+      snap.profit = round(snap.ending - snap.beginning - snap.net, 2);
+    } else if (field === 'profit') {
+      snap.profit = value;
+      snap.ending = round(snap.beginning + snap.net + snap.profit, 2);
+    } else if (field === 'in' || field === 'out') {
+      snap[field] = value;
+      snap.net = round(snap.in - snap.out, 2);
+      snap.ending = round(snap.beginning + snap.net + snap.profit, 2);
+    }
+    const inst = scope === 'instrument' ? instrumentById(id) : null;
+    const accountId = scope === 'account' ? id : (inst ? inst.accountId : null);
+    if (!accountId) return;
+    state.records.push({
+      id: uid('rec'),
+      date: todayKey(),
+      type: 'flow',
+      accountId,
+      instrumentId: scope === 'instrument' ? id : null,
+      amount: value,
+      qty: 0, price: 0, fee: 0, fxRate: 1,
+      flowField: field,
+      periodKey,
+      flowSnapshot: snap,
+      note: meta.title,
+      createdAt: nowISO()
+    });
+    state.isDemo = false;
+    saveState();
+    closeAllSheets();
+    toast(meta.title + '已记录', 'success');
+    refreshPage();
+  });
+}
+function resetFlowAdjustments(scope, id, periodKey) {
+  const list = flowAdjustmentRecords(scope, id, periodKey);
+  if (!list.length) return;
+  confirmDialog({
+    title: '恢复自动计算？',
+    message: '会删除当前周期的手工校正记录，资金流恢复为按账户/标的记录自动计算。',
+    confirmText: '恢复自动', danger: true,
+    onConfirm: () => {
+      const ids = new Set(list.map(r => r.id));
+      state.records = state.records.filter(r => !ids.has(r.id));
+      saveState();
+      closeAllSheets();
+      toast('已恢复自动计算', 'success');
+      refreshPage();
+    }
+  });
+}
+
+
+/* =========================================================
+   12b · 行情匹配 / 搜索 / 报价同步
+   数据源：新浪财经搜索（JSONP）+ 腾讯行情（CORS）
+   ========================================================= */
+const MARKET_SEARCH_TYPES = '11,21,22,23,31,41,81,201,202,203';
+let marketSearchSeq = 0;
+
+function marketFundClass(name) {
+  const n = String(name || '');
+  if (/货币|现金|理财|余额/.test(n)) return 'moneyFund';
+  if (/债|固收|稳健|短债|纯债|存单/.test(n)) return 'bondFund';
+  return 'equityFund';
+}
+function marketMetaFromSina(fields) {
+  const type = String(fields[1] || '');
+  const code = String(fields[2] || '').trim();
+  const qcode = String(fields[3] || '').trim();
+  let name = String(fields[4] || fields[0] || '').trim();
+  if (!code || !qcode || !name) return null;
+  if (MARKET_SEARCH_TYPES.split(',').indexOf(type) < 0) return null;
+  let quoteCode = qcode;
+  let marketType = '';
+  let label = '';
+  let currency = 'CNY';
+  let cls = 'stock';
+  let symbol = code;
+  if (type === '41') {
+    marketType = 'US';
+    label = '美股';
+    currency = 'USD';
+    symbol = code.toUpperCase();
+    quoteCode = 'us' + code.replace(/\..*$/, '').toUpperCase();
+    cls = /ETF|指数|S&P|VANGUARD|ISHARES|SPDR|INVESCO/i.test(name) ? 'etf' : 'stock';
+  } else if (type === '31') {
+    marketType = 'HK';
+    label = '港股';
+    currency = 'HKD';
+    quoteCode = 'hk' + code;
+    cls = /ETF|指数/i.test(name) ? 'etf' : 'stock';
+  } else if (qcode.indexOf('of') === 0) {
+    marketType = 'FUND';
+    label = '场外基金';
+    quoteCode = 'jj' + code;
+    cls = marketFundClass(name);
+  } else if (qcode.indexOf('sh') === 0 || qcode.indexOf('sz') === 0) {
+    marketType = type === '81' ? 'BOND' : (/ETF|LOF/i.test(name) || ['22', '23', '202', '203'].indexOf(type) >= 0 ? 'ETF' : 'A');
+    label = type === '81' ? '债券' : (marketType === 'ETF' ? '场内基金' : 'A股');
+    if (type === '81') cls = 'bond';
+    else if (marketType === 'ETF') cls = /债|国债|转债|信用债/.test(name) ? 'bondFund' : 'etf';
+    else cls = 'stock';
+  } else {
+    return null;
+  }
+  if (marketType === 'A' && (/^sh000/.test(quoteCode) || /^sz399/.test(quoteCode))) return null;
+  return {
+    provider: 'tencent', code: quoteCode, marketType, label, symbol, name,
+    currency, cls, sourceType: type
+  };
+}
+function parseSinaSuggest(raw, query) {
+  const q = String(query || '').trim().toLowerCase();
+  const map = new Map();
+  String(raw || '').split(';').forEach(part => {
+    if (!part) return;
+    const fields = part.split(',');
+    const meta = marketMetaFromSina(fields);
+    if (!meta) return;
+    const existing = map.get(meta.code);
+    if (!existing) { map.set(meta.code, meta); return; }
+    const rank = q => q.indexOf('sh') === 0 || q.indexOf('sz') === 0 ? 2 : q.indexOf('of') === 0 ? 1 : 0;
+    if (rank(meta.code) > rank(existing.code)) map.set(meta.code, meta);
+  });
+  const priority = { A: 1, FUND: 2, ETF: 3, US: 4, HK: 5, BOND: 6 };
+  const score = meta => {
+    if (!q) return 0;
+    const name = String(meta.name || '').toLowerCase();
+    const sym = String(meta.symbol || '').toLowerCase();
+    let n = 0;
+    if (sym === q || name === q) n += 200;
+    if (sym.indexOf(q) === 0) n += 80;
+    if (name.indexOf(q) === 0) n += 60;
+    else if (name.indexOf(q) >= 0) n += 30;
+    if (String(meta.code || '').toLowerCase().indexOf(q) >= 0) n += 20;
+    return n;
+  };
+  return Array.from(map.values()).sort((a, b) => (score(b) - score(a)) || ((priority[a.marketType] || 9) - (priority[b.marketType] || 9))).slice(0, 10);
+}
+function marketSearch(query) {
+  const q = String(query || '').trim();
+  if (!q) return Promise.resolve([]);
+  return new Promise((resolve, reject) => {
+    const seq = ++marketSearchSeq;
+    const script = document.createElement('script');
+    script.charset = 'gbk';
+    script.src = 'https://suggest3.sinajs.cn/suggest/type=' + MARKET_SEARCH_TYPES + '&key=' + encodeURIComponent(q) + '&_=' + Date.now();
+    let settled = false;
+    const cleanup = () => { try { script.remove(); } catch (e) {} };
+    const finish = (fn, value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      cleanup();
+      if (seq !== marketSearchSeq) { resolve([]); return; }
+      fn(value);
+    };
+    const timer = setTimeout(() => finish(reject, new Error('行情搜索超时')), 9000);
+    script.onload = () => {
+      const raw = window.suggestvalue || '';
+      finish(resolve, parseSinaSuggest(raw, q));
+    };
+    script.onerror = () => finish(reject, new Error('行情搜索不可用'));
+    document.head.appendChild(script);
+  });
+}
+async function fetchTencentQuote(market) {
+  if (!market || !market.code) throw new Error('未绑定行情代码');
+  const res = await fetch('https://qt.gtimg.cn/q=' + encodeURIComponent(market.code) + '&_=' + Date.now(), {
+    cache: 'no-store',
+    mode: 'cors'
+  });
+  if (!res.ok) throw new Error('行情请求失败');
+  let text = '';
+  try {
+    const buffer = await res.arrayBuffer();
+    text = new TextDecoder('gbk').decode(buffer);
+  } catch (e) {
+    text = await res.text();
+  }
+  const m = text.match(/="([^"]*)"/);
+  if (!m) throw new Error('未找到行情数据');
+  const f = m[1].split('~');
+  let price = 0, time = '', changePct = 0, prevClose = 0;
+  if (market.code.indexOf('jj') === 0) {
+    price = Number(f[5]);
+    time = f[8] || '';
+    changePct = Number(f[7]) || 0;
+  } else {
+    price = Number(f[3]);
+    prevClose = Number(f[4]);
+    time = f[30] || '';
+    changePct = Number(f[32]) || 0;
+  }
+  if (!(price > 0)) throw new Error('行情价格无效');
+  return { price, prevClose, changePct, time, name: f[1] || market.name, currency: market.currency };
+}
+function normalizeMarketTime(t) {
+  const s = String(t || '').trim();
+  if (/^\d{14}$/.test(s)) return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
+  return s;
+}
+async function refreshQuoteForInstrument(id) {
+  const found = instrumentById(id);
+  if (!found) return;
+  const market = found.market;
+  if (!market || !market.code) { toast('该标的还没有绑定行情代码', 'error'); return; }
+  toast('正在同步行情…');
+  try {
+    const quote = await fetchTencentQuote(market);
+    const account = accountById(found.accountId);
+    const actual = account ? account.instruments.find(x => x.id === id) : null;
+    if (!actual) return;
+    const date = todayKey();
+    upsertPricePoint(id, date, quote.price);
+    const note = '行情同步 · ' + normalizeMarketTime(quote.time);
+    let rec = state.records.find(r => r.type === 'price' && r.instrumentId === id && r.date === date && /行情同步/.test(r.note || ''));
+    if (rec) {
+      rec.price = quote.price;
+      rec.note = note;
+      rec.createdAt = nowISO();
+    } else {
+      state.records.push({
+        id: uid('rec'), date, type: 'price', accountId: found.accountId, instrumentId: id,
+        amount: 0, qty: 0, price: quote.price, fee: 0,
+        fxRate: fxAt(actual.currency, date), pricePoint: true, note,
+        createdAt: nowISO()
+      });
+    }
+    actual.market = Object.assign({}, actual.market, {
+      lastPrice: quote.price,
+      lastUpdated: normalizeMarketTime(quote.time),
+      changePct: quote.changePct
+    });
+    state.isDemo = false;
+    saveState();
+    toast('行情已更新 ' + fmtPrice(quote.price, actual.currency), 'success');
+    refreshPage();
+  } catch (e) {
+    console.warn('行情同步失败', e);
+    toast('行情获取失败，请稍后再试', 'error');
+  }
+}
+
 
 /* =========================================================
    13 · 全局交互 / 动作路由
    ========================================================= */
 function defaultUi() {
-  const first = schemes()[0] ? schemes()[0].id : '';
-  const second = schemes()[1] ? schemes()[1].id : first;
+  const custom = schemesForRebalance();
+  const firstCustom = custom[0] ? custom[0].id : '';
+  const secondCustom = custom[1] ? custom[1].id : firstCustom;
   return {
     accountPeriod: 90,
     accountChartMode: 'value',
     instrumentPeriod: 365,
     instrumentChartMode: 'price',
-    statsPeriod: 365,
-    statsSchemeId: first,
-    rebalanceSchemeId: second,
-    calendarSchemeId: first,
+    trendPeriod: 365,
+    flowAccountPeriod: {},
+    flowInstrumentPeriod: {},
+    statsSchemeId: '__auto_account',
+    rebalanceSchemeId: secondCustom,
+    calendarSchemeId: '__auto_account',
     calendarGroupId: 'all',
     calendarMode: 'day',
     calendarMetric: 'amount',
@@ -5129,6 +5848,13 @@ function handleAction(action, el) {
       closeAllSheets(); setTimeout(() => openAccountMenu(d.id), 50); return;
     case 'open-instrument-menu':
       closeAllSheets(); setTimeout(() => openInstrumentMenu(d.id), 50); return;
+    case 'refresh-quote':
+      closeAllSheets(); setTimeout(() => refreshQuoteForInstrument(d.id), 50); return;
+    case 'match-market': {
+      const im = instrumentById(d.id);
+      if (!im) return;
+      closeAllSheets(); setTimeout(() => openInstrumentForm(im.account.id, im.id), 50); return;
+    }
     case 'edit-account':
       closeAllSheets(); setTimeout(() => openAccountForm(d.id), 50); return;
     case 'edit-instrument': {
@@ -5142,6 +5868,20 @@ function handleAction(action, el) {
       setTimeout(() => deleteAccountById(d.id), 50); return;
     case 'delete-instrument':
       setTimeout(() => deleteInstrumentById(d.id), 50); return;
+    case 'edit-record': {
+      const rec = state.records.find(r => r.id === d.id);
+      if (!rec) return;
+      if (rec.type === 'flow') {
+        closeAllSheets();
+        const scope = rec.instrumentId ? 'instrument' : 'account';
+        const targetId = rec.instrumentId || rec.accountId;
+        setTimeout(() => openFlowFieldEditor(scope, targetId, rec.periodKey, rec.flowField), 50);
+        return;
+      }
+      closeAllSheets();
+      setTimeout(() => openRecordForm(rec.accountId, rec.type, rec.instrumentId, rec.id), 50);
+      return;
+    }
     case 'delete-record': {
       const rec = state.records.find(r => r.id === d.id);
       if (!rec) return;
@@ -5156,7 +5896,14 @@ function handleAction(action, el) {
     case 'set-account-chart-mode': ui.accountChartMode = d.value; refreshPage(); return;
     case 'set-instrument-period': ui.instrumentPeriod = Number(d.value); refreshPage(); return;
     case 'set-instrument-chart-mode': ui.instrumentChartMode = d.value; refreshPage(); return;
-    case 'set-stats-period': ui.statsPeriod = Number(d.value); refreshPage(); return;
+    case 'set-trend-period': ui.trendPeriod = Number(d.value); refreshPage(); return;
+    case 'set-flow-period': {
+      const map = d.scope === 'account' ? (ui.flowAccountPeriod || (ui.flowAccountPeriod = {})) : (ui.flowInstrumentPeriod || (ui.flowInstrumentPeriod = {}));
+      map[d.id] = d.period;
+      refreshPage(); return;
+    }
+    case 'edit-flow-field': openFlowFieldEditor(d.scope, d.id, d.period, d.field); return;
+    case 'reset-flow': resetFlowAdjustments(d.scope, d.id, d.period); return;
     case 'select-stats-scheme': ui.statsSchemeId = d.id; ui.sankeyMode = ui.sankeyMode || 'account'; refreshPage(); return;
     case 'set-sankey-mode': ui.sankeyMode = d.value; refreshPage(); return;
     case 'select-rebalance-scheme': ui.rebalanceSchemeId = d.id; refreshPage(); return;
@@ -5240,14 +5987,14 @@ function moveGroup(groupId, dir) {
 }
 
 function deleteSchemeById(schemeId) {
-  if (schemes().length <= 1) { toast('至少保留一个分组方式', 'error'); return; }
+  if (customSchemes().length <= 1) { toast('至少保留一个自定义分组方式', 'error'); return; }
   const scheme = schemeById(schemeId);
-  if (!scheme) return;
+  if (!scheme || isBuiltinScheme(scheme)) return;
   confirmDialog({
     title: '删除「' + scheme.name + '」？', message: '这个分组方式及其所有目标设置会被删除，账户和交易记录不受影响。', confirmText: '删除', danger: true,
     onConfirm: () => {
       state.schemes = state.schemes.filter(s => s.id !== schemeId);
-      const first = state.schemes[0].id;
+      const first = state.schemes[0] ? state.schemes[0].id : '__auto_account';
       if (ui.statsSchemeId === schemeId) ui.statsSchemeId = first;
       if (ui.rebalanceSchemeId === schemeId) ui.rebalanceSchemeId = first;
       if (ui.calendarSchemeId === schemeId) ui.calendarSchemeId = first;

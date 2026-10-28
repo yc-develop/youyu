@@ -130,6 +130,7 @@ function instrumentIconHTML(inst, extraCls) {
 function qtyUnit(cls) {
   if (cls === 'stock' || cls === 'etf') return '股';
   if (cls === 'deposit') return '笔';
+  if (cls === 'bond') return '张';
   return '份';
 }
 
@@ -167,7 +168,10 @@ function recordRowHTML(rec, opts) {
     '<div class="rec-val">' + recordAmountHTML(rec) +
       (rec.type === 'buy' || rec.type === 'sell' ? '<span class="small">' + esc(meta.label) + '</span>' : '') +
     '</div>' +
-    (o.deletable ? '<button class="rec-del" data-action="delete-record" data-id="' + esc(rec.id) + '" aria-label="删除记录">' + icon('trash') + '</button>' : '') +
+    ((o.editable || o.deletable) ? '<div class="rec-actions">' +
+      (o.editable ? '<button class="rec-edit" data-action="edit-record" data-id="' + esc(rec.id) + '" aria-label="编辑记录">' + icon('pen') + '</button>' : '') +
+      (o.deletable ? '<button class="rec-del" data-action="delete-record" data-id="' + esc(rec.id) + '" aria-label="删除记录">' + icon('trash') + '</button>' : '') +
+    '</div>' : '') +
   '</div>';
 }
 function recordsCardHTML(records, opts) {
@@ -199,8 +203,9 @@ function signedPct(v, digits) { return fmtPct(v, digits == null ? 2 : digits, tr
 function tinyMoney(v) { return fmtMoney(v, { compact: true, decimals: 2 }); }
 
 /* ---------- tabs / chips ---------- */
-function schemeChipsHTML(activeId, actionName) {
-  return '<div class="scheme-strip">' + schemes().map(s => '<button class="chip ' + (s.id === activeId ? 'active' : '') + '" data-action="' + (actionName || 'select-scheme') + '" data-id="' + esc(s.id) + '">' + esc(s.name) + '</button>').join('') +
+function schemeChipsHTML(activeId, actionName, list) {
+  const source = Array.isArray(list) ? list : schemes();
+  return '<div class="scheme-strip">' + source.map(s => '<button class="chip ' + (s.id === activeId ? 'active' : '') + '" data-action="' + (actionName || 'select-scheme') + '" data-id="' + esc(s.id) + '">' + esc(s.name) + '</button>').join('') +
     '<button class="chip add" data-action="new-scheme" aria-label="新建分组方式">' + icon('plus') + '方式</button></div>';
 }
 

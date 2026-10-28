@@ -2,17 +2,20 @@
    13 · 全局交互 / 动作路由
    ========================================================= */
 function defaultUi() {
-  const first = schemes()[0] ? schemes()[0].id : '';
-  const second = schemes()[1] ? schemes()[1].id : first;
+  const custom = schemesForRebalance();
+  const firstCustom = custom[0] ? custom[0].id : '';
+  const secondCustom = custom[1] ? custom[1].id : firstCustom;
   return {
     accountPeriod: 90,
     accountChartMode: 'value',
     instrumentPeriod: 365,
     instrumentChartMode: 'price',
-    statsPeriod: 365,
-    statsSchemeId: first,
-    rebalanceSchemeId: second,
-    calendarSchemeId: first,
+    trendPeriod: 365,
+    flowAccountPeriod: {},
+    flowInstrumentPeriod: {},
+    statsSchemeId: '__auto_account',
+    rebalanceSchemeId: secondCustom,
+    calendarSchemeId: '__auto_account',
     calendarGroupId: 'all',
     calendarMode: 'day',
     calendarMetric: 'amount',
@@ -59,6 +62,13 @@ function handleAction(action, el) {
       closeAllSheets(); setTimeout(() => openAccountMenu(d.id), 50); return;
     case 'open-instrument-menu':
       closeAllSheets(); setTimeout(() => openInstrumentMenu(d.id), 50); return;
+    case 'refresh-quote':
+      closeAllSheets(); setTimeout(() => refreshQuoteForInstrument(d.id), 50); return;
+    case 'match-market': {
+      const im = instrumentById(d.id);
+      if (!im) return;
+      closeAllSheets(); setTimeout(() => openInstrumentForm(im.account.id, im.id), 50); return;
+    }
     case 'edit-account':
       closeAllSheets(); setTimeout(() => openAccountForm(d.id), 50); return;
     case 'edit-instrument': {
@@ -72,6 +82,20 @@ function handleAction(action, el) {
       setTimeout(() => deleteAccountById(d.id), 50); return;
     case 'delete-instrument':
       setTimeout(() => deleteInstrumentById(d.id), 50); return;
+    case 'edit-record': {
+      const rec = state.records.find(r => r.id === d.id);
+      if (!rec) return;
+      if (rec.type === 'flow') {
+        closeAllSheets();
+        const scope = rec.instrumentId ? 'instrument' : 'account';
+        const targetId = rec.instrumentId || rec.accountId;
+        setTimeout(() => openFlowFieldEditor(scope, targetId, rec.periodKey, rec.flowField), 50);
+        return;
+      }
+      closeAllSheets();
+      setTimeout(() => openRecordForm(rec.accountId, rec.type, rec.instrumentId, rec.id), 50);
+      return;
+    }
     case 'delete-record': {
       const rec = state.records.find(r => r.id === d.id);
       if (!rec) return;
@@ -86,7 +110,14 @@ function handleAction(action, el) {
     case 'set-account-chart-mode': ui.accountChartMode = d.value; refreshPage(); return;
     case 'set-instrument-period': ui.instrumentPeriod = Number(d.value); refreshPage(); return;
     case 'set-instrument-chart-mode': ui.instrumentChartMode = d.value; refreshPage(); return;
-    case 'set-stats-period': ui.statsPeriod = Number(d.value); refreshPage(); return;
+    case 'set-trend-period': ui.trendPeriod = Number(d.value); refreshPage(); return;
+    case 'set-flow-period': {
+      const map = d.scope === 'account' ? (ui.flowAccountPeriod || (ui.flowAccountPeriod = {})) : (ui.flowInstrumentPeriod || (ui.flowInstrumentPeriod = {}));
+      map[d.id] = d.period;
+      refreshPage(); return;
+    }
+    case 'edit-flow-field': openFlowFieldEditor(d.scope, d.id, d.period, d.field); return;
+    case 'reset-flow': resetFlowAdjustments(d.scope, d.id, d.period); return;
     case 'select-stats-scheme': ui.statsSchemeId = d.id; ui.sankeyMode = ui.sankeyMode || 'account'; refreshPage(); return;
     case 'set-sankey-mode': ui.sankeyMode = d.value; refreshPage(); return;
     case 'select-rebalance-scheme': ui.rebalanceSchemeId = d.id; refreshPage(); return;
@@ -170,14 +201,14 @@ function moveGroup(groupId, dir) {
 }
 
 function deleteSchemeById(schemeId) {
-  if (schemes().length <= 1) { toast('至少保留一个分组方式', 'error'); return; }
+  if (customSchemes().length <= 1) { toast('至少保留一个自定义分组方式', 'error'); return; }
   const scheme = schemeById(schemeId);
-  if (!scheme) return;
+  if (!scheme || isBuiltinScheme(scheme)) return;
   confirmDialog({
     title: '删除「' + scheme.name + '」？', message: '这个分组方式及其所有目标设置会被删除，账户和交易记录不受影响。', confirmText: '删除', danger: true,
     onConfirm: () => {
       state.schemes = state.schemes.filter(s => s.id !== schemeId);
-      const first = state.schemes[0].id;
+      const first = state.schemes[0] ? state.schemes[0].id : '__auto_account';
       if (ui.statsSchemeId === schemeId) ui.statsSchemeId = first;
       if (ui.rebalanceSchemeId === schemeId) ui.rebalanceSchemeId = first;
       if (ui.calendarSchemeId === schemeId) ui.calendarSchemeId = first;

@@ -2,7 +2,7 @@
    08 · 收益日历（日 / 周 / 月 / 年）
    ========================================================= */
 function calendarSchemeId() {
-  if (!ui.calendarSchemeId || !schemeById(ui.calendarSchemeId)) ui.calendarSchemeId = schemes()[0] ? schemes()[0].id : '';
+  if (!ui.calendarSchemeId || !schemes().some(s => s.id === ui.calendarSchemeId)) ui.calendarSchemeId = '__auto_account';
   return ui.calendarSchemeId;
 }
 function calendarGroupId(schemeId) {
@@ -100,6 +100,8 @@ function renderCalendarPage() {
 
   return header + controls + summaryHTML + nav + bodyHTML +
     '<div class="cal-legend"><span>' + (mode === 'day' || mode === 'week' ? '当月每日盈亏' : mode === 'month' ? '本年每月盈亏' : '年度收益') + '</span><div class="scale"><span class="loss">亏</span><i class="l3"></i><i class="l2"></i><i class="l1"></i><i></i><i class="g1"></i><i class="g2"></i><i class="g3"></i><span class="gain">盈</span></div></div>' +
+    '<div style="height:10px"></div>' +
+    portfolioTrendCard(portfolioSummary()) +
     '<div style="height:10px"></div>';
 }
 

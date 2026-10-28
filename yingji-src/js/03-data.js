@@ -13,7 +13,8 @@ const RECORD_META = {
   interest: { label: '利息',     icon: 'percent',       tone: 'gain' },
   fee:      { label: '费用',     icon: 'minus',         tone: 'loss' },
   price:    { label: '更新估值', icon: 'refresh',       tone: 'blue' },
-  fx:       { label: '换汇',     icon: 'swap',          tone: 'blue' }
+  fx:       { label: '换汇',     icon: 'swap',          tone: 'blue' },
+  flow:     { label: '资金流校正', icon: 'pen',          tone: 'blue' }
 };
 
 /* ---------- persistence ---------- */
@@ -42,6 +43,7 @@ function normalizeState(obj) {
       i.cls = ASSET_CLASSES[i.cls] ? i.cls : 'other';
       i.color = i.color || ASSET_CLASSES[i.cls].color;
       i.color2 = i.color2 || i.color;
+      if (!i.market && SEED_MARKET_MAP[i.id]) i.market = JSON.parse(JSON.stringify(SEED_MARKET_MAP[i.id]));
     });
   });
   obj.records.forEach(r => {
@@ -57,6 +59,12 @@ function normalizeState(obj) {
   obj.prices = obj.prices || {};
   obj.fxHistory = obj.fxHistory || {};
   if (!Array.isArray(obj.schemes) || !obj.schemes.length) obj.schemes = buildSeed().schemes;
+  const seedRisk = obj.schemes.find(s => s.id === 'scheme_risk');
+  const seedSteady = seedRisk && Array.isArray(seedRisk.groups) ? seedRisk.groups.find(g => g.id === 'g_steady') : null;
+  if (seedSteady) {
+    seedSteady.includeClasses = Array.isArray(seedSteady.includeClasses) ? seedSteady.includeClasses : [];
+    if (seedSteady.includeClasses.indexOf('bond') < 0) seedSteady.includeClasses.push('bond');
+  }
   obj.schemes.forEach(s => {
     s.id = s.id || uid('sch');
     s.groups = Array.isArray(s.groups) ? s.groups : [];
@@ -117,7 +125,52 @@ function ensureRates() {
 /* ---------- lookup ---------- */
 function accounts() { return state.accounts || []; }
 function accountById(id) { return accounts().find(a => a.id === id); }
-function schemes() { return state.schemes || []; }
+function customSchemes() { return state.schemes || []; }
+function builtinSchemes() {
+  const acctGroups = accounts().map(a => ({
+    id: '__auto_acc_' + a.id,
+    name: a.name,
+    color: a.color || '#ff9f45',
+    target: 0,
+    auto: true,
+    includeAccounts: [a.id],
+    includeClasses: [],
+    includeInstruments: []
+  }));
+  const instGroups = [];
+  accounts().forEach(a => {
+    instGroups.push({
+      id: '__auto_cash_' + a.id,
+      name: a.name + ' · 现金',
+      color: a.color || '#8e9aaf',
+      target: 0,
+      auto: true,
+      cashOnly: true,
+      includeAccounts: [a.id],
+      includeClasses: [],
+      includeInstruments: []
+    });
+    (a.instruments || []).forEach(inst => {
+      instGroups.push({
+        id: '__auto_inst_' + inst.id,
+        name: inst.name,
+        color: inst.color || ASSET_CLASSES[inst.cls] && ASSET_CLASSES[inst.cls].color || '#ff9f45',
+        target: 0,
+        auto: true,
+        includeAccounts: [],
+        includeClasses: [],
+        includeInstruments: [inst.id]
+      });
+    });
+  });
+  return [
+    { id: '__auto_account', name: '账户分组', desc: '按资金所在账户自动分组', builtin: true, type: 'account', groups: acctGroups },
+    { id: '__auto_instrument', name: '标的分组', desc: '按具体持仓自动分组', builtin: true, type: 'instrument', groups: instGroups }
+  ];
+}
+function schemes() { return builtinSchemes().concat(state.schemes || []); }
+function isBuiltinScheme(scheme) { return !!(scheme && scheme.builtin); }
+function schemesForRebalance() { return state.schemes || []; }
 function schemeById(id) { return schemes().find(s => s.id === id) || schemes()[0]; }
 function groupById(schemeId, groupId) {
   const s = schemeById(schemeId);
@@ -434,11 +487,13 @@ function portfolioSummary() {
 function groupMatches(group, account, inst) {
   if (!group) return false;
   if (inst) {
+    if (group.cashOnly) return false;
     if ((group.includeInstruments || []).indexOf(inst.id) >= 0) return true;
     if ((group.includeClasses || []).indexOf(inst.cls) >= 0) return true;
     if ((group.includeAccounts || []).indexOf(account.id) >= 0) return true;
     return false;
   }
+  if (group.cashOnly) return (group.includeAccounts || []).indexOf(account.id) >= 0;
   if ((group.includeAccounts || []).indexOf(account.id) >= 0) return true;
   if ((group.includeClasses || []).indexOf('cash') >= 0) return true;
   return false;
@@ -739,6 +794,7 @@ function groupBreakdown(schemeId) {
   const tolerance = Number(state.settings.tolerance) || 0;
   items.forEach(it => {
     if (it.id === '__ungrouped') { it.status = 'unassigned'; return; }
+    if (gs.scheme && gs.scheme.builtin) { it.status = 'auto'; return; }
     it.status = it.drift > tolerance ? 'high' : it.drift < -tolerance ? 'low' : 'ok';
   });
   return { scheme: gs.scheme, items, total, tolerance, targetTotal, dates: daily.dates, ungrouped: items.find(x => x.id === '__ungrouped') || null };
@@ -757,24 +813,129 @@ function groupPeriodSummary(schemeId, days) {
 }
 
 /* ---------- flow / waterfall ---------- */
-function accountFlow(accountId) {
-  const am = computeAccountMetrics(accountId);
-  if (!am) return null;
-  return {
-    in: am.deposits, out: am.withdrawals, net: am.netDeposits,
-    beginning: 0, profit: am.marketBase - am.netDeposits, ending: am.marketBase,
-    label: '记账以来'
-  };
+const FLOW_FIELD_META = {
+  opening: { label: '期初金额', title: '期初金额更新' },
+  ending:  { label: '期末余额', title: '期末金额更新' },
+  profit:  { label: '资产盈亏', title: '资产盈亏更新' },
+  in:      { label: '投入',     title: '存入金额更新' },
+  out:     { label: '转出',     title: '取出金额更新' }
+};
+
+function flowPeriodLabel(periodKey) {
+  return periodKey === 'all' ? '记账以来' : periodKey + '年';
 }
-function instrumentFlow(instrumentId) {
+function flowPeriodBounds(periodKey) {
+  if (!periodKey || periodKey === 'all') return { start: null, end: todayKey(), label: '记账以来' };
+  const year = String(periodKey).slice(0, 4);
+  let end = year + '-12-31';
+  if (end > todayKey()) end = todayKey();
+  return { start: year + '-01-01', end: end, label: year + '年' };
+}
+function flowPeriods(scope, id) {
+  const values = new Set(['all']);
+  const recs = scope === 'account' ? recordsForAccount(id) : recordsForInstrument(id);
+  recs.forEach(r => { if (r.date) values.add(String(r.date).slice(0, 4)); });
+  (state.records || []).forEach(r => {
+    if (r.type !== 'flow' || r.periodKey === 'all') return;
+    if (scope === 'account' ? (r.accountId === id && !r.instrumentId) : r.instrumentId === id) values.add(String(r.periodKey));
+  });
+  if (recs.length) values.add(todayKey().slice(0, 4));
+  return Array.from(values).sort((a, b) => a === 'all' ? -1 : b === 'all' ? 1 : Number(b) - Number(a));
+}
+function flowPeriodKey(scope, id) {
+  const map = scope === 'account' ? (ui.flowAccountPeriod || {}) : (ui.flowInstrumentPeriod || {});
+  const key = map[id];
+  return flowPeriods(scope, id).indexOf(key) >= 0 ? key : 'all';
+}
+function flowValueAt(series, date) {
+  if (!series) return 0;
+  const daily = buildDailyAnalytics();
+  let idx = daily.indexMap.get(date);
+  if (idx == null) {
+    for (let i = daily.dates.length - 1; i >= 0; i--) {
+      if (daily.dates[i] <= date) { idx = i; break; }
+    }
+  }
+  return idx == null ? 0 : (series.values[idx] || 0);
+}
+function flowRecordBase(rec, ccy, mode) {
+  const amount = Number(rec.amount) || 0;
+  const fee = Number(rec.fee) || 0;
+  const rate = recordFx(rec, ccy) / rateCNY(baseCurrency());
+  if (mode === 'buy') return (amount + fee) * rate;
+  if (mode === 'sell') return (amount - fee) * rate;
+  if (mode === 'income') return amount * rate;
+  return amount * rate;
+}
+function flowInPeriod(rec, bounds) {
+  if (!rec || !rec.date) return false;
+  if (bounds.start && rec.date < bounds.start) return false;
+  if (bounds.end && rec.date > bounds.end) return false;
+  return true;
+}
+function latestFlowAdjustment(scope, id, periodKey) {
+  const list = (state.records || []).filter(r => {
+    if (r.type !== 'flow' || r.periodKey !== periodKey) return false;
+    return scope === 'account' ? (r.accountId === id && !r.instrumentId) : r.instrumentId === id;
+  });
+  if (!list.length) return null;
+  list.sort((a, b) => String(a.createdAt || a.date).localeCompare(String(b.createdAt || b.date)));
+  return list[list.length - 1];
+}
+function applyFlowAdjustment(scope, id, periodKey, base) {
+  const rec = latestFlowAdjustment(scope, id, periodKey);
+  if (!rec || !rec.flowSnapshot) return base;
+  const out = Object.assign({}, base, rec.flowSnapshot, { adjusted: true, adjustmentId: rec.id });
+  out.net = (Number(out.in) || 0) - (Number(out.out) || 0);
+  return out;
+}
+function accountFlow(accountId, periodKey) {
+  const account = accountById(accountId);
+  if (!account) return null;
+  const key = periodKey || 'all';
+  const bounds = flowPeriodBounds(key);
+  const daily = buildDailyAnalytics();
+  const series = daily.byAccount.get(accountId);
+  const beginning = bounds.start ? flowValueAt(series, addDays(bounds.start, -1)) : 0;
+  const ending = flowValueAt(series, bounds.end);
+  let inAmt = 0, outAmt = 0;
+  recordsForAccount(accountId).forEach(r => {
+    if (!flowInPeriod(r, bounds)) return;
+    if (r.type === 'deposit') inAmt += flowRecordBase(r, account.currency);
+    else if (r.type === 'withdraw') outAmt += flowRecordBase(r, account.currency);
+  });
+  const net = inAmt - outAmt;
+  const profit = ending - beginning - net;
+  return applyFlowAdjustment('account', accountId, key, {
+    scope: 'account', periodKey: key, periodLabel: bounds.label,
+    beginning, in: inAmt, out: outAmt, net, profit, ending,
+    label: bounds.label
+  });
+}
+function instrumentFlow(instrumentId, periodKey) {
   const im = computeInstrumentMetrics(instrumentId);
   if (!im) return null;
-  const out = (im.totalSellNative || 0) * im.curFx + (im.dividendBase || 0);
-  return {
-    in: im.totalBuyBase, out: out, net: im.totalBuyBase - out,
-    beginning: 0, profit: im.marketBase - (im.totalBuyBase - out), ending: im.marketBase,
-    label: '记账以来'
-  };
+  const inst = im.inst;
+  const key = periodKey || 'all';
+  const bounds = flowPeriodBounds(key);
+  const daily = buildDailyAnalytics();
+  const series = daily.byInstrument.get(instrumentId);
+  const beginning = bounds.start ? flowValueAt(series, addDays(bounds.start, -1)) : 0;
+  const ending = flowValueAt(series, bounds.end);
+  let inAmt = 0, outAmt = 0;
+  recordsForInstrument(instrumentId).forEach(r => {
+    if (!flowInPeriod(r, bounds)) return;
+    if (r.type === 'buy') inAmt += flowRecordBase(r, inst.currency, 'buy');
+    else if (r.type === 'sell') outAmt += flowRecordBase(r, inst.currency, 'sell');
+    else if (r.type === 'dividend') outAmt += flowRecordBase(r, inst.currency, 'income');
+  });
+  const net = inAmt - outAmt;
+  const profit = ending - beginning - net;
+  return applyFlowAdjustment('instrument', instrumentId, key, {
+    scope: 'instrument', periodKey: key, periodLabel: bounds.label,
+    beginning, in: inAmt, out: outAmt, net, profit, ending,
+    label: bounds.label
+  });
 }
 
 /* ---------- current snapshot for a group ---------- */
@@ -812,6 +973,7 @@ function priceSeriesRange(instrumentId, days) {
 function recordAccount(rec) { return accountById(rec.accountId); }
 function recordInstrument(rec) { return rec.instrumentId ? instrumentById(rec.instrumentId) : null; }
 function recordCurrency(rec) {
+  if (rec.type === 'flow') return baseCurrency();
   const inst = recordInstrument(rec);
   if (inst) return inst.currency;
   const acc = recordAccount(rec);
@@ -824,6 +986,10 @@ function recordTitle(rec) {
   if (rec.type === 'fx') {
     return '换汇 ' + (rec.fromCcy || '') + ' → ' + (rec.toCcy || '');
   }
+  if (rec.type === 'flow') {
+    const fm = FLOW_FIELD_META[rec.flowField] || FLOW_FIELD_META.opening;
+    return (inst ? inst.name : acc ? acc.name : '') + ' · ' + fm.title + ' · ' + flowPeriodLabel(rec.periodKey);
+  }
   if (rec.type === 'price') return inst ? inst.name + ' · 估值更新' : '估值更新';
   if (rec.type === 'buy' || rec.type === 'sell' || rec.type === 'dividend') {
     return (inst ? inst.name : acc ? acc.name : '') + ' · ' + meta.label;
@@ -835,11 +1001,18 @@ function recordAmountHTML(rec) {
   const inst = recordInstrument(rec);
   const ccy = recordCurrency(rec);
   if (rec.type === 'price') return '<span class="mono">' + fmtPrice(rec.price, ccy) + '</span>';
-  if (rec.type === 'fx') return '<span class="mono">' + fmtMoney(rec.fromAmount || 0, { currency: rec.fromCcy, decimals: 0 }) + ' → ' + fmtMoney(rec.toAmount || 0, { currency: rec.toCcy, decimals: 0 }) + '</span>';
+  if (rec.type === 'flow') {
+    const v = Number(rec.amount) || 0;
+    const sign = rec.flowField === 'out' ? '−' : rec.flowField === 'in' ? '+' : rec.flowField === 'profit' ? (v > 0 ? '+' : v < 0 ? '-' : '') : '';
+    const cls = rec.flowField === 'out' ? 'loss' : (rec.flowField === 'in' || (rec.flowField === 'profit' && v > 0)) ? 'gain' : (rec.flowField === 'profit' && v < 0 ? 'loss' : '');
+    const body = (rec.flowField === 'opening' || rec.flowField === 'ending') ? fmtMoney(v, { currency: ccy }) : sign + fmtMoney(Math.abs(v), { currency: ccy });
+    return '<span class="' + cls + '">' + body + '</span>';
+  }
+  if (rec.type === 'fx') return '<span class="mono">' + fmtMoney(rec.fromAmount || 0, { currency: rec.fromCcy }) + ' → ' + fmtMoney(rec.toAmount || 0, { currency: rec.toCcy }) + '</span>';
   const positive = rec.type === 'deposit' || rec.type === 'sell' || rec.type === 'dividend' || rec.type === 'interest';
   const cls = positive ? 'gain' : (rec.type === 'withdraw' || rec.type === 'buy' || rec.type === 'fee' ? 'loss' : '');
   const sign = positive ? '+' : '-';
-  return '<span class="' + cls + '">' + sign + fmtMoney(rec.amount, { currency: ccy, compact: Math.abs(rec.amount) >= 10000 }) + '</span>';
+  return '<span class="' + cls + '">' + sign + fmtMoney(rec.amount, { currency: ccy }) + '</span>';
 }
 function recordSubHTML(rec) {
   const parts = [rec.date];
@@ -849,14 +1022,17 @@ function recordSubHTML(rec) {
     if (rec.fee) parts.push('费用 ' + fmtMoney(rec.fee, { currency: recordCurrency(rec) }));
   } else if (rec.type === 'price') {
     // 价格已在上方金额位置展示，避免重复
+  } else if (rec.type === 'flow') {
+    parts.push(flowPeriodLabel(rec.periodKey));
+    parts.push('手工校正');
   }
-  if (rec.note && !(rec.type === 'price' && /估值更新|价格更新/.test(rec.note))) parts.push(rec.note);
+  if (rec.note && !(rec.type === 'price' && /估值更新|价格更新/.test(rec.note)) && rec.type !== 'flow') parts.push(rec.note);
   return parts.map(esc).join(' · ');
 }
 function recordTone(rec) {
   if (rec.type === 'deposit' || rec.type === 'sell' || rec.type === 'dividend' || rec.type === 'interest') return 'gain';
   if (rec.type === 'withdraw' || rec.type === 'buy' || rec.type === 'fee') return 'loss';
-  if (rec.type === 'price') return 'blue';
+  if (rec.type === 'price' || rec.type === 'flow') return 'blue';
   return 'accent';
 }
 
@@ -878,9 +1054,16 @@ function addRecord(rec) {
   }, rec));
   saveState();
 }
+function removePricePoint(instrumentId, date, price) {
+  const list = state.prices[instrumentId];
+  if (!list) return;
+  const idx = list.findIndex(([d, p]) => d === date && Math.abs(Number(p) - Number(price)) < 1e-9);
+  if (idx >= 0) list.splice(idx, 1);
+}
 function deleteRecord(recId) {
   const rec = state.records.find(r => r.id === recId);
   if (!rec) return;
+  if (rec.type === 'price' && rec.pricePoint) removePricePoint(rec.instrumentId, rec.date, rec.price);
   state.records = state.records.filter(r => r.id !== recId);
   saveState();
 }

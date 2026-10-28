@@ -22,12 +22,18 @@ function renderSettingsPage() {
     settingRowHTML('隐藏金额', state.settings.hideAmounts ? '已隐藏' : '显示金额', state.settings.hideAmounts ? 'eyeOff' : 'eye', 'toggle-hide', '适合在公共场合查看', '<span class="switch ' + (state.settings.hideAmounts ? 'on' : '') + '"></span>') +
     settingRowHTML('再平衡容忍带', '±' + (Number(state.settings.tolerance) || 0).toFixed(1) + '%', 'scale', 'open-tolerance', '偏离目标多少时提示再平衡') +
   '</div></div>' +
-  '<div class="settings-group"><div class="label">分组方式</div><div class="settings-card">' +
-    schemes().map(s => '<a class="scheme-manage-row" href="#/groups/' + encodeURIComponent(s.id) + '">' +
+  '<div class="settings-group"><div class="label">默认分组 · 自动</div><div class="settings-card">' +
+    builtinSchemes().map(s => '<div class="scheme-manage-row">' +
+      '<span class="dot" style="background:' + ((s.groups.find(g => g.id.indexOf('__auto_cash_') !== 0) || s.groups[0] || {}).color || '#ff9f45') + '"></span>' +
+      '<span class="sm-main"><span class="t">' + esc(s.name) + ' <span class="auto-tag">自动</span></span><span class="s">' + s.groups.length + ' 个分组 · 按' + (s.type === 'account' ? '账户' : '标的') + '实时生成</span></span>' +
+      '<span class="setting-value" style="font-size:8.5px">只读</span></div>').join('') +
+  '</div></div>' +
+  '<div class="settings-group"><div class="label">自定义分组</div><div class="settings-card">' +
+    customSchemes().map(s => '<a class="scheme-manage-row" href="#/groups/' + encodeURIComponent(s.id) + '">' +
       '<span class="dot" style="background:' + ((s.groups[0] && s.groups[0].color) || '#ff9f45') + '"></span>' +
       '<span class="sm-main"><span class="t">' + esc(s.name) + '</span><span class="s">' + s.groups.length + ' 个分组 · 目标 ' + schemeTargetTotal(s).toFixed(0) + '%</span></span>' +
       '<span class="chev">' + icon('chevronRight') + '</span></a>').join('') +
-    '<button class="setting-row" data-action="new-scheme"><span class="setting-icon accent">' + icon('plus') + '</span><span class="setting-main"><span class="t">新建分组方式</span><span class="s">用不同视角切分同一份资产</span></span><span class="setting-value">' + icon('chevronRight') + '</span></button>' +
+    '<button class="setting-row" data-action="new-scheme"><span class="setting-icon accent">' + icon('plus') + '</span><span class="setting-main"><span class="t">新建自定义分组</span><span class="s">用不同视角切分同一份资产</span></span><span class="setting-value">' + icon('chevronRight') + '</span></button>' +
   '</div></div>' +
   '<div class="settings-group"><div class="label">多币种汇率</div><div class="settings-card">' +
     '<button class="setting-row" data-action="open-rates"><span class="setting-icon blue">' + icon('swap') + '</span><span class="setting-main"><span class="t">汇率管理</span><span class="s">1 USD = ' + fmtPrice(rateCNY('USD') / rateCNY(base), base) + ' · 手动维护</span></span><span class="setting-value">管理' + icon('chevronRight') + '</span></button>' +

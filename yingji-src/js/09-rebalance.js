@@ -2,7 +2,9 @@
    09 · 再平衡 / 目标配置
    ========================================================= */
 function rebalanceSchemeId() {
-  if (!ui.rebalanceSchemeId || !schemeById(ui.rebalanceSchemeId)) ui.rebalanceSchemeId = schemes()[0] ? schemes()[0].id : '';
+  const custom = schemesForRebalance();
+  const found = custom.find(s => s.id === ui.rebalanceSchemeId);
+  if (!found) ui.rebalanceSchemeId = (custom[1] || custom[0]) ? (custom[1] || custom[0]).id : '';
   return ui.rebalanceSchemeId;
 }
 
@@ -25,7 +27,7 @@ function renderRebalancePage() {
     actions: '<button class="icon-btn" data-action="open-target-editor" data-scheme="' + esc(sid) + '" aria-label="调整目标">' + icon('sliders') + '</button>' +
       '<a class="icon-btn" href="#/groups/' + encodeURIComponent(sid) + '" aria-label="管理分组">' + icon('grid') + '</a>'
   }) +
-  schemeChipsHTML(sid, 'select-rebalance-scheme') +
+  schemeChipsHTML(sid, 'select-rebalance-scheme', schemesForRebalance()) +
   '<section class="card" style="padding:16px 14px 14px;margin-top:2px">' +
     '<div class="card-head" style="padding:0"><div><h2>当前 vs 目标</h2><div class="sub">' + esc(scheme ? scheme.name : '') + ' · 目标为 ' + baseCurrency() + ' 口径</div></div><span class="tiny">±' + tolerance.toFixed(1) + '% 容忍</span></div>' +
     '<div class="donut-pair" style="margin-top:16px">' +
@@ -71,7 +73,7 @@ function rebalanceRows(items, tolerance) {
 
 function openTargetEditor(sid) {
   const scheme = schemeById(sid || rebalanceSchemeId());
-  if (!scheme) return;
+  if (!scheme || isBuiltinScheme(scheme)) return;
   const tolerance = Number(state.settings.tolerance) || 0;
   const body = '<form id="target-form">' +
     '<div class="info-banner" style="margin-top:0">' + icon('target') + '<div>目标比例合计建议为 100%。你可以为每个分组设定一个目标占比，允许 ±' + tolerance.toFixed(1) + '% 的偏离。</div></div>' +

@@ -92,7 +92,14 @@ function openInstrumentForm(accountId, instrumentId) {
   const editing = instrumentId ? instrumentById(instrumentId) : null;
   const classes = Object.keys(ASSET_CLASSES).filter(c => c !== 'cash').map(c => ({ value: c, label: ASSET_CLASSES[c].name }));
   const colors = ['#ff6b35', '#ff9f45', '#5b8cff', '#b18cff', '#43d6b0', '#f2c45c', '#ff7a00', '#2b6bf3', '#c9d1d9', '#9ca3af'];
-  const body = '<form id="instrument-form"><div class="form-grid">' +
+  const body = '<form id="instrument-form">' +
+    '<div class="market-search-block">' +
+      '<div class="market-search-head"><span>行情匹配</span><span class="market-source">新浪搜索 · 腾讯报价 · 仅供估值参考</span></div>' +
+      '<div class="market-search-row"><input class="input" id="market-query" placeholder="搜索名称 / 代码：茅台、AAPL、110008、国债ETF" autocomplete="off" spellcheck="false"><button type="button" class="btn sm" id="market-search-btn">' + icon('search') + '搜索</button></div>' +
+      '<div id="market-results" class="market-results"></div>' +
+      '<div id="market-status" class="market-status">支持 A股、场外基金、场内 ETF、美股、港股、债券。选中后自动填入最新价格。</div>' +
+    '</div>' +
+    '<div class="form-grid">' +
     fieldHTML({ id: 'inst-name', label: '标的名称', value: editing ? editing.name : '', placeholder: '例如：苹果 / 沪深300ETF', full: true }) +
     fieldHTML({ id: 'inst-symbol', label: '代码 / 简称', value: editing ? editing.symbol : '', placeholder: 'AAPL / 000051' }) +
     fieldHTML({ id: 'inst-class', label: '资产类别', type: 'select', value: editing ? editing.cls : 'stock', options: classes }) +
@@ -111,6 +118,84 @@ function openInstrumentForm(accountId, instrumentId) {
     body, footer: '<button class="btn ghost" data-sheet-close>取消</button><button class="btn primary" data-inst-save>' + (editing ? '保存' : '添加标的') + '</button>'
   });
   const form = wrap.querySelector('#instrument-form');
+  let selectedMarket = editing && editing.market ? JSON.parse(JSON.stringify(editing.market)) : null;
+  const marketStatus = form.querySelector('#market-status');
+  const marketResults = form.querySelector('#market-results');
+  const marketQuery = form.querySelector('#market-query');
+  let searchTimer = null;
+  const setMarketStatus = (html, cls) => {
+    if (!marketStatus) return;
+    marketStatus.className = 'market-status ' + (cls || '');
+    marketStatus.innerHTML = html;
+  };
+  const showMarketStatus = () => {
+    if (selectedMarket) {
+      setMarketStatus('已连接 <b>' + esc(selectedMarket.label || '') + '</b> · ' + esc(selectedMarket.symbol || '') + (selectedMarket.lastUpdated ? ' · ' + esc(selectedMarket.lastUpdated) : '') + ' · 可手动刷新行情', 'ok');
+    } else if (!editing) {
+      setMarketStatus('支持 A股、场外基金、场内 ETF、美股、港股、债券。选中后自动填入最新价格。');
+    }
+  };
+  const fillFromMarket = (meta, quote) => {
+    form.querySelector('#inst-name').value = meta.name || '';
+    form.querySelector('#inst-symbol').value = meta.symbol || meta.code || '';
+    const clsSel = form.querySelector('#inst-class');
+    if (clsSel && meta.cls) clsSel.value = meta.cls;
+    const ccySel2 = form.querySelector('#inst-currency');
+    if (ccySel2 && !editing && meta.currency) ccySel2.value = meta.currency;
+    const priceInput = form.querySelector('#inst-price');
+    if (priceInput && quote && quote.price > 0) priceInput.value = String(quote.price);
+    const unit = form.querySelector('#inst-cost-unit');
+    if (unit && meta.currency) unit.textContent = meta.currency;
+    selectedMarket = Object.assign({}, meta, quote ? { lastPrice: quote.price, lastUpdated: normalizeMarketTime(quote.time) } : {});
+    showMarketStatus();
+  };
+  const pickMarketResult = async (meta) => {
+    if (editing && meta.currency && editing.currency && meta.currency !== editing.currency) {
+      setMarketStatus('该行情币种为 ' + esc(meta.currency) + '，与当前标的币种 ' + esc(editing.currency) + ' 不一致，请新建对应币种的标的。', 'warn');
+      return;
+    }
+    marketResults.innerHTML = '';
+    setMarketStatus('正在获取 <b>' + esc(meta.name) + '</b> 的最新行情…');
+    try {
+      const quote = await fetchTencentQuote(meta);
+      fillFromMarket(meta, quote);
+      setMarketStatus('已匹配 <b>' + esc(meta.name) + '</b> · 最新价 ' + fmtPrice(quote.price, meta.currency) + ' · ' + esc(normalizeMarketTime(quote.time)), 'ok');
+    } catch (e) {
+      fillFromMarket(meta, null);
+      setMarketStatus('已选择 <b>' + esc(meta.name) + '</b>，但行情获取失败，请手动填写价格后保存。', 'warn');
+    }
+  };
+  const runMarketSearch = async () => {
+    const q = marketQuery.value.trim();
+    if (!q) { marketResults.innerHTML = ''; setMarketStatus('输入名称或代码后搜索，例如：贵州茅台、AAPL、110008。'); return; }
+    setMarketStatus('正在搜索「' + esc(q) + '」…');
+    try {
+      const results = await marketSearch(q);
+      if (!results.length) {
+        marketResults.innerHTML = '';
+        setMarketStatus('没有匹配到「' + esc(q) + '」。可尝试输入代码，或直接手动填写。', 'warn');
+        return;
+      }
+      marketResults.innerHTML = results.map((r, i) => '<button type="button" class="market-result" data-market-index="' + i + '"><span class="mr-main"><b>' + esc(r.name) + '</b><em>' + esc(r.symbol) + ' · ' + esc(r.label) + '</em></span><span class="mr-arrow">' + icon('chevronRight') + '</span></button>').join('');
+      marketResults.querySelectorAll('[data-market-index]').forEach(btn => btn.addEventListener('click', () => pickMarketResult(results[Number(btn.getAttribute('data-market-index'))])));
+      setMarketStatus('找到 ' + results.length + ' 个匹配，选择一个自动填入。', 'ok');
+    } catch (e) {
+      marketResults.innerHTML = '';
+      setMarketStatus('行情搜索暂不可用，请检查网络，或直接手动填写。', 'warn');
+    }
+  };
+  if (marketQuery) {
+    marketQuery.addEventListener('input', () => {
+      clearTimeout(searchTimer);
+      const q = marketQuery.value.trim();
+      if (q.length < 2) { marketResults.innerHTML = ''; setMarketStatus('输入至少 2 个字符开始搜索。'); return; }
+      searchTimer = setTimeout(runMarketSearch, 450);
+    });
+    marketQuery.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); runMarketSearch(); } });
+  }
+  const searchBtn = form.querySelector('#market-search-btn');
+  if (searchBtn) searchBtn.addEventListener('click', runMarketSearch);
+  showMarketStatus();
   form.querySelectorAll('.color-dot').forEach(btn => btn.addEventListener('click', () => {
     form.querySelectorAll('.color-dot').forEach(x => x.classList.remove('active'));
     btn.classList.add('active');
@@ -137,6 +222,7 @@ function openInstrumentForm(accountId, instrumentId) {
     if (editing) {
       editing.name = name; editing.symbol = symbol; editing.cls = cls; editing.color = color;
       editing.note = note; editing.color2 = shadeColor(color, -18);
+      editing.market = selectedMarket || null;
       if (price > 0 && Math.abs(price - priceNow(editing.id)) > 0.0000001) {
         upsertPricePoint(editing.id, todayKey(), price);
         state.records.push({ id: uid('rec'), date: todayKey(), type: 'price', accountId: account.id, instrumentId: editing.id, amount: 0, qty: 0, price, fee: 0, fxRate: fxAt(currency, todayKey()), note: '估值更新', createdAt: nowISO() });
@@ -144,7 +230,7 @@ function openInstrumentForm(accountId, instrumentId) {
       saveState(); closeSheet(wrap); toast('标的已更新', 'success'); refreshPage(); return;
     }
     const id = uid('inst');
-    const inst = { id, accountId: account.id, name, symbol, cls, currency, color, color2: shadeColor(color, -18), note };
+    const inst = { id, accountId: account.id, name, symbol, cls, currency, color, color2: shadeColor(color, -18), note, market: selectedMarket || null };
     account.instruments.push(inst);
     state.prices[id] = [[todayKey(), price > 0 ? price : 1]];
     const qty = Math.max(0, parseNumber(form.querySelector('#inst-qty') ? form.querySelector('#inst-qty').value : 0));
@@ -195,17 +281,27 @@ function openRecordChooser(accountId, instrumentId) {
     setTimeout(() => openRecordForm(account.id, t, instrumentId), 60);
   }));
 }
-function fxRateFieldHTML(ccy, full) {
+function fxRateFieldHTML(ccy, full, value) {
   if (!ccy || ccy === 'CNY') return '';
-  return fieldHTML({ id: 'record-fxrate', label: '成交汇率（可选）', placeholder: '留空则按日期自动取汇率', unit: 'CNY / ' + ccy, inputmode: 'decimal', full: !!full, hint: '用于计算这笔交易的汇兑损益' });
+  return fieldHTML({ id: 'record-fxrate', label: '成交汇率（可选）', value: value == null ? '' : value, placeholder: '留空则按日期自动取汇率', unit: 'CNY / ' + ccy, inputmode: 'decimal', full: !!full, hint: '用于计算这笔交易的汇兑损益' });
 }
 
-function openRecordForm(accountId, type, instrumentId) {
+function openRecordForm(accountId, type, instrumentId, editId) {
+  const editRec = editId ? state.records.find(r => r.id === editId) : null;
+  if (editRec) {
+    type = editRec.type;
+    accountId = editRec.accountId;
+    instrumentId = editRec.instrumentId;
+  }
   const account = accountById(accountId);
   if (!account) return;
   const insts = account.instruments || [];
   const chosen = instrumentId ? insts.find(i => i.id === instrumentId) : (insts[0] || null);
   const info = RECORD_TYPE_INFO[type] || RECORD_TYPE_INFO.deposit;
+  const valueOf = (key, fallback) => editRec && editRec[key] != null ? editRec[key] : (fallback == null ? '' : fallback);
+  const dateVal = valueOf('date', todayKey());
+  const noteVal = valueOf('note', '');
+  const fxVal = editRec && editRec.fxRate ? editRec.fxRate : '';
   const instSelect = () => fieldHTML({
     id: 'record-instrument', label: '标的', type: 'select', full: true,
     value: chosen ? chosen.id : '',
@@ -213,46 +309,46 @@ function openRecordForm(accountId, type, instrumentId) {
   });
   let fields = '';
   if (type === 'deposit' || type === 'withdraw') {
-    fields = '<div class="form-grid">' + fieldHTML({ id: 'record-amount', label: '金额', placeholder: '0.00', unit: account.currency, inputmode: 'decimal', full: true }) +
-      fieldHTML({ id: 'record-date', label: '日期', type: 'date', value: todayKey(), attrs: 'max="' + todayKey() + '"' }) +
-      fieldHTML({ id: 'record-note', label: '备注（可选）', placeholder: '例如：工资 / 家庭支出' }) + '</div>' + fxRateFieldHTML(account.currency, true);
+    fields = '<div class="form-grid">' + fieldHTML({ id: 'record-amount', label: '金额', value: valueOf('amount', ''), placeholder: '0.00', unit: account.currency, inputmode: 'decimal', full: true }) +
+      fieldHTML({ id: 'record-date', label: '日期', type: 'date', value: dateVal, attrs: 'max="' + todayKey() + '"' }) +
+      fieldHTML({ id: 'record-note', label: '备注（可选）', value: noteVal, placeholder: '例如：工资 / 家庭支出' }) + '</div>' + fxRateFieldHTML(account.currency, true, fxVal);
   } else if (type === 'buy' || type === 'sell') {
     fields = '<div class="form-grid">' + instSelect() +
-      fieldHTML({ id: 'record-qty', label: '数量', placeholder: '0', inputmode: 'decimal' }) +
-      fieldHTML({ id: 'record-price', label: '成交价', placeholder: '0.00', unit: chosen ? chosen.currency : account.currency, inputmode: 'decimal' }) +
-      fieldHTML({ id: 'record-fee', label: '费用（可选）', placeholder: '0.00', unit: chosen ? chosen.currency : account.currency, inputmode: 'decimal' }) +
-      fieldHTML({ id: 'record-date', label: '日期', type: 'date', value: todayKey(), attrs: 'max="' + todayKey() + '"' }) +
-      fieldHTML({ id: 'record-note', label: '备注（可选）', placeholder: '买入 / 卖出原因', full: true }) + '</div>' +
-      fxRateFieldHTML(chosen ? chosen.currency : account.currency, true) +
+      fieldHTML({ id: 'record-qty', label: '数量', value: valueOf('qty', ''), placeholder: '0', inputmode: 'decimal' }) +
+      fieldHTML({ id: 'record-price', label: '成交价', value: valueOf('price', ''), placeholder: '0.00', unit: chosen ? chosen.currency : account.currency, inputmode: 'decimal' }) +
+      fieldHTML({ id: 'record-fee', label: '费用（可选）', value: valueOf('fee', ''), placeholder: '0.00', unit: chosen ? chosen.currency : account.currency, inputmode: 'decimal' }) +
+      fieldHTML({ id: 'record-date', label: '日期', type: 'date', value: dateVal, attrs: 'max="' + todayKey() + '"' }) +
+      fieldHTML({ id: 'record-note', label: '备注（可选）', value: noteVal, placeholder: '买入 / 卖出原因', full: true }) + '</div>' +
+      fxRateFieldHTML(chosen ? chosen.currency : account.currency, true, fxVal) +
       '<div class="record-preview" id="record-preview">成交金额 <b>—</b></div>';
   } else if (type === 'dividend' || type === 'price') {
     fields = '<div class="form-grid">' + instSelect() +
-      (type === 'dividend' ? fieldHTML({ id: 'record-amount', label: '分红金额', placeholder: '0.00', unit: chosen ? chosen.currency : account.currency, inputmode: 'decimal' }) : '') +
-      fieldHTML({ id: 'record-price', label: type === 'price' ? '最新价格 / 净值' : '价格（可选）', placeholder: '0.00', unit: chosen ? chosen.currency : account.currency, inputmode: 'decimal', full: type === 'price' }) +
-      fieldHTML({ id: 'record-date', label: '日期', type: 'date', value: todayKey(), attrs: 'max="' + todayKey() + '"' }) +
-      fieldHTML({ id: 'record-note', label: '备注（可选）', placeholder: type === 'price' ? '收盘价 / 净值' : '现金分红', full: true }) + '</div>' +
-      (type === 'dividend' ? fxRateFieldHTML(chosen ? chosen.currency : account.currency, true) : '') +
+      (type === 'dividend' ? fieldHTML({ id: 'record-amount', label: '分红金额', value: valueOf('amount', ''), placeholder: '0.00', unit: chosen ? chosen.currency : account.currency, inputmode: 'decimal' }) : '') +
+      fieldHTML({ id: 'record-price', label: type === 'price' ? '最新价格 / 净值' : '价格（可选）', value: valueOf('price', ''), placeholder: '0.00', unit: chosen ? chosen.currency : account.currency, inputmode: 'decimal', full: type === 'price' }) +
+      fieldHTML({ id: 'record-date', label: '日期', type: 'date', value: dateVal, attrs: 'max="' + todayKey() + '"' }) +
+      fieldHTML({ id: 'record-note', label: '备注（可选）', value: noteVal, placeholder: type === 'price' ? '收盘价 / 净值' : '现金分红', full: true }) + '</div>' +
+      (type === 'dividend' ? fxRateFieldHTML(chosen ? chosen.currency : account.currency, true, fxVal) : '') +
       (type === 'price' ? '<div class="info-banner" style="margin-top:12px">' + icon('info') + '<div>更新价格会同时写入价格曲线，并影响持仓市值与收益。</div></div>' : '');
   } else if (type === 'interest' || type === 'fee') {
-    fields = '<div class="form-grid">' + fieldHTML({ id: 'record-amount', label: type === 'interest' ? '利息金额' : '费用金额', placeholder: '0.00', unit: account.currency, inputmode: 'decimal', full: true }) +
-      fieldHTML({ id: 'record-date', label: '日期', type: 'date', value: todayKey(), attrs: 'max="' + todayKey() + '"' }) +
-      fieldHTML({ id: 'record-note', label: '备注（可选）', placeholder: type === 'interest' ? '结息' : '管理费' }) + '</div>';
+    fields = '<div class="form-grid">' + fieldHTML({ id: 'record-amount', label: type === 'interest' ? '利息金额' : '费用金额', value: valueOf('amount', ''), placeholder: '0.00', unit: account.currency, inputmode: 'decimal', full: true }) +
+      fieldHTML({ id: 'record-date', label: '日期', type: 'date', value: dateVal, attrs: 'max="' + todayKey() + '"' }) +
+      fieldHTML({ id: 'record-note', label: '备注（可选）', value: noteVal, placeholder: type === 'interest' ? '结息' : '管理费' }) + '</div>';
   } else if (type === 'fx') {
     fields = '<div class="form-grid">' +
-      fieldHTML({ id: 'fx-from-ccy', label: '从', type: 'select', value: account.currency === 'CNY' ? 'CNY' : account.currency, options: currencyOptions() }) +
-      fieldHTML({ id: 'fx-to-ccy', label: '换到', type: 'select', value: account.currency === 'CNY' ? 'USD' : 'CNY', options: currencyOptions() }) +
-      fieldHTML({ id: 'fx-from-amount', label: '换出金额', placeholder: '0.00', inputmode: 'decimal' }) +
-      fieldHTML({ id: 'fx-to-amount', label: '换入金额', placeholder: '0.00', inputmode: 'decimal' }) +
-      fieldHTML({ id: 'fx-rate', label: '成交汇率（可选）', placeholder: '自动按当前汇率', inputmode: 'decimal', full: true }) +
-      fieldHTML({ id: 'record-date', label: '日期', type: 'date', value: todayKey(), attrs: 'max="' + todayKey() + '"' }) +
-      fieldHTML({ id: 'record-note', label: '备注（可选）', placeholder: '银行换汇' }) + '</div>' +
+      fieldHTML({ id: 'fx-from-ccy', label: '从', type: 'select', value: editRec ? editRec.fromCcy : (account.currency === 'CNY' ? 'CNY' : account.currency), options: currencyOptions() }) +
+      fieldHTML({ id: 'fx-to-ccy', label: '换到', type: 'select', value: editRec ? editRec.toCcy : (account.currency === 'CNY' ? 'USD' : 'CNY'), options: currencyOptions() }) +
+      fieldHTML({ id: 'fx-from-amount', label: '换出金额', value: valueOf('fromAmount', ''), placeholder: '0.00', inputmode: 'decimal' }) +
+      fieldHTML({ id: 'fx-to-amount', label: '换入金额', value: valueOf('toAmount', ''), placeholder: '0.00', inputmode: 'decimal' }) +
+      fieldHTML({ id: 'fx-rate', label: '成交汇率（可选）', value: fxVal, placeholder: '自动按当前汇率', inputmode: 'decimal', full: true }) +
+      fieldHTML({ id: 'record-date', label: '日期', type: 'date', value: dateVal, attrs: 'max="' + todayKey() + '"' }) +
+      fieldHTML({ id: 'record-note', label: '备注（可选）', value: noteVal, placeholder: '银行换汇' }) + '</div>' +
       '<div class="info-banner" style="margin-top:12px">' + icon('info') + '<div>换汇记录用于保留成交汇率与操作痕迹，不会改变账户总资产。跨币种持仓按最新汇率折算。</div></div>';
   }
-  const body = '<form id="record-form"><div class="record-type-banner"><span class="rec-icon ' + (['deposit','sell','dividend','interest'].indexOf(type) >= 0 ? 'gain' : ['withdraw','buy','fee'].indexOf(type) >= 0 ? 'loss' : 'blue') + '">' + icon(info.icon) + '</span><div><div class="record-type-title">' + info.label + '</div><div class="record-type-sub">' + info.desc + ' · ' + esc(account.name) + '</div></div></div>' +
+  const body = '<form id="record-form"><div class="record-type-banner"><span class="rec-icon ' + (['deposit','sell','dividend','interest'].indexOf(type) >= 0 ? 'gain' : ['withdraw','buy','fee'].indexOf(type) >= 0 ? 'loss' : 'blue') + '">' + icon(info.icon) + '</span><div><div class="record-type-title">' + (editRec ? '编辑 · ' + info.label : info.label) + '</div><div class="record-type-sub">' + info.desc + ' · ' + esc(account.name) + '</div></div></div>' +
     fields + '</form>';
   const wrap = openSheet({
-    title: info.label, sub: account.name + ' · ' + account.currency,
-    body, footer: '<button class="btn ghost" data-sheet-close>取消</button><button class="btn primary" data-record-save>' + (type === 'price' ? '更新价格' : '保存记录') + '</button>'
+    title: editRec ? '编辑记录' : info.label, sub: account.name + ' · ' + account.currency,
+    body, footer: '<button class="btn ghost" data-sheet-close>取消</button><button class="btn primary" data-record-save>' + (editRec ? '保存修改' : (type === 'price' ? '更新价格' : '保存记录')) + '</button>'
   });
   const form = wrap.querySelector('#record-form');
   const instSel = form.querySelector('#record-instrument');
@@ -268,19 +364,6 @@ function openRecordForm(accountId, type, instrumentId) {
   if (preview) {
     form.querySelectorAll('input').forEach(inp => inp.addEventListener('input', updatePreview));
     updatePreview();
-  }
-  if (instSel && chosen) {
-    instSel.addEventListener('change', () => {
-      const i = insts.find(x => x.id === instSel.value);
-      if (i) {
-        form.querySelectorAll('.amount-input .unit').forEach((u, idx) => {
-          // 保持简单：价格/费用单位跟随标的币种
-          if (idx >= 0 && form.querySelector('#record-price')) {
-            // 不强制替换所有单位，币种通常在创建时已确定
-          }
-        });
-      }
-    });
   }
   wrap.querySelector('[data-record-save]').addEventListener('click', () => {
     const date = (form.querySelector('#record-date') || {}).value || todayKey();
@@ -301,7 +384,9 @@ function openRecordForm(accountId, type, instrumentId) {
       if (!(qty > 0) || !(price > 0)) { toast('请填写数量和价格', 'error'); return; }
       if (type === 'sell') {
         const im = computeInstrumentMetrics(inst.id);
-        if (qty > im.qty + 0.000001) { toast('卖出数量超过当前持仓（' + fmtQty(im.qty) + '）', 'error'); return; }
+        let available = im.qty;
+        if (editRec && editRec.type === 'sell' && editRec.instrumentId === inst.id) available += Number(editRec.qty) || 0;
+        if (qty > available + 0.000001) { toast('卖出数量超过当前持仓（' + fmtQty(available) + '）', 'error'); return; }
       }
       baseRec.type = type; baseRec.instrumentId = inst.id; baseRec.qty = qty; baseRec.price = price;
       baseRec.amount = round(qty * price, 2); baseRec.fee = fee; baseRec.fxRate = fxInput > 0 ? fxInput : fxAt(inst.currency, date);
@@ -317,6 +402,8 @@ function openRecordForm(accountId, type, instrumentId) {
       const price = parseNumber(priceInput.value);
       if (!(price > 0)) { toast('请输入最新价格', 'error'); return; }
       baseRec.type = type; baseRec.instrumentId = inst.id; baseRec.price = price; baseRec.fxRate = fxAt(inst.currency, date);
+      baseRec.pricePoint = true;
+      if (editRec && editRec.pricePoint) removePricePoint(editRec.instrumentId, editRec.date, editRec.price);
       upsertPricePoint(inst.id, date, price);
     } else if (type === 'fx') {
       const fromCcy = form.querySelector('#fx-from-ccy').value;
@@ -329,12 +416,22 @@ function openRecordForm(accountId, type, instrumentId) {
     } else {
       toast('暂不支持这种记录', 'error'); return;
     }
-    baseRec.id = uid('rec');
     state.isDemo = false;
-    state.records.push(baseRec);
-    saveState();
-    closeAllSheets();
-    toast(type === 'price' ? '价格已更新' : '记录已保存', 'success');
+    if (editRec) {
+      const keepId = editRec.id;
+      const keepCreated = editRec.createdAt;
+      Object.keys(editRec).forEach(k => { if (['id', 'createdAt'].indexOf(k) < 0) delete editRec[k]; });
+      Object.assign(editRec, baseRec, { id: keepId, createdAt: keepCreated });
+      saveState();
+      closeAllSheets();
+      toast('记录已更新', 'success');
+    } else {
+      baseRec.id = uid('rec');
+      state.records.push(baseRec);
+      saveState();
+      closeAllSheets();
+      toast(type === 'price' ? '价格已更新' : '记录已保存', 'success');
+    }
     refreshPage();
   });
 }
@@ -345,12 +442,12 @@ function openRecordsSheet(scope, id) {
   const isAccount = scope === 'account';
   const list = isAccount ? recordsForAccount(id) : recordsForInstrument(id);
   const title = isAccount ? (accountById(id) ? accountById(id).name + ' · 记录' : '账户记录') : (instrumentById(id) ? instrumentById(id).name + ' · 记录' : '标的记录');
-  const body = list.length ? '<div class="list-card" style="background:transparent;border:0">' + list.slice().reverse().map(r => recordRowHTML(r, { deletable: true })).join('') + '</div>' :
+  const body = list.length ? '<div class="list-card" style="background:transparent;border:0">' + list.slice().reverse().map(r => recordRowHTML(r, { deletable: true, editable: true })).join('') + '</div>' :
     '<div class="empty-state" style="padding:32px 10px"><div class="ico">' + icon('file') + '</div><h3>还没有记录</h3><p>买入、卖出、存入与估值更新都会出现在这里。</p></div>';
   const footer = isAccount ?
     '<button class="btn ghost" data-sheet-close>关闭</button><button class="btn primary" data-action="add-record-account" data-account="' + esc(id) + '">记一笔</button>' :
     '<button class="btn ghost" data-sheet-close>关闭</button><button class="btn primary" data-action="add-record-instrument" data-instrument="' + esc(id) + '">记一笔</button>';
-  openSheet({ title, sub: list.length + ' 条记录 · 点击垃圾桶删除', body, footer });
+  openSheet({ title, sub: list.length + ' 条记录 · 铅笔编辑 / 垃圾桶删除', body, footer });
 }
 
 /* ---------- menus ---------- */
@@ -370,7 +467,8 @@ function openInstrumentMenu(instrumentId) {
   if (!i) return;
   const body = '<div class="detail-menu">' +
     '<button class="menu-item" data-action="edit-instrument" data-id="' + esc(i.id) + '">' + icon('edit') + '编辑标的信息' + '<span class="arrow">' + icon('chevronRight') + '</span></button>' +
-    '<button class="menu-item" data-action="open-price-update" data-instrument="' + esc(i.id) + '">' + icon('refresh') + '更新最新价格' + '<span class="arrow">' + icon('chevronRight') + '</span></button>' +
+    (i.market ? '<button class="menu-item" data-action="refresh-quote" data-id="' + esc(i.id) + '">' + icon('refresh') + '刷新行情 · ' + esc(i.market.symbol || i.market.code || '') + '<span class="arrow">' + icon('chevronRight') + '</span></button>' : '<button class="menu-item" data-action="match-market" data-id="' + esc(i.id) + '">' + icon('search') + '匹配行情数据' + '<span class="arrow">' + icon('chevronRight') + '</span></button>') +
+    '<button class="menu-item" data-action="open-price-update" data-instrument="' + esc(i.id) + '">' + icon('refresh') + '手动更新价格' + '<span class="arrow">' + icon('chevronRight') + '</span></button>' +
     '<button class="menu-item" data-action="open-records" data-scope="instrument" data-id="' + esc(i.id) + '">' + icon('file') + '查看全部记录' + '<span class="arrow">' + icon('chevronRight') + '</span></button>' +
     '<button class="menu-item danger" data-action="delete-instrument" data-id="' + esc(i.id) + '">' + icon('trash') + '删除标的' + '<span class="arrow">' + icon('chevronRight') + '</span></button>' +
   '</div>';
@@ -423,4 +521,107 @@ function shadeColor(hex, percent) {
   let b = (num & 0x0000FF) + Math.round(255 * percent / 100);
   r = clamp(r, 0, 255); g = clamp(g, 0, 255); b = clamp(b, 0, 255);
   return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+}
+
+/* ---------- flow corrections ---------- */
+function flowAdjustmentRecords(scope, id, periodKey) {
+  return (state.records || []).filter(r => {
+    if (r.type !== 'flow' || r.periodKey !== periodKey) return false;
+    return scope === 'account' ? (r.accountId === id && !r.instrumentId) : r.instrumentId === id;
+  });
+}
+function openFlowFieldEditor(scope, id, periodKey, field) {
+  const flow = scope === 'account' ? accountFlow(id, periodKey) : instrumentFlow(id, periodKey);
+  if (!flow) return;
+  const meta = FLOW_FIELD_META[field];
+  if (!meta) return;
+  const scopeName = scope === 'account' ? (accountById(id) || {}).name : (instrumentById(id) || {}).name;
+  if (!scopeName) return;
+  const current = Number(flow[field]) || 0;
+  const descriptions = {
+    opening: '修改期初金额后，期末保持不变，资产盈亏会按公式重新计算。',
+    ending: '输入当前期末余额后，资产盈亏会重新计算。',
+    profit: '输入资产盈亏后，期末余额 = 期初 + 净投入 + 盈亏。',
+    in: '输入本期投入总额后，净投入和期末金额会按当前盈亏重算。',
+    out: '输入本期取出总额后，净投入和期末金额会按当前盈亏重算。'
+  };
+  const body = '<form id="flow-edit-form">' +
+    '<div class="info-banner" style="margin-top:0">' + icon('pen') + '<div>' + esc(descriptions[field] || '') + '<br><span class="faint">保存后会写入一条「' + esc(meta.title) + '」记录，便于审计。</span></div></div>' +
+    '<div class="form-section">' + esc(meta.label) + '</div>' +
+    fieldHTML({ id: 'flow-edit-value', label: meta.label, value: Number(current).toFixed(2), inputmode: 'decimal', unit: baseCurrency(), full: true }) +
+    '<div class="flow-edit-current"><span>当前周期</span><b>' + esc(flow.periodLabel || flowPeriodLabel(periodKey)) + '</b></div>' +
+    '<div class="flow-edit-current"><span>当前净投入</span><b>' + fmtMoney(flow.net) + '</b></div>' +
+    '<div class="flow-edit-current"><span>当前期末</span><b>' + fmtMoney(flow.ending) + '</b></div>' +
+  '</form>';
+  const wrap = openSheet({
+    title: '校正' + meta.label, sub: scopeName + ' · ' + (flow.periodLabel || flowPeriodLabel(periodKey)),
+    body, footer: '<button class="btn ghost" data-sheet-close>取消</button><button class="btn primary" data-flow-save>保存校正</button>'
+  });
+  wrap.querySelector('[data-flow-save]').addEventListener('click', () => {
+    const raw = wrap.querySelector('#flow-edit-value').value;
+    if (String(raw).trim() === '') { toast('请输入金额', 'error'); return; }
+    const value = round(parseNumber(raw), 2);
+    if ((field === 'in' || field === 'out') && value < 0) { toast('投入/转出不能为负数', 'error'); return; }
+    const snap = {
+      beginning: round(Number(flow.beginning) || 0, 2),
+      in: round(Number(flow.in) || 0, 2),
+      out: round(Number(flow.out) || 0, 2),
+      ending: round(Number(flow.ending) || 0, 2),
+      profit: round(Number(flow.profit) || 0, 2)
+    };
+    snap.net = round(snap.in - snap.out, 2);
+    if (field === 'opening') {
+      snap.beginning = value;
+      snap.profit = round(snap.ending - snap.beginning - snap.net, 2);
+    } else if (field === 'ending') {
+      snap.ending = value;
+      snap.profit = round(snap.ending - snap.beginning - snap.net, 2);
+    } else if (field === 'profit') {
+      snap.profit = value;
+      snap.ending = round(snap.beginning + snap.net + snap.profit, 2);
+    } else if (field === 'in' || field === 'out') {
+      snap[field] = value;
+      snap.net = round(snap.in - snap.out, 2);
+      snap.ending = round(snap.beginning + snap.net + snap.profit, 2);
+    }
+    const inst = scope === 'instrument' ? instrumentById(id) : null;
+    const accountId = scope === 'account' ? id : (inst ? inst.accountId : null);
+    if (!accountId) return;
+    state.records.push({
+      id: uid('rec'),
+      date: todayKey(),
+      type: 'flow',
+      accountId,
+      instrumentId: scope === 'instrument' ? id : null,
+      amount: value,
+      qty: 0, price: 0, fee: 0, fxRate: 1,
+      flowField: field,
+      periodKey,
+      flowSnapshot: snap,
+      note: meta.title,
+      createdAt: nowISO()
+    });
+    state.isDemo = false;
+    saveState();
+    closeAllSheets();
+    toast(meta.title + '已记录', 'success');
+    refreshPage();
+  });
+}
+function resetFlowAdjustments(scope, id, periodKey) {
+  const list = flowAdjustmentRecords(scope, id, periodKey);
+  if (!list.length) return;
+  confirmDialog({
+    title: '恢复自动计算？',
+    message: '会删除当前周期的手工校正记录，资金流恢复为按账户/标的记录自动计算。',
+    confirmText: '恢复自动', danger: true,
+    onConfirm: () => {
+      const ids = new Set(list.map(r => r.id));
+      state.records = state.records.filter(r => !ids.has(r.id));
+      saveState();
+      closeAllSheets();
+      toast('已恢复自动计算', 'success');
+      refreshPage();
+    }
+  });
 }

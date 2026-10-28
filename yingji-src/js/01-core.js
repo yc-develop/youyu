@@ -22,6 +22,7 @@ const ASSET_CLASSES = {
   cash:      { name: '现金',       short: '现金', color: '#8e9aaf', group: 'cash' },
   moneyFund: { name: '货币基金',   short: '货基', color: '#43d6b0', group: 'cash' },
   bondFund:  { name: '债券基金',   short: '债基', color: '#5b8cff', group: 'income' },
+  bond:      { name: '债券',       short: '债券', color: '#7c9cff', group: 'income' },
   deposit:   { name: '银行存款',   short: '定存', color: '#7c9cff', group: 'income' },
   equityFund:{ name: '股票基金',   short: '股基', color: '#ff9f45', group: 'equity' },
   stock:     { name: '股票',       short: '股票', color: '#ff5d6c', group: 'equity' },
@@ -169,7 +170,7 @@ function fmtMoney(n, opts) {
   const sign = o.sign ? (v > 0 ? '+' : v < 0 ? '-' : '') : (v < 0 ? '-' : '');
   if (state && state.settings && state.settings.hideAmounts && !o.reveal) return sign + sym + '••••';
   const compact = o.compact && Math.abs(v) >= 10000 && !o.full;
-  const body = fmtNumber(Math.abs(v), { decimals: o.decimals, compact: compact });
+  const body = fmtNumber(Math.abs(v), { decimals: o.decimals == null ? 2 : o.decimals, compact: compact });
   return sign + sym + (o.space === false ? '' : '') + body;
 }
 function fmtPct(v, digits, signed) {
