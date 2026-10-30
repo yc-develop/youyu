@@ -1750,10 +1750,10 @@ function buildSeed() {
     id: a.id,
     instruments: (SEED_INSTRUMENTS[a.id] || []).map(x => Object.assign({}, x, { id: x.id, accountId: a.id }))
   }));
-  const prices = {};
+  const seriesPrices = {};
   Object.keys(SEED_INSTRUMENTS).forEach(accId => {
     (SEED_INSTRUMENTS[accId] || []).forEach(inst => {
-      prices[inst.id] = makePriceSeries(SEED_PRICES[inst.id], 501);
+      seriesPrices[inst.id] = makePriceSeries(SEED_PRICES[inst.id], 501);
     });
   });
   const fxHistory = {};
@@ -1795,7 +1795,7 @@ function buildSeed() {
       const rec = instById[b.inst];
       if (!rec) return;
       const d = seedDate(b.offset);
-      const price = seriesPriceAt(prices[b.inst], d);
+      const price = seriesPriceAt(seriesPrices[b.inst], d);
       const amount = round(b.qty * price, 2);
       const fee = rec.inst.cls === 'stock' || rec.inst.cls === 'etf' ? Math.max(1, round(amount * 0.0004, 2)) : 0;
       buyCost += amount + fee;
@@ -1811,7 +1811,7 @@ function buildSeed() {
       const rec = instById[s.inst];
       if (!rec) return;
       const d = seedDate(s.offset);
-      const price = seriesPriceAt(prices[s.inst], d);
+      const price = seriesPriceAt(seriesPrices[s.inst], d);
       const amount = round(s.qty * price, 2);
       const fee = rec.inst.cls === 'stock' || rec.inst.cls === 'etf' ? Math.max(1, round(amount * 0.0004, 2)) : 0;
       sellProceeds += amount - fee;
@@ -1866,7 +1866,7 @@ function buildSeed() {
         const d = seedDate(off);
         addRecord({
           date: d, type: 'price', accountId: account.id, instrumentId: inst.id,
-          price: seriesPriceAt(prices[inst.id], d),
+          price: seriesPriceAt(seriesPrices[inst.id], d),
           note: isDeposit ? '利息结转' : isMoney ? '收益结转' : '估值更新',
           fxRate: account.currency === 'CNY' ? 1 : seriesFxAt(fxHistory[account.currency], d)
         });
@@ -1898,6 +1898,19 @@ function buildSeed() {
     }
   ];
 
+  const storedPrices = {};
+  const addPricePoint = (id, date, price) => {
+    if (!id || !(Number(price) > 0)) return;
+    if (!storedPrices[id]) storedPrices[id] = [];
+    const idx = storedPrices[id].findIndex(([d]) => d === date);
+    if (idx >= 0) storedPrices[id][idx][1] = Number(price);
+    else storedPrices[id].push([date, Number(price), 'record']);
+  };
+  records.forEach(r => {
+    if (!r.instrumentId) return;
+    if (r.type === 'buy' || r.type === 'sell' || r.type === 'price') addPricePoint(r.instrumentId, r.date, r.price);
+  });
+  Object.keys(storedPrices).forEach(id => storedPrices[id].sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
   return {
     version: SCHEMA,
     createdAt: nowISO(),
@@ -1914,7 +1927,7 @@ function buildSeed() {
     instrumentTypes: defaultInstrumentTypes(),
     accounts,
     records,
-    prices,
+    prices: storedPrices,
     fxHistory,
     schemes,
     rebalance: { schemes: {}, targets: {} },
@@ -3058,13 +3071,13 @@ function recordTone(rec) {
 }
 
 /* ---------- mutation helpers ---------- */
-function upsertPricePoint(instrumentId, date, price) {
+function upsertPricePoint(instrumentId, date, price, source) {
   if (!state.prices[instrumentId]) state.prices[instrumentId] = [];
   const list = state.prices[instrumentId];
   const idx = list.findIndex(([d]) => d === date);
-  if (idx >= 0) list[idx][1] = price;
+  if (idx >= 0) { list[idx][1] = price; list[idx][2] = source || list[idx][2] || 'record'; }
   else {
-    list.push([date, price]);
+    list.push([date, price, source || 'record']);
     list.sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0);
   }
 }
@@ -4187,7 +4200,7 @@ function instrumentChartCard(im) {
     chartHTML = chartEmptyHTML(inst.market ? '行情已接入，价格历史会随每日刷新积累' : '还没有足够的价格历史', 174);
   }
   return '<div class="detail-chart-card">' +
-    '<div class="chart-head"><div><h2>价格走势</h2><div class="sub">' + (rangeText || '暂无数据') + ' · ' + inst.currency + ' 原币计价' + '</div></div>' +
+    '<div class="chart-head"><div><h2>价格走势</h2><div class="sub">' + (rangeText || '暂无数据') + ' · ' + inst.currency + ' 原币计价 · ' + (inst.market ? '行情自动同步' : '按记录生成') + '</div></div>' +
       '<div class="segmented small chart-toggle"><button class="seg ' + (mode === 'price' ? 'active' : '') + '" data-action="set-instrument-chart-mode" data-value="price">价格</button><button class="seg ' + (mode === 'return' ? 'active' : '') + '" data-action="set-instrument-chart-mode" data-value="return">收益率</button></div></div>' +
     chartHTML + metricsHTML +
     '<div class="period-row"><div class="segmented small">' + [30, 90, 365, 0].map(d => '<button class="seg ' + (period === d ? 'active' : '') + '" data-action="set-instrument-period" data-value="' + d + '">' + labels[d] + '</button>').join('') + '</div>' +
@@ -5136,7 +5149,7 @@ function renderSettingsPage() {
   '<div class="settings-group"><div class="label">关于</div><div class="settings-card">' +
     '<div class="setting-row"><span class="setting-icon accent">' + icon('shield') + '</span><span class="setting-main"><span class="t">本地存储</span><span class="s">所有数据保存在浏览器 localStorage，不上传服务器。清除浏览器数据会丢失账本，请定期导出备份。</span></span></div>' +
     '<div class="setting-row"><span class="setting-icon blue">' + icon('chart') + '</span><span class="setting-main"><span class="t">行情数据</span><span class="s">名称搜索来自新浪财经，最新报价来自腾讯行情；公开接口可能受网络影响，仅供估值参考。</span></span></div>' +
-    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v1.4</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
+    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v1.5</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
   '</div></div>' +
   '<div class="version">' + esc(APP_NAME) + ' · 投资组合<br>不构成投资建议 · 数据仅供参考</div>' +
   '<div style="height:8px"></div>';
@@ -5533,7 +5546,7 @@ function openInstrumentForm(accountId, instrumentId) {
     const id = uid('inst');
     const inst = { id, accountId: account.id, name, symbol, cls, currency, color, color2: shadeColor(color, -18), note, market: selectedMarket || null };
     account.instruments.push(inst);
-    state.prices[id] = [[todayKey(), price > 0 ? price : 1]];
+    state.prices[id] = [[todayKey(), price > 0 ? price : 1, 'record']];
     const qty = Math.max(0, parseNumber(form.querySelector('#inst-qty') ? form.querySelector('#inst-qty').value : 0));
     if (qty > 0) {
       const cost = parseNumber(form.querySelector('#inst-cost') ? form.querySelector('#inst-cost').value : 0) || price || 1;
@@ -6069,46 +6082,61 @@ function normalizeMarketTime(t) {
   if (/^\d{14}$/.test(s)) return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
   return s;
 }
-async function refreshQuoteForInstrument(id) {
+function quoteDateFrom(time) {
+  const s = normalizeMarketTime(time);
+  const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (!m) return todayKey();
+  return m[1] > todayKey() ? todayKey() : m[1];
+}
+async function refreshQuoteForInstrument(id, opts) {
+  const o = opts || {};
   const found = instrumentById(id);
-  if (!found) return;
+  if (!found) return false;
   const market = found.market;
-  if (!market || !market.code) { toast('该标的还没有绑定行情代码', 'error'); return; }
-  toast('正在同步行情…');
+  if (!market || !market.code) { if (!o.silent) toast('该标的还没有绑定行情代码', 'error'); return false; }
+  if (!o.silent) toast('正在同步行情…');
   try {
     const quote = await fetchTencentQuote(market);
     const account = accountById(found.accountId);
     const actual = account ? account.instruments.find(x => x.id === id) : null;
-    if (!actual) return;
-    const date = todayKey();
-    upsertPricePoint(id, date, quote.price);
-    const note = '行情同步 · ' + normalizeMarketTime(quote.time);
-    let rec = state.records.find(r => r.type === 'price' && r.instrumentId === id && r.date === date && /行情同步/.test(r.note || ''));
-    if (rec) {
-      rec.price = quote.price;
-      rec.note = note;
-      rec.createdAt = nowISO();
-    } else {
-      state.records.push({
-        id: uid('rec'), date, type: 'price', accountId: found.accountId, instrumentId: id,
-        amount: 0, qty: 0, price: quote.price, fee: 0,
-        fxRate: fxAt(actual.currency, date), pricePoint: true, note,
-        createdAt: nowISO()
-      });
-    }
+    if (!actual) return false;
+    const date = quoteDateFrom(quote.time);
+    upsertPricePoint(id, date, quote.price, 'market');
     actual.market = Object.assign({}, actual.market, {
       lastPrice: quote.price,
       lastUpdated: normalizeMarketTime(quote.time),
+      lastQuoteDate: date,
       changePct: quote.changePct
     });
-    state.isDemo = false;
     saveState();
-    toast('行情已更新 ' + fmtPrice(quote.price, actual.currency), 'success');
-    refreshPage();
+    if (!o.silent) {
+      toast('行情已更新 ' + fmtPrice(quote.price, actual.currency), 'success');
+      refreshPage();
+    }
+    return true;
   } catch (e) {
     console.warn('行情同步失败', e);
-    toast('行情获取失败，请稍后再试', 'error');
+    if (!o.silent) toast('行情获取失败，请稍后再试', 'error');
+    return false;
   }
+}
+async function autoRefreshMarketQuotes() {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+  const last = Date.parse((state.meta && state.meta.marketSyncedAt) || '');
+  if (Number.isFinite(last) && Date.now() - last < 30 * 60 * 1000) return;
+  const list = [];
+  accounts().forEach(a => (a.instruments || []).forEach(i => { if (i.market && i.market.code) list.push(i.id); }));
+  if (!list.length) return;
+  let changed = false;
+  for (const id of list) {
+    const ok = await refreshQuoteForInstrument(id, { silent: true });
+    changed = changed || ok;
+    await new Promise(resolve => setTimeout(resolve, 220));
+  }
+  state.meta = state.meta || {};
+  state.meta.marketSyncedAt = nowISO();
+  saveState();
+  if (changed && !document.querySelector('.overlay')) refreshPage();
 }
 
 
@@ -6517,6 +6545,7 @@ function boot() {
     history.replaceState(null, '', '#/assets');
   }
   renderPage({ scroll: true });
+  setTimeout(() => { autoRefreshMarketQuotes().catch(e => console.warn('自动行情失败', e)); }, 900);
   // 开放给调试与自动化测试
   window.__YINGJI__ = {
     get state() { return state; },

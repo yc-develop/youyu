@@ -247,7 +247,7 @@ function instrumentChartCard(im) {
     chartHTML = chartEmptyHTML(inst.market ? '行情已接入，价格历史会随每日刷新积累' : '还没有足够的价格历史', 174);
   }
   return '<div class="detail-chart-card">' +
-    '<div class="chart-head"><div><h2>价格走势</h2><div class="sub">' + (rangeText || '暂无数据') + ' · ' + inst.currency + ' 原币计价' + '</div></div>' +
+    '<div class="chart-head"><div><h2>价格走势</h2><div class="sub">' + (rangeText || '暂无数据') + ' · ' + inst.currency + ' 原币计价 · ' + (inst.market ? '行情自动同步' : '按记录生成') + '</div></div>' +
       '<div class="segmented small chart-toggle"><button class="seg ' + (mode === 'price' ? 'active' : '') + '" data-action="set-instrument-chart-mode" data-value="price">价格</button><button class="seg ' + (mode === 'return' ? 'active' : '') + '" data-action="set-instrument-chart-mode" data-value="return">收益率</button></div></div>' +
     chartHTML + metricsHTML +
     '<div class="period-row"><div class="segmented small">' + [30, 90, 365, 0].map(d => '<button class="seg ' + (period === d ? 'active' : '') + '" data-action="set-instrument-period" data-value="' + d + '">' + labels[d] + '</button>').join('') + '</div>' +

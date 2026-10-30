@@ -1133,13 +1133,13 @@ function recordTone(rec) {
 }
 
 /* ---------- mutation helpers ---------- */
-function upsertPricePoint(instrumentId, date, price) {
+function upsertPricePoint(instrumentId, date, price, source) {
   if (!state.prices[instrumentId]) state.prices[instrumentId] = [];
   const list = state.prices[instrumentId];
   const idx = list.findIndex(([d]) => d === date);
-  if (idx >= 0) list[idx][1] = price;
+  if (idx >= 0) { list[idx][1] = price; list[idx][2] = source || list[idx][2] || 'record'; }
   else {
-    list.push([date, price]);
+    list.push([date, price, source || 'record']);
     list.sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0);
   }
 }

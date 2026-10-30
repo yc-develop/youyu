@@ -224,7 +224,7 @@ function openInstrumentForm(accountId, instrumentId) {
     const id = uid('inst');
     const inst = { id, accountId: account.id, name, symbol, cls, currency, color, color2: shadeColor(color, -18), note, market: selectedMarket || null };
     account.instruments.push(inst);
-    state.prices[id] = [[todayKey(), price > 0 ? price : 1]];
+    state.prices[id] = [[todayKey(), price > 0 ? price : 1, 'record']];
     const qty = Math.max(0, parseNumber(form.querySelector('#inst-qty') ? form.querySelector('#inst-qty').value : 0));
     if (qty > 0) {
       const cost = parseNumber(form.querySelector('#inst-cost') ? form.querySelector('#inst-cost').value : 0) || price || 1;

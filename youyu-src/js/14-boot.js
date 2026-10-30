@@ -37,6 +37,7 @@ function boot() {
     history.replaceState(null, '', '#/assets');
   }
   renderPage({ scroll: true });
+  setTimeout(() => { autoRefreshMarketQuotes().catch(e => console.warn('自动行情失败', e)); }, 900);
   // 开放给调试与自动化测试
   window.__YINGJI__ = {
     get state() { return state; },

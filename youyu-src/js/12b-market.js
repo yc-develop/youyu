@@ -148,44 +148,59 @@ function normalizeMarketTime(t) {
   if (/^\d{14}$/.test(s)) return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
   return s;
 }
-async function refreshQuoteForInstrument(id) {
+function quoteDateFrom(time) {
+  const s = normalizeMarketTime(time);
+  const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (!m) return todayKey();
+  return m[1] > todayKey() ? todayKey() : m[1];
+}
+async function refreshQuoteForInstrument(id, opts) {
+  const o = opts || {};
   const found = instrumentById(id);
-  if (!found) return;
+  if (!found) return false;
   const market = found.market;
-  if (!market || !market.code) { toast('该标的还没有绑定行情代码', 'error'); return; }
-  toast('正在同步行情…');
+  if (!market || !market.code) { if (!o.silent) toast('该标的还没有绑定行情代码', 'error'); return false; }
+  if (!o.silent) toast('正在同步行情…');
   try {
     const quote = await fetchTencentQuote(market);
     const account = accountById(found.accountId);
     const actual = account ? account.instruments.find(x => x.id === id) : null;
-    if (!actual) return;
-    const date = todayKey();
-    upsertPricePoint(id, date, quote.price);
-    const note = '行情同步 · ' + normalizeMarketTime(quote.time);
-    let rec = state.records.find(r => r.type === 'price' && r.instrumentId === id && r.date === date && /行情同步/.test(r.note || ''));
-    if (rec) {
-      rec.price = quote.price;
-      rec.note = note;
-      rec.createdAt = nowISO();
-    } else {
-      state.records.push({
-        id: uid('rec'), date, type: 'price', accountId: found.accountId, instrumentId: id,
-        amount: 0, qty: 0, price: quote.price, fee: 0,
-        fxRate: fxAt(actual.currency, date), pricePoint: true, note,
-        createdAt: nowISO()
-      });
-    }
+    if (!actual) return false;
+    const date = quoteDateFrom(quote.time);
+    upsertPricePoint(id, date, quote.price, 'market');
     actual.market = Object.assign({}, actual.market, {
       lastPrice: quote.price,
       lastUpdated: normalizeMarketTime(quote.time),
+      lastQuoteDate: date,
       changePct: quote.changePct
     });
-    state.isDemo = false;
     saveState();
-    toast('行情已更新 ' + fmtPrice(quote.price, actual.currency), 'success');
-    refreshPage();
+    if (!o.silent) {
+      toast('行情已更新 ' + fmtPrice(quote.price, actual.currency), 'success');
+      refreshPage();
+    }
+    return true;
   } catch (e) {
     console.warn('行情同步失败', e);
-    toast('行情获取失败，请稍后再试', 'error');
+    if (!o.silent) toast('行情获取失败，请稍后再试', 'error');
+    return false;
   }
+}
+async function autoRefreshMarketQuotes() {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+  const last = Date.parse((state.meta && state.meta.marketSyncedAt) || '');
+  if (Number.isFinite(last) && Date.now() - last < 30 * 60 * 1000) return;
+  const list = [];
+  accounts().forEach(a => (a.instruments || []).forEach(i => { if (i.market && i.market.code) list.push(i.id); }));
+  if (!list.length) return;
+  let changed = false;
+  for (const id of list) {
+    const ok = await refreshQuoteForInstrument(id, { silent: true });
+    changed = changed || ok;
+    await new Promise(resolve => setTimeout(resolve, 220));
+  }
+  state.meta = state.meta || {};
+  state.meta.marketSyncedAt = nowISO();
+  saveState();
+  if (changed && !document.querySelector('.overlay')) refreshPage();
 }

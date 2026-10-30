@@ -223,10 +223,10 @@ function buildSeed() {
     id: a.id,
     instruments: (SEED_INSTRUMENTS[a.id] || []).map(x => Object.assign({}, x, { id: x.id, accountId: a.id }))
   }));
-  const prices = {};
+  const seriesPrices = {};
   Object.keys(SEED_INSTRUMENTS).forEach(accId => {
     (SEED_INSTRUMENTS[accId] || []).forEach(inst => {
-      prices[inst.id] = makePriceSeries(SEED_PRICES[inst.id], 501);
+      seriesPrices[inst.id] = makePriceSeries(SEED_PRICES[inst.id], 501);
     });
   });
   const fxHistory = {};
@@ -268,7 +268,7 @@ function buildSeed() {
       const rec = instById[b.inst];
       if (!rec) return;
       const d = seedDate(b.offset);
-      const price = seriesPriceAt(prices[b.inst], d);
+      const price = seriesPriceAt(seriesPrices[b.inst], d);
       const amount = round(b.qty * price, 2);
       const fee = rec.inst.cls === 'stock' || rec.inst.cls === 'etf' ? Math.max(1, round(amount * 0.0004, 2)) : 0;
       buyCost += amount + fee;
@@ -284,7 +284,7 @@ function buildSeed() {
       const rec = instById[s.inst];
       if (!rec) return;
       const d = seedDate(s.offset);
-      const price = seriesPriceAt(prices[s.inst], d);
+      const price = seriesPriceAt(seriesPrices[s.inst], d);
       const amount = round(s.qty * price, 2);
       const fee = rec.inst.cls === 'stock' || rec.inst.cls === 'etf' ? Math.max(1, round(amount * 0.0004, 2)) : 0;
       sellProceeds += amount - fee;
@@ -339,7 +339,7 @@ function buildSeed() {
         const d = seedDate(off);
         addRecord({
           date: d, type: 'price', accountId: account.id, instrumentId: inst.id,
-          price: seriesPriceAt(prices[inst.id], d),
+          price: seriesPriceAt(seriesPrices[inst.id], d),
           note: isDeposit ? '利息结转' : isMoney ? '收益结转' : '估值更新',
           fxRate: account.currency === 'CNY' ? 1 : seriesFxAt(fxHistory[account.currency], d)
         });
@@ -371,6 +371,19 @@ function buildSeed() {
     }
   ];
 
+  const storedPrices = {};
+  const addPricePoint = (id, date, price) => {
+    if (!id || !(Number(price) > 0)) return;
+    if (!storedPrices[id]) storedPrices[id] = [];
+    const idx = storedPrices[id].findIndex(([d]) => d === date);
+    if (idx >= 0) storedPrices[id][idx][1] = Number(price);
+    else storedPrices[id].push([date, Number(price), 'record']);
+  };
+  records.forEach(r => {
+    if (!r.instrumentId) return;
+    if (r.type === 'buy' || r.type === 'sell' || r.type === 'price') addPricePoint(r.instrumentId, r.date, r.price);
+  });
+  Object.keys(storedPrices).forEach(id => storedPrices[id].sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
   return {
     version: SCHEMA,
     createdAt: nowISO(),
@@ -387,7 +400,7 @@ function buildSeed() {
     instrumentTypes: defaultInstrumentTypes(),
     accounts,
     records,
-    prices,
+    prices: storedPrices,
     fxHistory,
     schemes,
     rebalance: { schemes: {}, targets: {} },
