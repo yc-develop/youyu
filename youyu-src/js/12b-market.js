@@ -178,6 +178,7 @@ async function refreshQuoteForInstrument(id, opts) {
     if (!o.silent) {
       toast('行情已更新 ' + fmtPrice(quote.price, actual.currency), 'success');
       refreshPage();
+      if (!actual.market.historyLoaded) setTimeout(() => ensureInstrumentHistory(id), 120);
     }
     return true;
   } catch (e) {
@@ -191,7 +192,7 @@ async function autoRefreshMarketQuotes() {
   const last = Date.parse((state.meta && state.meta.marketSyncedAt) || '');
   if (Number.isFinite(last) && Date.now() - last < 30 * 60 * 1000) return;
   const list = [];
-  accounts().forEach(a => (a.instruments || []).forEach(i => { if (i.market && i.market.code) list.push(i.id); }));
+  accounts().forEach(a => (a.instruments || []).forEach(i => { if (i.market && i.market.code && !i.demo) list.push(i.id); }));
   if (!list.length) return;
   let changed = false;
   for (const id of list) {
@@ -203,4 +204,112 @@ async function autoRefreshMarketQuotes() {
   state.meta.marketSyncedAt = nowISO();
   saveState();
   if (changed && !document.querySelector('.overlay')) refreshPage();
+}
+
+/* ---------- historical price series ---------- */
+let historySeq = 0;
+const historyLoadingIds = new Set();
+async function fetchTencentHistory(market) {
+  const url = 'https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=' + encodeURIComponent(market.code + ',day,,,2000,qfq');
+  const res = await fetch(url, { cache: 'no-store', mode: 'cors' });
+  if (!res.ok) throw new Error('历史行情请求失败');
+  const json = await res.json();
+  const node = json && json.data && json.data[market.code];
+  const rows = (node && (node.qfqday || node.day)) || [];
+  return rows.map(row => [row[0], Number(row[2])]).filter(x => x[0] && x[1] > 0);
+}
+function fetchSinaUSHistory(market) {
+  return new Promise((resolve, reject) => {
+    const seq = ++historySeq;
+    const cb = '__marketHistory_' + seq;
+    const symbol = String(market.symbol || market.code.replace(/^us/i, '')).toLowerCase();
+    const script = document.createElement('script');
+    script.charset = 'gbk';
+    script.src = 'https://stock.finance.sina.com.cn/usstock/api/jsonp.php/var%20' + cb + '=/US_MinKService.getDailyK?symbol=' + encodeURIComponent(symbol) + '&scale=240&datalen=2500';
+    let settled = false;
+    const cleanup = () => { try { script.remove(); } catch (e) {} try { delete window[cb]; } catch (e) {} };
+    const finish = (fn, value) => { if (settled) return; settled = true; clearTimeout(timer); cleanup(); fn(value); };
+    const timer = setTimeout(() => finish(reject, new Error('美股历史行情超时')), 15000);
+    script.onload = () => {
+      const rows = window[cb];
+      if (!Array.isArray(rows)) { finish(reject, new Error('美股历史行情为空')); return; }
+      finish(resolve, rows.map(r => [r.d, Number(r.c)]).filter(x => x[0] && x[1] > 0));
+    };
+    script.onerror = () => finish(reject, new Error('美股历史行情不可用'));
+    document.head.appendChild(script);
+  });
+}
+function fetchFundHistory(market) {
+  return new Promise((resolve, reject) => {
+    const seq = ++historySeq;
+    const digits = String(market.code || '').replace(/^jj/i, '');
+    if (!/^\d{6}$/.test(digits)) { reject(new Error('基金代码无效')); return; }
+    const script = document.createElement('script');
+    script.charset = 'utf-8';
+    script.src = 'https://fund.eastmoney.com/pingzhongdata/' + digits + '.js?v=' + Date.now();
+    let settled = false;
+    const cleanup = () => { try { script.remove(); } catch (e) {} };
+    const finish = (fn, value) => { if (settled) return; settled = true; clearTimeout(timer); cleanup(); fn(value); };
+    const timer = setTimeout(() => finish(reject, new Error('基金历史净值超时')), 20000);
+    script.onload = () => {
+      const rows = window.Data_netWorthTrend;
+      if (!Array.isArray(rows)) { finish(reject, new Error('基金历史净值为空')); return; }
+      finish(resolve, rows.map(r => [new Date(r.x).toISOString().slice(0, 10), Number(r.y)]).filter(x => x[0] && x[1] > 0));
+      try { delete window.Data_netWorthTrend; } catch (e) {}
+    };
+    script.onerror = () => finish(reject, new Error('基金历史净值不可用'));
+    document.head.appendChild(script);
+  });
+}
+function fetchSinaCNHistory(market) {
+  return new Promise((resolve, reject) => {
+    const seq = ++historySeq;
+    const cb = '__cnHistory_' + seq;
+    const symbol = String(market.code || '');
+    if (!/^(sh|sz)/.test(symbol)) { reject(new Error('A股代码无效')); return; }
+    const script = document.createElement('script');
+    script.charset = 'gbk';
+    script.src = 'https://quotes.sina.cn/cn/api/jsonp_v2.php/var%20' + cb + '=/CN_MarketDataService.getKLineData?symbol=' + encodeURIComponent(symbol) + '&scale=240&ma=no&datalen=1023';
+    let settled = false;
+    const cleanup = () => { try { script.remove(); } catch (e) {} try { delete window[cb]; } catch (e) {} };
+    const finish = (fn, value) => { if (settled) return; settled = true; clearTimeout(timer); cleanup(); fn(value); };
+    const timer = setTimeout(() => finish(reject, new Error('A股历史行情超时')), 15000);
+    script.onload = () => {
+      const rows = window[cb];
+      if (!Array.isArray(rows)) { finish(reject, new Error('A股历史行情为空')); return; }
+      finish(resolve, rows.map(r => [r.day, Number(r.close)]).filter(x => x[0] && x[1] > 0));
+    };
+    script.onerror = () => finish(reject, new Error('A股历史行情不可用'));
+    document.head.appendChild(script);
+  });
+}
+async function ensureInstrumentHistory(id) {
+  const found = instrumentById(id);
+  if (!found || !found.market || !found.market.code || found.demo) return;
+  const actual = (accountById(found.accountId) || { instruments: [] }).instruments.find(x => x.id === id);
+  if (!actual || actual.market.historyLoaded || historyLoadingIds.has(id)) return;
+  historyLoadingIds.add(id);
+  try {
+    let rows = [];
+    const code = actual.market.code;
+    if (code.indexOf('jj') === 0) rows = await fetchFundHistory(actual.market);
+    else if (code.indexOf('us') === 0) rows = await fetchSinaUSHistory(actual.market);
+    else if (/^(sh|sz)/.test(code)) {
+      try { rows = await fetchSinaCNHistory(actual.market); } catch (e) { rows = await fetchTencentHistory(actual.market); }
+    } else rows = await fetchTencentHistory(actual.market);
+    rows = rows.filter(x => x[0] <= todayKey()).slice(-2000);
+    if (!rows.length) throw new Error('没有历史行情');
+    rows.forEach(([date, price]) => upsertPricePoint(id, date, price, 'market'));
+    actual.market = Object.assign({}, actual.market, {
+      historyLoaded: true,
+      historySyncedAt: nowISO(),
+      historyCount: rows.length
+    });
+    historyLoadingIds.delete(id);
+    saveState();
+    if (parseRoute().name === 'instrument' && parseRoute().id === id && !document.querySelector('.overlay')) refreshPage();
+  } catch (e) {
+    historyLoadingIds.delete(id);
+    console.warn('历史行情获取失败', id, e);
+  }
 }

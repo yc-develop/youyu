@@ -221,7 +221,8 @@ function seriesFxAt(series, key) {
 function buildSeed() {
   const accounts = SEED_ACCOUNTS.map(a => Object.assign({}, a, {
     id: a.id,
-    instruments: (SEED_INSTRUMENTS[a.id] || []).map(x => Object.assign({}, x, { id: x.id, accountId: a.id }))
+    demo: true,
+    instruments: (SEED_INSTRUMENTS[a.id] || []).map(x => Object.assign({}, x, { id: x.id, accountId: a.id, demo: true }))
   }));
   const seriesPrices = {};
   Object.keys(SEED_INSTRUMENTS).forEach(accId => {

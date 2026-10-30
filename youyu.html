@@ -1748,7 +1748,8 @@ function seriesFxAt(series, key) {
 function buildSeed() {
   const accounts = SEED_ACCOUNTS.map(a => Object.assign({}, a, {
     id: a.id,
-    instruments: (SEED_INSTRUMENTS[a.id] || []).map(x => Object.assign({}, x, { id: x.id, accountId: a.id }))
+    demo: true,
+    instruments: (SEED_INSTRUMENTS[a.id] || []).map(x => Object.assign({}, x, { id: x.id, accountId: a.id, demo: true }))
   }));
   const seriesPrices = {};
   Object.keys(SEED_INSTRUMENTS).forEach(accId => {
@@ -1967,6 +1968,8 @@ function normalizeState(obj) {
   obj.instrumentTypes = normalizeTypeList(obj.instrumentTypes, DEFAULT_INSTRUMENT_TYPES, 'instrument');
   const validAccountTypes = new Set(obj.accountTypes.map(t => t.id));
   const validInstrumentTypes = new Set(obj.instrumentTypes.map(t => t.id));
+  const seedAccountIds = new Set(SEED_ACCOUNTS.map(a => a.id));
+  const seedInstrumentIds = new Set(Object.keys(SEED_INSTRUMENTS).reduce((all, k) => all.concat((SEED_INSTRUMENTS[k] || []).map(i => i.id)), []));
   const accountTypeById = id => obj.accountTypes.find(t => t.id === id);
   const instrumentTypeById = id => obj.instrumentTypes.find(t => t.id === id);
   obj.rates = obj.rates || {};
@@ -1977,6 +1980,7 @@ function normalizeState(obj) {
     a.id = a.id || uid('acc');
     a.instruments = Array.isArray(a.instruments) ? a.instruments : [];
     a.currency = CURRENCY_META[a.currency] ? a.currency : 'CNY';
+    if (a.demo == null) a.demo = seedAccountIds.has(a.id);
     a.type = validAccountTypes.has(a.type) ? a.type : (validAccountTypes.has('payment') ? 'payment' : obj.accountTypes[0].id);
     a.typeName = accountTypeById(a.type) ? accountTypeById(a.type).name : a.type;
     a.color = a.color || '#ff9f45';
@@ -1985,12 +1989,14 @@ function normalizeState(obj) {
     a.instruments.forEach(i => {
       i.id = i.id || uid('inst');
       i.accountId = a.id;
+      if (i.demo == null) i.demo = seedInstrumentIds.has(i.id);
       i.currency = CURRENCY_META[i.currency] ? i.currency : a.currency;
       i.cls = validInstrumentTypes.has(i.cls) ? i.cls : (validInstrumentTypes.has('other') ? 'other' : obj.instrumentTypes[0].id);
       const typeMeta = instrumentTypeById(i.cls);
       i.color = i.color || (typeMeta ? typeMeta.color : '#8e9aaf');
       i.color2 = i.color2 || i.color;
       if (!i.market && SEED_MARKET_MAP[i.id]) i.market = JSON.parse(JSON.stringify(SEED_MARKET_MAP[i.id]));
+      if (i.market) delete i.market.historyLoading;
     });
   });
   obj.records.forEach(r => {
@@ -2994,8 +3000,14 @@ function groupComponents(schemeId, groupId) {
 
 /* ---------- price range ---------- */
 function priceSeriesRange(instrumentId, days) {
-  const list = priceList(instrumentId);
+  const inst = instrumentById(instrumentId);
+  let list = priceList(instrumentId);
   if (!list.length) return [];
+  // 行情标的优先使用真实行情序列；交易/演示记录只用于无行情标的。
+  if (inst && inst.market && inst.market.historyLoaded) {
+    const marketPoints = list.filter(p => p[2] === 'market');
+    if (marketPoints.length > 2) list = marketPoints;
+  }
   const end = todayKey();
   const start = days ? addDays(end, -days) : list[0][0];
   return list.filter(([d]) => d >= start && d <= end);
@@ -3691,6 +3703,10 @@ function renderPage(opts) {
   }
   lastRouteKey = newKey;
   document.body.classList.toggle('is-detail', isDetail);
+  if (route.name === 'instrument') {
+    const im = instrumentById(route.id);
+    if (im && im.market) setTimeout(() => ensureInstrumentHistory(route.id), 80);
+  }
 }
 function refreshPage() {
   const y = window.scrollY;
@@ -4132,7 +4148,7 @@ function renderInstrumentPage(instrumentId) {
   '<div class="detail-body">' +
     '<section class="detail-hero with-color" style="--accent-color:' + inst.color + '">' +
       '<div class="detail-head">' + instrumentIconHTML(inst) +
-        '<div class="dh-main"><div class="dh-name">' + esc(inst.name) + '</div><div class="dh-sub"><span class="instrument-symbol">' + esc(inst.symbol) + '</span><span class="dot"></span><span>' + esc(assetClassName(inst.cls)) + '</span><span class="dot"></span><span>' + esc(a.name) + '</span>' + (inst.market ? '<span class="market-connected">行情</span>' : '') + '</div></div>' +
+        '<div class="dh-main"><div class="dh-name">' + esc(inst.name) + '</div><div class="dh-sub"><span class="instrument-symbol">' + esc(inst.symbol) + '</span><span class="dot"></span><span>' + esc(assetClassName(inst.cls)) + '</span><span class="dot"></span><span>' + esc(a.name) + '</span>' + (inst.market ? '<span class="market-connected">' + (inst.demo ? '示例' : '行情') + '</span>' : '') + '</div></div>' +
         '<span class="ccy" style="font-size:9px;border:1px solid var(--line);border-radius:5px;padding:3px 5px;color:var(--faint)">' + inst.currency + '</span></div>' +
       '<div class="detail-total"><span class="cur">' + money.sym + '</span><span>' + money.main + '</span>' + (money.dec ? '<span class="cur" style="font-size:15px">.' + money.dec + '</span>' : '') + '</div>' +
       '<div class="detail-pnl"><b class="' + pnlClass(im.profit) + '">' + (im.profit >= 0 ? '+' : '') + fmtMoney(im.profit) + '</b><span class="' + pnlClass(im.returnPct) + '">' + fmtPct(im.returnPct, 2) + '</span><span class="muted">累计收益</span>' +
@@ -4197,10 +4213,10 @@ function instrumentChartCard(im) {
       '<div class="metric"><div class="lab">最新价</div><div class="val">' + fmtPrice(endPrice, inst.currency) + '</div><div class="sub">' + inst.currency + '</div></div>' +
     '</div>';
   } else {
-    chartHTML = chartEmptyHTML(inst.market ? '行情已接入，价格历史会随每日刷新积累' : '还没有足够的价格历史', 174);
+    chartHTML = chartEmptyHTML(inst.market ? '正在获取历史行情…' : '还没有足够的价格历史', 174);
   }
   return '<div class="detail-chart-card">' +
-    '<div class="chart-head"><div><h2>价格走势</h2><div class="sub">' + (rangeText || '暂无数据') + ' · ' + inst.currency + ' 原币计价 · ' + (inst.market ? '行情自动同步' : '按记录生成') + '</div></div>' +
+    '<div class="chart-head"><div><h2>价格走势</h2><div class="sub">' + (rangeText || '暂无数据') + ' · ' + inst.currency + ' 原币计价 · ' + (inst.market && !inst.demo ? '行情自动同步' : inst.market ? '示例行情 · 按记录' : '按记录生成') + '</div></div>' +
       '<div class="segmented small chart-toggle"><button class="seg ' + (mode === 'price' ? 'active' : '') + '" data-action="set-instrument-chart-mode" data-value="price">价格</button><button class="seg ' + (mode === 'return' ? 'active' : '') + '" data-action="set-instrument-chart-mode" data-value="return">收益率</button></div></div>' +
     chartHTML + metricsHTML +
     '<div class="period-row"><div class="segmented small">' + [30, 90, 365, 0].map(d => '<button class="seg ' + (period === d ? 'active' : '') + '" data-action="set-instrument-period" data-value="' + d + '">' + labels[d] + '</button>').join('') + '</div>' +
@@ -5149,7 +5165,7 @@ function renderSettingsPage() {
   '<div class="settings-group"><div class="label">关于</div><div class="settings-card">' +
     '<div class="setting-row"><span class="setting-icon accent">' + icon('shield') + '</span><span class="setting-main"><span class="t">本地存储</span><span class="s">所有数据保存在浏览器 localStorage，不上传服务器。清除浏览器数据会丢失账本，请定期导出备份。</span></span></div>' +
     '<div class="setting-row"><span class="setting-icon blue">' + icon('chart') + '</span><span class="setting-main"><span class="t">行情数据</span><span class="s">名称搜索来自新浪财经，最新报价来自腾讯行情；公开接口可能受网络影响，仅供估值参考。</span></span></div>' +
-    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v1.5</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
+    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v1.6</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
   '</div></div>' +
   '<div class="version">' + esc(APP_NAME) + ' · 投资组合<br>不构成投资建议 · 数据仅供参考</div>' +
   '<div style="height:8px"></div>';
@@ -6112,6 +6128,7 @@ async function refreshQuoteForInstrument(id, opts) {
     if (!o.silent) {
       toast('行情已更新 ' + fmtPrice(quote.price, actual.currency), 'success');
       refreshPage();
+      if (!actual.market.historyLoaded) setTimeout(() => ensureInstrumentHistory(id), 120);
     }
     return true;
   } catch (e) {
@@ -6125,7 +6142,7 @@ async function autoRefreshMarketQuotes() {
   const last = Date.parse((state.meta && state.meta.marketSyncedAt) || '');
   if (Number.isFinite(last) && Date.now() - last < 30 * 60 * 1000) return;
   const list = [];
-  accounts().forEach(a => (a.instruments || []).forEach(i => { if (i.market && i.market.code) list.push(i.id); }));
+  accounts().forEach(a => (a.instruments || []).forEach(i => { if (i.market && i.market.code && !i.demo) list.push(i.id); }));
   if (!list.length) return;
   let changed = false;
   for (const id of list) {
@@ -6137,6 +6154,114 @@ async function autoRefreshMarketQuotes() {
   state.meta.marketSyncedAt = nowISO();
   saveState();
   if (changed && !document.querySelector('.overlay')) refreshPage();
+}
+
+/* ---------- historical price series ---------- */
+let historySeq = 0;
+const historyLoadingIds = new Set();
+async function fetchTencentHistory(market) {
+  const url = 'https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=' + encodeURIComponent(market.code + ',day,,,2000,qfq');
+  const res = await fetch(url, { cache: 'no-store', mode: 'cors' });
+  if (!res.ok) throw new Error('历史行情请求失败');
+  const json = await res.json();
+  const node = json && json.data && json.data[market.code];
+  const rows = (node && (node.qfqday || node.day)) || [];
+  return rows.map(row => [row[0], Number(row[2])]).filter(x => x[0] && x[1] > 0);
+}
+function fetchSinaUSHistory(market) {
+  return new Promise((resolve, reject) => {
+    const seq = ++historySeq;
+    const cb = '__marketHistory_' + seq;
+    const symbol = String(market.symbol || market.code.replace(/^us/i, '')).toLowerCase();
+    const script = document.createElement('script');
+    script.charset = 'gbk';
+    script.src = 'https://stock.finance.sina.com.cn/usstock/api/jsonp.php/var%20' + cb + '=/US_MinKService.getDailyK?symbol=' + encodeURIComponent(symbol) + '&scale=240&datalen=2500';
+    let settled = false;
+    const cleanup = () => { try { script.remove(); } catch (e) {} try { delete window[cb]; } catch (e) {} };
+    const finish = (fn, value) => { if (settled) return; settled = true; clearTimeout(timer); cleanup(); fn(value); };
+    const timer = setTimeout(() => finish(reject, new Error('美股历史行情超时')), 15000);
+    script.onload = () => {
+      const rows = window[cb];
+      if (!Array.isArray(rows)) { finish(reject, new Error('美股历史行情为空')); return; }
+      finish(resolve, rows.map(r => [r.d, Number(r.c)]).filter(x => x[0] && x[1] > 0));
+    };
+    script.onerror = () => finish(reject, new Error('美股历史行情不可用'));
+    document.head.appendChild(script);
+  });
+}
+function fetchFundHistory(market) {
+  return new Promise((resolve, reject) => {
+    const seq = ++historySeq;
+    const digits = String(market.code || '').replace(/^jj/i, '');
+    if (!/^\d{6}$/.test(digits)) { reject(new Error('基金代码无效')); return; }
+    const script = document.createElement('script');
+    script.charset = 'utf-8';
+    script.src = 'https://fund.eastmoney.com/pingzhongdata/' + digits + '.js?v=' + Date.now();
+    let settled = false;
+    const cleanup = () => { try { script.remove(); } catch (e) {} };
+    const finish = (fn, value) => { if (settled) return; settled = true; clearTimeout(timer); cleanup(); fn(value); };
+    const timer = setTimeout(() => finish(reject, new Error('基金历史净值超时')), 20000);
+    script.onload = () => {
+      const rows = window.Data_netWorthTrend;
+      if (!Array.isArray(rows)) { finish(reject, new Error('基金历史净值为空')); return; }
+      finish(resolve, rows.map(r => [new Date(r.x).toISOString().slice(0, 10), Number(r.y)]).filter(x => x[0] && x[1] > 0));
+      try { delete window.Data_netWorthTrend; } catch (e) {}
+    };
+    script.onerror = () => finish(reject, new Error('基金历史净值不可用'));
+    document.head.appendChild(script);
+  });
+}
+function fetchSinaCNHistory(market) {
+  return new Promise((resolve, reject) => {
+    const seq = ++historySeq;
+    const cb = '__cnHistory_' + seq;
+    const symbol = String(market.code || '');
+    if (!/^(sh|sz)/.test(symbol)) { reject(new Error('A股代码无效')); return; }
+    const script = document.createElement('script');
+    script.charset = 'gbk';
+    script.src = 'https://quotes.sina.cn/cn/api/jsonp_v2.php/var%20' + cb + '=/CN_MarketDataService.getKLineData?symbol=' + encodeURIComponent(symbol) + '&scale=240&ma=no&datalen=1023';
+    let settled = false;
+    const cleanup = () => { try { script.remove(); } catch (e) {} try { delete window[cb]; } catch (e) {} };
+    const finish = (fn, value) => { if (settled) return; settled = true; clearTimeout(timer); cleanup(); fn(value); };
+    const timer = setTimeout(() => finish(reject, new Error('A股历史行情超时')), 15000);
+    script.onload = () => {
+      const rows = window[cb];
+      if (!Array.isArray(rows)) { finish(reject, new Error('A股历史行情为空')); return; }
+      finish(resolve, rows.map(r => [r.day, Number(r.close)]).filter(x => x[0] && x[1] > 0));
+    };
+    script.onerror = () => finish(reject, new Error('A股历史行情不可用'));
+    document.head.appendChild(script);
+  });
+}
+async function ensureInstrumentHistory(id) {
+  const found = instrumentById(id);
+  if (!found || !found.market || !found.market.code || found.demo) return;
+  const actual = (accountById(found.accountId) || { instruments: [] }).instruments.find(x => x.id === id);
+  if (!actual || actual.market.historyLoaded || historyLoadingIds.has(id)) return;
+  historyLoadingIds.add(id);
+  try {
+    let rows = [];
+    const code = actual.market.code;
+    if (code.indexOf('jj') === 0) rows = await fetchFundHistory(actual.market);
+    else if (code.indexOf('us') === 0) rows = await fetchSinaUSHistory(actual.market);
+    else if (/^(sh|sz)/.test(code)) {
+      try { rows = await fetchSinaCNHistory(actual.market); } catch (e) { rows = await fetchTencentHistory(actual.market); }
+    } else rows = await fetchTencentHistory(actual.market);
+    rows = rows.filter(x => x[0] <= todayKey()).slice(-2000);
+    if (!rows.length) throw new Error('没有历史行情');
+    rows.forEach(([date, price]) => upsertPricePoint(id, date, price, 'market'));
+    actual.market = Object.assign({}, actual.market, {
+      historyLoaded: true,
+      historySyncedAt: nowISO(),
+      historyCount: rows.length
+    });
+    historyLoadingIds.delete(id);
+    saveState();
+    if (parseRoute().name === 'instrument' && parseRoute().id === id && !document.querySelector('.overlay')) refreshPage();
+  } catch (e) {
+    historyLoadingIds.delete(id);
+    console.warn('历史行情获取失败', id, e);
+  }
 }
 
 

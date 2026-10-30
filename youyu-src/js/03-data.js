@@ -29,6 +29,8 @@ function normalizeState(obj) {
   obj.instrumentTypes = normalizeTypeList(obj.instrumentTypes, DEFAULT_INSTRUMENT_TYPES, 'instrument');
   const validAccountTypes = new Set(obj.accountTypes.map(t => t.id));
   const validInstrumentTypes = new Set(obj.instrumentTypes.map(t => t.id));
+  const seedAccountIds = new Set(SEED_ACCOUNTS.map(a => a.id));
+  const seedInstrumentIds = new Set(Object.keys(SEED_INSTRUMENTS).reduce((all, k) => all.concat((SEED_INSTRUMENTS[k] || []).map(i => i.id)), []));
   const accountTypeById = id => obj.accountTypes.find(t => t.id === id);
   const instrumentTypeById = id => obj.instrumentTypes.find(t => t.id === id);
   obj.rates = obj.rates || {};
@@ -39,6 +41,7 @@ function normalizeState(obj) {
     a.id = a.id || uid('acc');
     a.instruments = Array.isArray(a.instruments) ? a.instruments : [];
     a.currency = CURRENCY_META[a.currency] ? a.currency : 'CNY';
+    if (a.demo == null) a.demo = seedAccountIds.has(a.id);
     a.type = validAccountTypes.has(a.type) ? a.type : (validAccountTypes.has('payment') ? 'payment' : obj.accountTypes[0].id);
     a.typeName = accountTypeById(a.type) ? accountTypeById(a.type).name : a.type;
     a.color = a.color || '#ff9f45';
@@ -47,12 +50,14 @@ function normalizeState(obj) {
     a.instruments.forEach(i => {
       i.id = i.id || uid('inst');
       i.accountId = a.id;
+      if (i.demo == null) i.demo = seedInstrumentIds.has(i.id);
       i.currency = CURRENCY_META[i.currency] ? i.currency : a.currency;
       i.cls = validInstrumentTypes.has(i.cls) ? i.cls : (validInstrumentTypes.has('other') ? 'other' : obj.instrumentTypes[0].id);
       const typeMeta = instrumentTypeById(i.cls);
       i.color = i.color || (typeMeta ? typeMeta.color : '#8e9aaf');
       i.color2 = i.color2 || i.color;
       if (!i.market && SEED_MARKET_MAP[i.id]) i.market = JSON.parse(JSON.stringify(SEED_MARKET_MAP[i.id]));
+      if (i.market) delete i.market.historyLoading;
     });
   });
   obj.records.forEach(r => {
@@ -1056,8 +1061,14 @@ function groupComponents(schemeId, groupId) {
 
 /* ---------- price range ---------- */
 function priceSeriesRange(instrumentId, days) {
-  const list = priceList(instrumentId);
+  const inst = instrumentById(instrumentId);
+  let list = priceList(instrumentId);
   if (!list.length) return [];
+  // 行情标的优先使用真实行情序列；交易/演示记录只用于无行情标的。
+  if (inst && inst.market && inst.market.historyLoaded) {
+    const marketPoints = list.filter(p => p[2] === 'market');
+    if (marketPoints.length > 2) list = marketPoints;
+  }
   const end = todayKey();
   const start = days ? addDays(end, -days) : list[0][0];
   return list.filter(([d]) => d >= start && d <= end);

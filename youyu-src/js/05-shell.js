@@ -89,6 +89,10 @@ function renderPage(opts) {
   }
   lastRouteKey = newKey;
   document.body.classList.toggle('is-detail', isDetail);
+  if (route.name === 'instrument') {
+    const im = instrumentById(route.id);
+    if (im && im.market) setTimeout(() => ensureInstrumentHistory(route.id), 80);
+  }
 }
 function refreshPage() {
   const y = window.scrollY;
