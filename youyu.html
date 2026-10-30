@@ -1153,6 +1153,27 @@ body.has-overlay .toast-root{top:calc(var(--safe-top) + 14px);bottom:auto}
 .type-chev .icon{width:12px;height:12px}
 .type-add{margin-top:10px}
 
+/* ---------- rebalance switch ---------- */
+.scheme-rebalance-row{display:flex;align-items:center;gap:9px;width:100%;text-align:left;padding:11px 0 0;margin-top:12px;border-top:1px solid var(--line)}
+.scheme-rebalance-row .setting-icon{width:28px;height:28px;flex:0 0 28px}
+.scheme-rebalance-row .sr-main{flex:1;min-width:0;display:flex;flex-direction:column}
+.scheme-rebalance-row .sr-main .t{display:block;font-size:10.5px;font-weight:600;color:var(--ink-2)}
+.scheme-rebalance-row .sr-main .s{display:block;font-size:8px;color:var(--faint);margin-top:2px;line-height:1.45}
+.scheme-rebalance-row .switch{flex:0 0 40px}
+
+/* ---------- calendar trend metric ---------- */
+.trend-metric-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:10px 0 0}
+.trend-metric-row .segmented{width:112px!important}
+.trend-metric-row .seg{height:25px;font-size:9px}
+
+/* ---------- group coverage / cash ---------- */
+.check-row.covered{opacity:.55}
+.check-row.covered .checkbox{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.1)}
+.covered-tag{display:inline-block;font-size:7px;font-weight:500;color:var(--warning);background:rgba(242,196,92,.08);border:1px solid rgba(242,196,92,.16);border-radius:4px;padding:1px 4px;margin-left:5px;vertical-align:1px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.covered-hint{font-size:7.5px;color:var(--faint);margin-left:5px;font-weight:400}
+.tree-cash{background:rgba(255,255,255,.012)}
+.tree-cash .check-name{color:var(--muted)}
+
 </style>
 </head>
 <body>
@@ -1896,6 +1917,7 @@ function buildSeed() {
     prices,
     fxHistory,
     schemes,
+    rebalance: { schemes: {}, targets: {} },
     meta: { name: '我的投资组合', lastUpdated: nowISO() }
   };
 }
@@ -1970,6 +1992,9 @@ function normalizeState(obj) {
   });
   obj.prices = obj.prices || {};
   obj.fxHistory = obj.fxHistory || {};
+  obj.rebalance = obj.rebalance && typeof obj.rebalance === 'object' ? obj.rebalance : {};
+  obj.rebalance.schemes = obj.rebalance.schemes && typeof obj.rebalance.schemes === 'object' ? obj.rebalance.schemes : {};
+  obj.rebalance.targets = obj.rebalance.targets && typeof obj.rebalance.targets === 'object' ? obj.rebalance.targets : {};
   if (!Array.isArray(obj.schemes) || !obj.schemes.length) obj.schemes = buildSeed().schemes;
   obj.schemes.forEach(s => {
     s.id = s.id || uid('sch');
@@ -1980,6 +2005,7 @@ function normalizeState(obj) {
       g.color = g.color || GROUP_COLORS[gi % GROUP_COLORS.length];
       g.target = Number.isFinite(Number(g.target)) ? Number(g.target) : 0;
       g.includeAccounts = Array.isArray(g.includeAccounts) ? g.includeAccounts : [];
+      g.includeCashAccounts = Array.isArray(g.includeCashAccounts) ? g.includeCashAccounts : [];
       g.includeClasses = Array.isArray(g.includeClasses) ? g.includeClasses : [];
       g.includeInstruments = Array.isArray(g.includeInstruments) ? g.includeInstruments : [];
     });
@@ -2051,6 +2077,7 @@ function builtinSchemes() {
     target: 0,
     auto: true,
     includeAccounts: [a.id],
+    includeCashAccounts: [],
     includeClasses: [],
     includeInstruments: []
   }));
@@ -2065,6 +2092,7 @@ function builtinSchemes() {
       auto: true,
       cashOnly: true,
       includeAccounts: [a.id],
+      includeCashAccounts: [],
       includeClasses: [],
       includeInstruments: []
     });
@@ -2076,6 +2104,7 @@ function builtinSchemes() {
         target: 0,
         auto: true,
         includeAccounts: [],
+        includeCashAccounts: [],
         includeClasses: [],
         includeInstruments: [inst.id]
       });
@@ -2091,7 +2120,7 @@ function builtinSchemes() {
       color: t.color || autoGroupColor(i),
       target: 0, auto: true,
       includeAccounts: list.map(a => a.id),
-      includeClasses: [], includeInstruments: []
+      includeCashAccounts: [], includeClasses: [], includeInstruments: []
     });
   });
   const instTypeGroups = [{
@@ -2100,7 +2129,7 @@ function builtinSchemes() {
     color: instrumentTypeColor('cash'),
     target: 0, auto: true, cashOnly: true,
     includeAccounts: accounts().map(a => a.id),
-    includeClasses: [], includeInstruments: []
+    includeCashAccounts: [], includeClasses: [], includeInstruments: []
   }];
   const usedTypes = new Set();
   accounts().forEach(a => (a.instruments || []).forEach(i => usedTypes.add(i.cls)));
@@ -2111,7 +2140,7 @@ function builtinSchemes() {
       name: t.name,
       color: t.color || autoGroupColor(i),
       target: 0, auto: true, typeFilter: t.id,
-      includeAccounts: [], includeClasses: [], includeInstruments: []
+      includeAccounts: [], includeCashAccounts: [], includeClasses: [], includeInstruments: []
     });
   });
   return [
@@ -2123,7 +2152,33 @@ function builtinSchemes() {
 }
 function schemes() { return builtinSchemes().concat(state.schemes || []); }
 function isBuiltinScheme(scheme) { return !!(scheme && scheme.builtin); }
-function schemesForRebalance() { return state.schemes || []; }
+function rebalanceConfig(schemeId) {
+  if (!state.rebalance) state.rebalance = { schemes: {}, targets: {} };
+  if (!state.rebalance.schemes) state.rebalance.schemes = {};
+  if (!state.rebalance.targets) state.rebalance.targets = {};
+  return state.rebalance.schemes[schemeId] || {};
+}
+function rebalanceEnabled(scheme) {
+  if (!scheme) return false;
+  const cfg = rebalanceConfig(scheme.id);
+  if (typeof cfg.enabled === 'boolean') return cfg.enabled;
+  return !scheme.builtin;
+}
+function setRebalanceEnabled(schemeId, enabled) {
+  if (!state.rebalance) state.rebalance = { schemes: {}, targets: {} };
+  if (!state.rebalance.schemes) state.rebalance.schemes = {};
+  state.rebalance.schemes[schemeId] = Object.assign({}, rebalanceConfig(schemeId), { enabled: !!enabled });
+}
+function rebalanceTargetFor(scheme, group) {
+  if (!scheme || !group) return 0;
+  if (!scheme.builtin) return Number(group.target) || 0;
+  const targets = (state.rebalance && state.rebalance.targets && state.rebalance.targets[scheme.id]) || {};
+  return Number(targets[group.id]) || 0;
+}
+function groupTargetValue(scheme, group) { return rebalanceTargetFor(scheme, group); }
+function schemesForRebalance() {
+  return schemes().filter(s => rebalanceEnabled(s));
+}
 function schemeById(id) { return schemes().find(s => s.id === id) || schemes()[0]; }
 function groupById(schemeId, groupId) {
   const s = schemeById(schemeId);
@@ -2447,7 +2502,9 @@ function groupMatches(group, account, inst) {
     return false;
   }
   if (group.cashOnly) return (group.includeAccounts || []).indexOf(account.id) >= 0;
-  return (group.includeAccounts || []).indexOf(account.id) >= 0;
+  if ((group.includeAccounts || []).indexOf(account.id) >= 0) return true;
+  if ((group.includeCashAccounts || []).indexOf(account.id) >= 0) return true;
+  return false;
 }
 function resolveGroupId(scheme, account, inst) {
   if (!scheme) return null;
@@ -2457,19 +2514,20 @@ function resolveGroupId(scheme, account, inst) {
   return null;
 }
 function groupTarget(g) { return Number(g.target) || 0; }
-function schemeTargetTotal(scheme) { return sum(scheme ? scheme.groups : [], g => Number(g.target) || 0); }
+function schemeTargetTotal(scheme) { return sum(scheme ? scheme.groups : [], g => rebalanceTargetFor(scheme, g)); }
 function normalizeTargets(scheme) {
   const total = schemeTargetTotal(scheme);
   return (scheme ? scheme.groups : []).map(g => ({
     group: g,
-    raw: Number(g.target) || 0,
-    normalized: total > 0 ? (Number(g.target) || 0) / total : 0
+    raw: rebalanceTargetFor(scheme, g),
+    normalized: total > 0 ? rebalanceTargetFor(scheme, g) / total : 0
   }));
 }
 function groupIncludeSummary(group) {
   if (group.typeFilter) return instrumentTypeName(group.typeFilter) + ' · 按标的类型';
   const names = [];
   (group.includeAccounts || []).forEach(id => { const a = accountById(id); if (a) names.push(a.name); });
+  (group.includeCashAccounts || []).forEach(id => { if ((group.includeAccounts || []).indexOf(id) < 0) { const a = accountById(id); if (a) names.push(a.name + ' · 现金'); } });
   (group.includeInstruments || []).forEach(id => { const i = instrumentById(id); if (i) names.push(i.name); });
   return names.length ? names.join(' · ') : '尚未选择资产';
 }
@@ -2612,7 +2670,7 @@ function groupDailySeries(schemeId) {
   const map = new Map();
   scheme.groups.forEach(g => {
     map.set(g.id, {
-      id: g.id, name: g.name, color: g.color, target: g.target, group: g,
+      id: g.id, name: g.name, color: g.color, target: groupTargetValue(scheme, g), group: g,
       values: new Array(N).fill(0), pnls: new Array(N).fill(0)
     });
   });
@@ -2730,7 +2788,7 @@ function groupBreakdown(schemeId) {
   const items = gs.groups.map(g => {
     const value = Math.max(0, g.values[last] || 0);
     const pct = total > 0 ? value / total : 0;
-    const targetRaw = g.id === '__ungrouped' ? 0 : Number(g.target) || 0;
+    const targetRaw = g.id === '__ungrouped' ? 0 : rebalanceTargetFor(gs.scheme, g);
     const normalizedTarget = g.id === '__ungrouped' ? 0 : (targetRaw / norm) * 100;
     const targetValue = total * normalizedTarget / 100;
     const delta = targetValue - value;
@@ -2745,7 +2803,7 @@ function groupBreakdown(schemeId) {
   const tolerance = Number(state.settings.tolerance) || 0;
   items.forEach(it => {
     if (it.id === '__ungrouped') { it.status = 'unassigned'; return; }
-    if (gs.scheme && gs.scheme.builtin) { it.status = 'auto'; return; }
+    if (gs.scheme && gs.scheme.builtin && !rebalanceEnabled(gs.scheme)) { it.status = 'auto'; return; }
     it.status = it.drift > tolerance ? 'high' : it.drift < -tolerance ? 'low' : 'ok';
   });
   return { scheme: gs.scheme, items, total, tolerance, targetTotal, dates: daily.dates, ungrouped: items.find(x => x.id === '__ungrouped') || null };
@@ -4142,7 +4200,7 @@ function renderStatsPage() {
   const retMap = new Map(groupReturns.map(x => [x.group.id, x]));
   const sankeyMode = ui.sankeyMode || 'account';
   const builtin = !!scheme.builtin;
-  const manageSid = builtin ? (customSchemes()[0] ? customSchemes()[0].id : '') : sid;
+  const manageSid = sid;
   return pageTop({
     eyebrow: 'ALLOCATION & FLOW',
     title: '统计',
@@ -4201,22 +4259,46 @@ function statsGroupRows(gb, retMap, scheme) {
 function portfolioTrendCard(p, opts) {
   const o = opts || {};
   const days = Number(ui.trendPeriod == null ? 365 : ui.trendPeriod);
+  const metric = o.metric || ui.trendMetric || 'amount';
   const daily = buildDailyAnalytics();
   const series = o.series || daily.total;
   const tw = twrStats(series, days || daily.n - 1);
   const pnl = sum(series.pnls.slice(Math.max(1, daily.n - 1 - (days || daily.n - 1))));
-  const points = tw.points.map(x => ({ date: x.date, value: x.value }));
   const title = o.title || '组合走势';
   const scope = o.scopeName || '全部资产';
   const labels = { 30: '1月', 90: '3月', 365: '1年', 0: '全部' };
+  const lookback = days || daily.n - 1;
+  const start = Math.max(1, daily.n - 1 - lookback);
+  let points = [];
+  if (metric === 'amount') {
+    let cumulative = 0;
+    points.push({ date: daily.dates[Math.max(0, start - 1)], value: 0 });
+    for (let i = start; i < daily.n; i++) {
+      cumulative += series.pnls[i] || 0;
+      points.push({ date: daily.dates[i], value: cumulative });
+    }
+  } else {
+    points = tw.points.map(x => ({ date: x.date, value: x.value }));
+  }
   let chart = '';
   if (points.length > 1) {
-    chart = lineChartHTML({ points, mode: 'percent', color: tw.totalReturn >= 0 ? '#ff5d6c' : '#35d39a', height: 156, baseline: true, aria: scope + '收益率走势' });
+    chart = lineChartHTML({
+      points,
+      mode: metric === 'amount' ? 'amount' : 'percent',
+      currency: baseCurrency(),
+      color: (metric === 'amount' ? pnl : tw.totalReturn) >= 0 ? '#ff5d6c' : '#35d39a',
+      height: 156, baseline: true,
+      aria: scope + (metric === 'amount' ? '收益金额走势' : '收益率走势')
+    });
   } else chart = chartEmptyHTML('还没有足够的历史数据', 156);
+  const pill = metric === 'amount' ? pnlText(pnl, { compact: true }) : fmtPct(tw.totalReturn, 2);
+  const sub = metric === 'amount' ? '累计收益金额' : '时间加权收益率';
   return '<section class="detail-chart-card" style="margin:14px 0 0;border-radius:20px">' +
-    '<div class="chart-head"><div><h2>' + esc(title) + '</h2><div class="sub">时间加权收益率 · ' + esc(scope) + ' · ' + (state.settings.considerFx ? '含汇率影响' : '不含汇率影响') + '</div></div>' +
-      '<span class="pill-btn" style="height:26px;font-size:9px;padding:0 9px">' + icon('trendUp') + (tw.totalReturn >= 0 ? '+' : '') + fmtPct(tw.totalReturn, 2) + '</span></div>' +
+    '<div class="chart-head"><div><h2>' + esc(title) + '</h2><div class="sub">' + sub + ' · ' + esc(scope) + ' · ' + (state.settings.considerFx ? '含汇率影响' : '不含汇率影响') + '</div></div>' +
+      '<span class="pill-btn" style="height:26px;font-size:9px;padding:0 9px">' + icon('trendUp') + pill + '</span></div>' +
     chart +
+    '<div class="trend-metric-row"><div class="segmented small" style="width:112px"><button class="seg ' + (metric === 'amount' ? 'active' : '') + '" data-action="set-trend-metric" data-value="amount">金额</button><button class="seg ' + (metric === 'percent' ? 'active' : '') + '" data-action="set-trend-metric" data-value="percent">收益率</button></div>' +
+      '<span class="tiny">更新至 ' + shortDate(todayKey()) + '</span></div>' +
     '<div class="metrics">' +
       '<div class="metric"><div class="lab">区间收益</div><div class="val ' + pnlClass(pnl) + '">' + pnlText(pnl, { compact: true }) + '</div><div class="sub">金额</div></div>' +
       '<div class="metric"><div class="lab">最大回撤</div><div class="val loss">' + fmtPct(tw.maxDrawdown, 2) + '</div><div class="sub">回撤</div></div>' +
@@ -4224,7 +4306,7 @@ function portfolioTrendCard(p, opts) {
       '<div class="metric"><div class="lab">正收益天</div><div class="val">' + (tw.positiveRate * 100).toFixed(0) + '%</div><div class="sub">胜率</div></div>' +
     '</div>' +
     '<div class="period-row"><div class="segmented small">' + [30, 90, 365, 0].map(d => '<button class="seg ' + (days === d ? 'active' : '') + '" data-action="set-trend-period" data-value="' + d + '">' + labels[d] + '</button>').join('') + '</div>' +
-      '<span class="tiny">更新至 ' + shortDate(todayKey()) + '</span></div>' +
+      '<span class="tiny">' + (metric === 'amount' ? '累计盈亏' : '时间加权') + '</span></div>' +
   '</section>';
 }
 
@@ -4537,15 +4619,40 @@ function openCalendarDaySheet(date) {
    09 · 再平衡 / 目标配置
    ========================================================= */
 function rebalanceSchemeId() {
-  const custom = schemesForRebalance();
-  const found = custom.find(s => s.id === ui.rebalanceSchemeId);
-  if (!found) ui.rebalanceSchemeId = (custom[1] || custom[0]) ? (custom[1] || custom[0]).id : '';
+  const enabled = schemesForRebalance();
+  const found = enabled.find(s => s.id === ui.rebalanceSchemeId);
+  if (!found) ui.rebalanceSchemeId = (enabled[1] || enabled[0]) ? (enabled[1] || enabled[0]).id : '';
   return ui.rebalanceSchemeId;
+}
+function seedRebalanceTargets(scheme) {
+  if (!scheme || !scheme.builtin) return;
+  if (!state.rebalance.targets) state.rebalance.targets = {};
+  const existing = state.rebalance.targets[scheme.id] || {};
+  if (Object.keys(existing).some(id => Number(existing[id]) > 0)) return;
+  const gb = groupBreakdown(scheme.id);
+  const targets = {};
+  gb.items.forEach(it => { if (it.id !== '__ungrouped') targets[it.id] = round(it.pct * 100, 1); });
+  state.rebalance.targets[scheme.id] = targets;
+}
+function toggleRebalanceScheme(schemeId) {
+  const scheme = schemeById(schemeId);
+  if (!scheme) return;
+  const next = !rebalanceEnabled(scheme);
+  setRebalanceEnabled(scheme.id, next);
+  if (next && scheme.builtin) seedRebalanceTargets(scheme);
+  if (!next && ui.rebalanceSchemeId === scheme.id) ui.rebalanceSchemeId = '';
+  saveState();
+  toast(next ? (scheme.builtin ? '已开启再平衡，并按当前权重初始化目标' : '已开启再平衡') : '已关闭再平衡', 'success');
+  refreshPage();
 }
 
 function renderRebalancePage() {
   const sid = rebalanceSchemeId();
-  const scheme = schemeById(sid);
+  const scheme = sid ? schemeById(sid) : null;
+  if (!scheme) {
+    return pageTop({ eyebrow: 'REBALANCE', title: '再平衡', sub: '让配置回到你设定的目标区间。' }) +
+      '<div class="detail-body">' + emptyBlock('还没有启用再平衡的分组方式', '到分组管理中打开「参与再平衡」开关，即可按该分组设置目标。', '<a class="btn primary sm" href="#/settings">去设置</a>', 'scale') + '</div>';
+  }
   const gb = groupBreakdown(sid);
   const items = gb.items.filter(x => x.id !== '__ungrouped');
   const ungrouped = gb.ungrouped;
@@ -4608,7 +4715,7 @@ function rebalanceRows(items, tolerance) {
 
 function openTargetEditor(sid) {
   const scheme = schemeById(sid || rebalanceSchemeId());
-  if (!scheme || isBuiltinScheme(scheme)) return;
+  if (!scheme || !rebalanceEnabled(scheme)) { toast('请先在分组管理中开启再平衡', 'error'); return; }
   const tolerance = Number(state.settings.tolerance) || 0;
   const body = '<form id="target-form">' +
     '<div class="info-banner" style="margin-top:0">' + icon('target') + '<div>目标比例合计建议为 100%。你可以为每个分组设定一个目标占比，允许 ±' + tolerance.toFixed(1) + '% 的偏离。</div></div>' +
@@ -4616,7 +4723,7 @@ function openTargetEditor(sid) {
     '<div style="display:flex;flex-direction:column;gap:10px">' +
       scheme.groups.map(g => '<div class="field" style="display:grid;grid-template-columns:1fr 98px;align-items:center;gap:10px">' +
         '<div style="display:flex;align-items:center;gap:8px;min-width:0"><span style="width:8px;height:8px;border-radius:3px;background:' + g.color + '"></span><span style="font-size:11px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(g.name) + '</span></div>' +
-        '<div class="amount-input"><input class="input target-input" type="text" inputmode="decimal" name="target_' + esc(g.id) + '" id="target_' + esc(g.id) + '" value="' + (Number(g.target) || 0) + '" placeholder="0"><span class="unit">%</span></div>' +
+        '<div class="amount-input"><input class="input target-input" type="text" inputmode="decimal" name="target_' + esc(g.id) + '" id="target_' + esc(g.id) + '" value="' + rebalanceTargetFor(scheme, g) + '" placeholder="0"><span class="unit">%</span></div>' +
       '</div>').join('') +
     '</div>' +
     '<div class="row-between" style="margin-top:12px;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,.035)"><span class="tiny">目标合计</span><b id="target-total" style="font-size:13px">' + schemeTargetTotal(scheme).toFixed(1) + '%</b></div>' +
@@ -4649,7 +4756,11 @@ function openTargetEditor(sid) {
       total += v;
     });
     const tol = clamp(parseNumber(form.querySelector('#target-tolerance').value), 0.1, 30);
-    scheme.groups.forEach(g => { g.target = values[g.id]; });
+    if (scheme.builtin) {
+      state.rebalance.targets[scheme.id] = Object.assign({}, state.rebalance.targets[scheme.id] || {}, values);
+    } else {
+      scheme.groups.forEach(g => { g.target = values[g.id]; });
+    }
     state.settings.tolerance = tol;
     saveState();
     closeSheet(wrap);
@@ -4691,6 +4802,7 @@ function buildRebalancePlan(sid) {
 
 function openRebalancePlanSheet(sid) {
   const plan = buildRebalancePlan(sid || rebalanceSchemeId());
+  if (!plan.scheme) { toast('请先开启再平衡', 'error'); return; }
   const rows = plan.rows;
   const body = '<div class="stat-hero" style="margin-bottom:0"><div><div class="eyebrow">建议调仓金额</div><div class="big" style="font-size:25px">' + fmtMoney(plan.buy) + '</div><div class="cap">买入总额 · 卖出 ' + fmtMoney(plan.sell) + '</div></div>' +
     '<div class="right">需要调整<b>' + rows.length + ' 组</b><span>目标区间</span></div></div>' +
@@ -4738,6 +4850,7 @@ function renderGroupsPage(schemeId) {
       '<div class="group-scheme-stats"><div><span>分组</span><b>' + scheme.groups.length + '</b></div><div><span>目标合计</span><b class="' + (Math.abs(totalTarget - 100) < 0.01 ? '' : 'gain') + '">' + totalTarget.toFixed(1) + '%</b></div><div><span>未分组</span><b class="' + (gb.ungrouped ? 'gain' : '') + '">' + (gb.ungrouped ? fmtMoney(gb.ungrouped.value, { compact: true }) : '无') + '</b></div></div>' +
       '<div class="group-scheme-actions"><button class="btn ghost sm" data-action="edit-scheme" data-scheme="' + esc(scheme.id) + '">' + icon('pen') + '编辑</button>' +
         '<button class="btn ghost sm danger" data-action="delete-scheme" data-scheme="' + esc(scheme.id) + '">' + icon('trash') + '删除</button></div>' +
+      rebalanceSwitchHTML(scheme) +
     '</div>' +
     '<div class="info-banner">' + icon('info') + '<div>分组按从上到下的顺序匹配：同一资产只会计入第一个符合条件的分组。用右侧箭头调整优先级。</div></div>' +
     '<div class="section-head" style="margin-top:18px"><div><h2>分组成员</h2><div class="sub">账户与账户下的具体标的可以组合使用</div></div><span class="tiny">' + scheme.groups.length + ' 组</span></div>' +
@@ -4749,6 +4862,14 @@ function renderGroupsPage(schemeId) {
   '</div>';
 }
 
+function rebalanceSwitchHTML(scheme) {
+  const on = rebalanceEnabled(scheme);
+  return '<button class="scheme-rebalance-row" data-action="toggle-rebalance-scheme" data-scheme="' + esc(scheme.id) + '">' +
+    '<span class="setting-icon ' + (on ? 'accent' : '') + '">' + icon('scale') + '</span>' +
+    '<span class="sr-main"><span class="t">' + (on ? '参与再平衡' : '不参与再平衡') + '</span><span class="s">' + (on ? '该分组方式已出现在再平衡页面，可设置目标占比。' : '开启后可在再平衡页面按此分组设置目标。') + '</span></span>' +
+    '<span class="switch ' + (on ? 'on' : '') + '"></span></button>';
+}
+
 function renderBuiltinSchemePage(scheme) {
   const gb = groupBreakdown(scheme.id);
   const cards = gb.items.filter(x => x.value > 0.5).map(it => '<div class="group-card" style="padding-bottom:12px">' +
@@ -4758,8 +4879,9 @@ function renderBuiltinSchemePage(scheme) {
   '<div class="detail-body">' +
     '<div class="group-scheme-card"><div class="eyebrow">DEFAULT GROUPING</div><div class="group-scheme-name">' + esc(scheme.name) + '</div>' +
     '<div class="group-scheme-desc">' + esc(scheme.desc) + ' · 系统按当前持仓自动生成，不需要维护成员。</div>' +
-    '<div class="group-scheme-stats"><div><span>分组</span><b>' + gb.items.length + '</b></div><div><span>目标合计</span><b>自动</b></div><div><span>未分组</span><b>' + (gb.ungrouped ? fmtMoney(gb.ungrouped.value) : '无') + '</b></div></div></div>' +
-    '<div class="info-banner">' + icon('sparkles') + '<div>这是内置的只读分组。你仍然可以在统计页和日历页切换使用；如需自定义目标，请使用“自定义分组”。</div></div>' +
+    '<div class="group-scheme-stats"><div><span>分组</span><b>' + gb.items.length + '</b></div><div><span>目标合计</span><b>' + (rebalanceEnabled(scheme) ? schemeTargetTotal(scheme).toFixed(0) + '%' : '自动') + '</b></div><div><span>未分组</span><b>' + (gb.ungrouped ? fmtMoney(gb.ungrouped.value) : '无') + '</b></div></div>' +
+    rebalanceSwitchHTML(scheme) + '</div>' +
+    '<div class="info-banner">' + icon('sparkles') + '<div>这是内置的只读分组。你可以在统计页和日历页切换使用；开启“参与再平衡”后，可以在再平衡页调整各分组目标。</div></div>' +
     '<div class="section-head" style="margin-top:18px"><div><h2>当前分组</h2><div class="sub">按当前市值</div></div><span class="tiny">' + gb.items.length + ' 组</span></div>' +
     '<div class="group-list">' + (cards || '<div class="card">' + emptyBlock('暂无资产', '添加账户或标的后，这里会自动出现分组。', '', 'grid') + '</div>') + '</div>' +
     '<div class="group-links"><a class="btn ghost sm" href="#/stats">查看统计</a><a class="btn ghost sm" href="#/settings">管理自定义分组</a></div>' +
@@ -4773,19 +4895,39 @@ function openGroupEditor(schemeId, groupId) {
   const editing = groupId ? scheme.groups.find(g => g.id === groupId) : null;
   const g = editing || {
     id: '', name: '', color: GROUP_COLORS[scheme.groups.length % GROUP_COLORS.length],
-    target: 0, includeAccounts: [], includeClasses: [], includeInstruments: []
+    target: 0, includeAccounts: [], includeCashAccounts: [], includeClasses: [], includeInstruments: []
   };
+  const others = scheme.groups.filter(x => !editing || x.id !== editing.id);
+  const coveredAccounts = new Map();
+  const coveredCash = new Map();
+  const coveredInstruments = new Map();
+  others.forEach(other => {
+    (other.includeAccounts || []).forEach(id => { if (!coveredAccounts.has(id)) coveredAccounts.set(id, other.name); });
+    (other.includeCashAccounts || []).forEach(id => { if (!coveredCash.has(id)) coveredCash.set(id, other.name); });
+    (other.includeInstruments || []).forEach(id => { if (!coveredInstruments.has(id)) coveredInstruments.set(id, other.name); });
+  });
+  const coveredMark = name => '<span class="covered-tag">已在「' + esc(name) + '」</span>';
   const tree = accounts().map(a => {
     const accountChecked = (g.includeAccounts || []).indexOf(a.id) >= 0;
-    const children = a.instruments.map(inst => {
+    const accountCoveredBy = coveredAccounts.get(a.id);
+    const cashCoveredBy = accountCoveredBy || coveredCash.get(a.id);
+    const instrumentCoverage = a.instruments.map(inst => accountCoveredBy || coveredInstruments.get(inst.id));
+    const hasCoveredChild = !!cashCoveredBy || instrumentCoverage.some(Boolean);
+    const accountDisabled = !!accountCoveredBy || hasCoveredChild;
+    const accountNote = accountCoveredBy ? coveredMark(accountCoveredBy) : hasCoveredChild ? '<span class="covered-hint">部分成员已占用</span>' : '';
+    const cashChecked = accountChecked || (g.includeCashAccounts || []).indexOf(a.id) >= 0;
+    const cashRow = '<label class="check-row tree-inst tree-child tree-cash' + (cashCoveredBy ? ' covered' : '') + '"><input type="checkbox" name="cashAccounts" value="' + esc(a.id) + '" data-account="' + esc(a.id) + '" data-covered="' + (cashCoveredBy ? '1' : '0') + '"' + (cashChecked ? ' checked' : '') + (accountChecked || cashCoveredBy ? ' disabled' : '') + '><span class="checkbox ' + (cashChecked ? 'checked' : '') + '">' + icon('check') + '</span>' +
+      '<span class="check-name">账户现金' + (cashCoveredBy ? coveredMark(cashCoveredBy) : '') + '<span class="check-sub">' + a.currency + ' · 可用现金 ' + fmtMoney(computeAccountMetrics(a.id).cashBase, { compact: true }) + '</span></span></label>';
+    const instrumentRows = a.instruments.map((inst, ii) => {
+      const coveredBy = instrumentCoverage[ii];
       const checked = accountChecked || (g.includeInstruments || []).indexOf(inst.id) >= 0;
-      return '<label class="check-row tree-inst"><input type="checkbox" name="instruments" value="' + esc(inst.id) + '" data-account="' + esc(a.id) + '"' + (checked ? ' checked' : '') + (accountChecked ? ' disabled' : '') + '><span class="checkbox ' + (checked ? 'checked' : '') + '">' + icon('check') + '</span>' +
-        '<span class="check-name">' + esc(inst.name) + '<span class="check-sub">' + esc(inst.symbol) + ' · ' + esc(instrumentTypeName(inst.cls)) + '</span></span></label>';
+      return '<label class="check-row tree-inst tree-child' + (coveredBy ? ' covered' : '') + '"><input type="checkbox" name="instruments" value="' + esc(inst.id) + '" data-account="' + esc(a.id) + '" data-covered="' + (coveredBy ? '1' : '0') + '"' + (checked ? ' checked' : '') + (accountChecked || coveredBy ? ' disabled' : '') + '><span class="checkbox ' + (checked ? 'checked' : '') + '">' + icon('check') + '</span>' +
+        '<span class="check-name">' + esc(inst.name) + (coveredBy ? coveredMark(coveredBy) : '') + '<span class="check-sub">' + esc(inst.symbol) + ' · ' + esc(instrumentTypeName(inst.cls)) + '</span></span></label>';
     }).join('');
     return '<div class="tree-account">' +
-      '<label class="check-row tree-account-row"><input type="checkbox" name="accounts" value="' + esc(a.id) + '"' + (accountChecked ? ' checked' : '') + '><span class="checkbox ' + (accountChecked ? 'checked' : '') + '">' + icon('check') + '</span>' +
-        '<span class="check-name">' + esc(a.name) + '<span class="check-sub">' + esc(accountTypeName(a.type)) + ' · ' + a.currency + ' · ' + (a.instruments.length ? a.instruments.length + ' 个标的' : '现金') + '</span></span></label>' +
-      (a.instruments.length ? '<div class="tree-children">' + children + '</div>' : '<div class="tree-empty">账户现金</div>') +
+      '<label class="check-row tree-account-row' + (accountDisabled ? ' covered' : '') + '"><input type="checkbox" name="accounts" value="' + esc(a.id) + '" data-covered="' + (accountDisabled ? '1' : '0') + '"' + (accountChecked ? ' checked' : '') + (accountDisabled ? ' disabled' : '') + '><span class="checkbox ' + (accountChecked ? 'checked' : '') + '">' + icon('check') + '</span>' +
+        '<span class="check-name">' + esc(a.name) + accountNote + '<span class="check-sub">' + esc(accountTypeName(a.type)) + ' · ' + a.currency + ' · ' + a.instruments.length + ' 个标的</span></span></label>' +
+      '<div class="tree-children">' + cashRow + instrumentRows + '</div>' +
     '</div>';
   }).join('');
 
@@ -4797,7 +4939,7 @@ function openGroupEditor(schemeId, groupId) {
       '<div class="field"><label>分组颜色</label><div class="color-row">' + colors.map(c => '<button type="button" class="color-dot ' + (c === g.color ? 'active' : '') + '" style="background:' + c + '" data-color="' + c + '" aria-label="选择颜色"></button>').join('') + '</div><input type="hidden" name="group-color" id="group-color" value="' + g.color + '"></div>' +
     '</div>' +
     '<div class="form-section">选择账户与标的</div>' +
-    '<div class="form-hint">勾选账户会包含该账户现金和全部标的；若只选部分标的，先取消勾选账户，再展开勾选。实际归属仍按分组列表顺序决定。</div>' +
+    '<div class="form-hint">勾选账户会包含该账户现金和全部标的；若只选账户现金或部分标的，先取消勾选账户，再在下面单独勾选。已被其他分组选择的成员会置灰。</div>' +
     '<div class="check-list account-tree">' + (tree || '<div class="tiny">还没有账户</div>') + '</div>' +
     '<div class="info-banner" style="margin-top:14px">' + icon('info') + '<div>保存后，符合本组条件的资产会从其他分组中移出；实际归属按分组列表顺序决定。</div></div>' +
     (editing ? '<button type="button" class="btn danger wide" style="margin-top:14px" data-group-delete>' + icon('trash') + '删除这个分组</button>' : '') +
@@ -4822,12 +4964,13 @@ function openGroupEditor(schemeId, groupId) {
   if (treeEl) {
     treeEl.querySelectorAll('.tree-account').forEach(box => {
       const main = box.querySelector('.tree-account-row input[type="checkbox"]');
-      const children = Array.from(box.querySelectorAll('.tree-inst input[type="checkbox"]'));
+      const children = Array.from(box.querySelectorAll('.tree-child input[type="checkbox"]'));
       const sync = (initial) => {
         children.forEach(inp => {
-          inp.disabled = main.checked;
+          const covered = inp.dataset.covered === '1';
+          inp.disabled = main.checked || covered;
           if (main.checked) inp.checked = true;
-          else if (!initial) inp.checked = false;
+          else if (!initial && !covered) inp.checked = false;
           const cb = inp.parentNode.querySelector('.checkbox');
           if (cb) cb.classList.toggle('checked', inp.checked);
         });
@@ -4835,7 +4978,7 @@ function openGroupEditor(schemeId, groupId) {
       main.addEventListener('change', () => sync(false));
       sync(true);
     });
-    treeEl.querySelectorAll('.tree-inst input[type="checkbox"]').forEach(inp => {
+    treeEl.querySelectorAll('.tree-child input[type="checkbox"]').forEach(inp => {
       inp.addEventListener('change', () => {
         const cb = inp.parentNode.querySelector('.checkbox');
         if (cb) cb.classList.toggle('checked', inp.checked);
@@ -4865,13 +5008,14 @@ function openGroupEditor(schemeId, groupId) {
     if (!name) { toast('请填写分组名称', 'error'); return; }
     const target = clamp(parseNumber(form.querySelector('#group-target').value), 0, 100);
     const color = form.querySelector('#group-color').value || '#ff9f45';
-    const includeAccounts = Array.from(form.querySelectorAll('input[name="accounts"]:checked')).map(x => x.value);
-    const includeInstruments = Array.from(form.querySelectorAll('input[name="instruments"]:checked')).map(x => x.value);
+    const includeAccounts = Array.from(form.querySelectorAll('input[name="accounts"]:checked:not(:disabled)')).map(x => x.value);
+    const includeInstruments = Array.from(form.querySelectorAll('input[name="instruments"]:checked:not(:disabled)')).map(x => x.value);
+    const includeCashAccounts = Array.from(form.querySelectorAll('input[name="cashAccounts"]:checked:not(:disabled)')).map(x => x.value);
     if (editing) {
       editing.name = name; editing.target = target; editing.color = color;
-      editing.includeAccounts = includeAccounts; editing.includeInstruments = includeInstruments; editing.includeClasses = [];
+      editing.includeAccounts = includeAccounts; editing.includeCashAccounts = includeCashAccounts; editing.includeInstruments = includeInstruments; editing.includeClasses = [];
     } else {
-      scheme.groups.push({ id: uid('grp'), name, target, color, includeAccounts, includeClasses: [], includeInstruments });
+      scheme.groups.push({ id: uid('grp'), name, target, color, includeAccounts, includeCashAccounts, includeClasses: [], includeInstruments });
     }
     saveState();
     closeSheet(wrap);
@@ -4899,7 +5043,7 @@ function openNewSchemeSheet() {
     if (!name) { toast('请填写名称', 'error'); return; }
     const desc = cleanText(wrap.querySelector('#scheme-desc').value, 50);
     const id = uid('scheme');
-    const scheme = { id, name, desc, groups: [{ id: uid('grp'), name: '新分组', target: 100, color: GROUP_COLORS[0], includeAccounts: [], includeClasses: [], includeInstruments: [] }] };
+    const scheme = { id, name, desc, groups: [{ id: uid('grp'), name: '新分组', target: 100, color: GROUP_COLORS[0], includeAccounts: [], includeCashAccounts: [], includeClasses: [], includeInstruments: [] }] };
     state.schemes.push(scheme);
     saveState();
     closeSheet(wrap);
@@ -4952,10 +5096,10 @@ function renderSettingsPage() {
     '<a class="setting-row" href="#/types"><span class="setting-icon blue">' + icon('grid') + '</span><span class="setting-main"><span class="t">类型管理</span><span class="s">编辑账户类型与标的类型，供添加资产和默认分组使用</span></span><span class="setting-value">' + accountTypes().length + ' / ' + instrumentTypes().length + ' 类' + icon('chevronRight') + '</span></a>' +
   '</div></div>' +
   '<div class="settings-group"><div class="label">默认分组 · 自动</div><div class="settings-card">' +
-    builtinSchemes().map(s => '<div class="scheme-manage-row">' +
+    builtinSchemes().map(s => '<a class="scheme-manage-row" href="#/groups/' + encodeURIComponent(s.id) + '">' +
       '<span class="dot" style="background:' + ((s.groups.find(g => !g.cashOnly) || s.groups[0] || {}).color || '#ff9f45') + '"></span>' +
       '<span class="sm-main"><span class="t">' + esc(s.name) + ' <span class="auto-tag">自动</span></span><span class="s">' + s.groups.length + ' 个分组 · 按' + (s.type === 'account' ? '账户' : s.type === 'instrument' ? '标的' : s.type === 'accountType' ? '账户类型' : '标的类型') + '实时生成</span></span>' +
-      '<span class="setting-value" style="font-size:8.5px">只读</span></div>').join('') +
+      '<span class="chev">' + icon('chevronRight') + '</span></a>').join('') +
   '</div></div>' +
   '<div class="settings-group"><div class="label">自定义分组</div><div class="settings-card">' +
     customSchemes().map(s => '<a class="scheme-manage-row" href="#/groups/' + encodeURIComponent(s.id) + '">' +
@@ -4978,7 +5122,7 @@ function renderSettingsPage() {
   '<div class="settings-group"><div class="label">关于</div><div class="settings-card">' +
     '<div class="setting-row"><span class="setting-icon accent">' + icon('shield') + '</span><span class="setting-main"><span class="t">本地存储</span><span class="s">所有数据保存在浏览器 localStorage，不上传服务器。清除浏览器数据会丢失账本，请定期导出备份。</span></span></div>' +
     '<div class="setting-row"><span class="setting-icon blue">' + icon('chart') + '</span><span class="setting-main"><span class="t">行情数据</span><span class="s">名称搜索来自新浪财经，最新报价来自腾讯行情；公开接口可能受网络影响，仅供估值参考。</span></span></div>' +
-    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v1.2</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
+    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v1.3</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
   '</div></div>' +
   '<div class="version">' + esc(APP_NAME) + ' · 投资组合<br>不构成投资建议 · 数据仅供参考</div>' +
   '<div style="height:8px"></div>';
@@ -6078,6 +6222,7 @@ function defaultUi() {
     instrumentPeriod: 365,
     instrumentChartMode: 'price',
     trendPeriod: 365,
+    trendMetric: 'amount',
     flowAccountPeriod: {},
     flowInstrumentPeriod: {},
     statsSchemeId: '__auto_account',
@@ -6178,6 +6323,7 @@ function handleAction(action, el) {
     case 'set-instrument-period': ui.instrumentPeriod = Number(d.value); refreshPage(); return;
     case 'set-instrument-chart-mode': ui.instrumentChartMode = d.value; refreshPage(); return;
     case 'set-trend-period': ui.trendPeriod = Number(d.value); refreshPage(); return;
+    case 'set-trend-metric': ui.trendMetric = d.value === 'percent' ? 'percent' : 'amount'; refreshPage(); return;
     case 'set-flow-period': {
       const map = d.scope === 'account' ? (ui.flowAccountPeriod || (ui.flowAccountPeriod = {})) : (ui.flowInstrumentPeriod || (ui.flowInstrumentPeriod = {}));
       map[d.id] = d.period;
@@ -6188,6 +6334,7 @@ function handleAction(action, el) {
     case 'select-stats-scheme': ui.statsSchemeId = d.id; ui.sankeyMode = ui.sankeyMode || 'account'; refreshPage(); return;
     case 'set-sankey-mode': ui.sankeyMode = d.value; refreshPage(); return;
     case 'select-rebalance-scheme': ui.rebalanceSchemeId = d.id; refreshPage(); return;
+    case 'toggle-rebalance-scheme': toggleRebalanceScheme(d.scheme); return;
     case 'select-calendar-scheme': ui.calendarSchemeId = d.id; ui.calendarGroupId = 'all'; refreshPage(); return;
     case 'select-calendar-group': ui.calendarGroupId = d.id; refreshPage(); return;
     case 'set-calendar-mode':

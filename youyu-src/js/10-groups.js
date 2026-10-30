@@ -28,6 +28,7 @@ function renderGroupsPage(schemeId) {
       '<div class="group-scheme-stats"><div><span>分组</span><b>' + scheme.groups.length + '</b></div><div><span>目标合计</span><b class="' + (Math.abs(totalTarget - 100) < 0.01 ? '' : 'gain') + '">' + totalTarget.toFixed(1) + '%</b></div><div><span>未分组</span><b class="' + (gb.ungrouped ? 'gain' : '') + '">' + (gb.ungrouped ? fmtMoney(gb.ungrouped.value, { compact: true }) : '无') + '</b></div></div>' +
       '<div class="group-scheme-actions"><button class="btn ghost sm" data-action="edit-scheme" data-scheme="' + esc(scheme.id) + '">' + icon('pen') + '编辑</button>' +
         '<button class="btn ghost sm danger" data-action="delete-scheme" data-scheme="' + esc(scheme.id) + '">' + icon('trash') + '删除</button></div>' +
+      rebalanceSwitchHTML(scheme) +
     '</div>' +
     '<div class="info-banner">' + icon('info') + '<div>分组按从上到下的顺序匹配：同一资产只会计入第一个符合条件的分组。用右侧箭头调整优先级。</div></div>' +
     '<div class="section-head" style="margin-top:18px"><div><h2>分组成员</h2><div class="sub">账户与账户下的具体标的可以组合使用</div></div><span class="tiny">' + scheme.groups.length + ' 组</span></div>' +
@@ -39,6 +40,14 @@ function renderGroupsPage(schemeId) {
   '</div>';
 }
 
+function rebalanceSwitchHTML(scheme) {
+  const on = rebalanceEnabled(scheme);
+  return '<button class="scheme-rebalance-row" data-action="toggle-rebalance-scheme" data-scheme="' + esc(scheme.id) + '">' +
+    '<span class="setting-icon ' + (on ? 'accent' : '') + '">' + icon('scale') + '</span>' +
+    '<span class="sr-main"><span class="t">' + (on ? '参与再平衡' : '不参与再平衡') + '</span><span class="s">' + (on ? '该分组方式已出现在再平衡页面，可设置目标占比。' : '开启后可在再平衡页面按此分组设置目标。') + '</span></span>' +
+    '<span class="switch ' + (on ? 'on' : '') + '"></span></button>';
+}
+
 function renderBuiltinSchemePage(scheme) {
   const gb = groupBreakdown(scheme.id);
   const cards = gb.items.filter(x => x.value > 0.5).map(it => '<div class="group-card" style="padding-bottom:12px">' +
@@ -48,8 +57,9 @@ function renderBuiltinSchemePage(scheme) {
   '<div class="detail-body">' +
     '<div class="group-scheme-card"><div class="eyebrow">DEFAULT GROUPING</div><div class="group-scheme-name">' + esc(scheme.name) + '</div>' +
     '<div class="group-scheme-desc">' + esc(scheme.desc) + ' · 系统按当前持仓自动生成，不需要维护成员。</div>' +
-    '<div class="group-scheme-stats"><div><span>分组</span><b>' + gb.items.length + '</b></div><div><span>目标合计</span><b>自动</b></div><div><span>未分组</span><b>' + (gb.ungrouped ? fmtMoney(gb.ungrouped.value) : '无') + '</b></div></div></div>' +
-    '<div class="info-banner">' + icon('sparkles') + '<div>这是内置的只读分组。你仍然可以在统计页和日历页切换使用；如需自定义目标，请使用“自定义分组”。</div></div>' +
+    '<div class="group-scheme-stats"><div><span>分组</span><b>' + gb.items.length + '</b></div><div><span>目标合计</span><b>' + (rebalanceEnabled(scheme) ? schemeTargetTotal(scheme).toFixed(0) + '%' : '自动') + '</b></div><div><span>未分组</span><b>' + (gb.ungrouped ? fmtMoney(gb.ungrouped.value) : '无') + '</b></div></div>' +
+    rebalanceSwitchHTML(scheme) + '</div>' +
+    '<div class="info-banner">' + icon('sparkles') + '<div>这是内置的只读分组。你可以在统计页和日历页切换使用；开启“参与再平衡”后，可以在再平衡页调整各分组目标。</div></div>' +
     '<div class="section-head" style="margin-top:18px"><div><h2>当前分组</h2><div class="sub">按当前市值</div></div><span class="tiny">' + gb.items.length + ' 组</span></div>' +
     '<div class="group-list">' + (cards || '<div class="card">' + emptyBlock('暂无资产', '添加账户或标的后，这里会自动出现分组。', '', 'grid') + '</div>') + '</div>' +
     '<div class="group-links"><a class="btn ghost sm" href="#/stats">查看统计</a><a class="btn ghost sm" href="#/settings">管理自定义分组</a></div>' +
@@ -63,19 +73,39 @@ function openGroupEditor(schemeId, groupId) {
   const editing = groupId ? scheme.groups.find(g => g.id === groupId) : null;
   const g = editing || {
     id: '', name: '', color: GROUP_COLORS[scheme.groups.length % GROUP_COLORS.length],
-    target: 0, includeAccounts: [], includeClasses: [], includeInstruments: []
+    target: 0, includeAccounts: [], includeCashAccounts: [], includeClasses: [], includeInstruments: []
   };
+  const others = scheme.groups.filter(x => !editing || x.id !== editing.id);
+  const coveredAccounts = new Map();
+  const coveredCash = new Map();
+  const coveredInstruments = new Map();
+  others.forEach(other => {
+    (other.includeAccounts || []).forEach(id => { if (!coveredAccounts.has(id)) coveredAccounts.set(id, other.name); });
+    (other.includeCashAccounts || []).forEach(id => { if (!coveredCash.has(id)) coveredCash.set(id, other.name); });
+    (other.includeInstruments || []).forEach(id => { if (!coveredInstruments.has(id)) coveredInstruments.set(id, other.name); });
+  });
+  const coveredMark = name => '<span class="covered-tag">已在「' + esc(name) + '」</span>';
   const tree = accounts().map(a => {
     const accountChecked = (g.includeAccounts || []).indexOf(a.id) >= 0;
-    const children = a.instruments.map(inst => {
+    const accountCoveredBy = coveredAccounts.get(a.id);
+    const cashCoveredBy = accountCoveredBy || coveredCash.get(a.id);
+    const instrumentCoverage = a.instruments.map(inst => accountCoveredBy || coveredInstruments.get(inst.id));
+    const hasCoveredChild = !!cashCoveredBy || instrumentCoverage.some(Boolean);
+    const accountDisabled = !!accountCoveredBy || hasCoveredChild;
+    const accountNote = accountCoveredBy ? coveredMark(accountCoveredBy) : hasCoveredChild ? '<span class="covered-hint">部分成员已占用</span>' : '';
+    const cashChecked = accountChecked || (g.includeCashAccounts || []).indexOf(a.id) >= 0;
+    const cashRow = '<label class="check-row tree-inst tree-child tree-cash' + (cashCoveredBy ? ' covered' : '') + '"><input type="checkbox" name="cashAccounts" value="' + esc(a.id) + '" data-account="' + esc(a.id) + '" data-covered="' + (cashCoveredBy ? '1' : '0') + '"' + (cashChecked ? ' checked' : '') + (accountChecked || cashCoveredBy ? ' disabled' : '') + '><span class="checkbox ' + (cashChecked ? 'checked' : '') + '">' + icon('check') + '</span>' +
+      '<span class="check-name">账户现金' + (cashCoveredBy ? coveredMark(cashCoveredBy) : '') + '<span class="check-sub">' + a.currency + ' · 可用现金 ' + fmtMoney(computeAccountMetrics(a.id).cashBase, { compact: true }) + '</span></span></label>';
+    const instrumentRows = a.instruments.map((inst, ii) => {
+      const coveredBy = instrumentCoverage[ii];
       const checked = accountChecked || (g.includeInstruments || []).indexOf(inst.id) >= 0;
-      return '<label class="check-row tree-inst"><input type="checkbox" name="instruments" value="' + esc(inst.id) + '" data-account="' + esc(a.id) + '"' + (checked ? ' checked' : '') + (accountChecked ? ' disabled' : '') + '><span class="checkbox ' + (checked ? 'checked' : '') + '">' + icon('check') + '</span>' +
-        '<span class="check-name">' + esc(inst.name) + '<span class="check-sub">' + esc(inst.symbol) + ' · ' + esc(instrumentTypeName(inst.cls)) + '</span></span></label>';
+      return '<label class="check-row tree-inst tree-child' + (coveredBy ? ' covered' : '') + '"><input type="checkbox" name="instruments" value="' + esc(inst.id) + '" data-account="' + esc(a.id) + '" data-covered="' + (coveredBy ? '1' : '0') + '"' + (checked ? ' checked' : '') + (accountChecked || coveredBy ? ' disabled' : '') + '><span class="checkbox ' + (checked ? 'checked' : '') + '">' + icon('check') + '</span>' +
+        '<span class="check-name">' + esc(inst.name) + (coveredBy ? coveredMark(coveredBy) : '') + '<span class="check-sub">' + esc(inst.symbol) + ' · ' + esc(instrumentTypeName(inst.cls)) + '</span></span></label>';
     }).join('');
     return '<div class="tree-account">' +
-      '<label class="check-row tree-account-row"><input type="checkbox" name="accounts" value="' + esc(a.id) + '"' + (accountChecked ? ' checked' : '') + '><span class="checkbox ' + (accountChecked ? 'checked' : '') + '">' + icon('check') + '</span>' +
-        '<span class="check-name">' + esc(a.name) + '<span class="check-sub">' + esc(accountTypeName(a.type)) + ' · ' + a.currency + ' · ' + (a.instruments.length ? a.instruments.length + ' 个标的' : '现金') + '</span></span></label>' +
-      (a.instruments.length ? '<div class="tree-children">' + children + '</div>' : '<div class="tree-empty">账户现金</div>') +
+      '<label class="check-row tree-account-row' + (accountDisabled ? ' covered' : '') + '"><input type="checkbox" name="accounts" value="' + esc(a.id) + '" data-covered="' + (accountDisabled ? '1' : '0') + '"' + (accountChecked ? ' checked' : '') + (accountDisabled ? ' disabled' : '') + '><span class="checkbox ' + (accountChecked ? 'checked' : '') + '">' + icon('check') + '</span>' +
+        '<span class="check-name">' + esc(a.name) + accountNote + '<span class="check-sub">' + esc(accountTypeName(a.type)) + ' · ' + a.currency + ' · ' + a.instruments.length + ' 个标的</span></span></label>' +
+      '<div class="tree-children">' + cashRow + instrumentRows + '</div>' +
     '</div>';
   }).join('');
 
@@ -87,7 +117,7 @@ function openGroupEditor(schemeId, groupId) {
       '<div class="field"><label>分组颜色</label><div class="color-row">' + colors.map(c => '<button type="button" class="color-dot ' + (c === g.color ? 'active' : '') + '" style="background:' + c + '" data-color="' + c + '" aria-label="选择颜色"></button>').join('') + '</div><input type="hidden" name="group-color" id="group-color" value="' + g.color + '"></div>' +
     '</div>' +
     '<div class="form-section">选择账户与标的</div>' +
-    '<div class="form-hint">勾选账户会包含该账户现金和全部标的；若只选部分标的，先取消勾选账户，再展开勾选。实际归属仍按分组列表顺序决定。</div>' +
+    '<div class="form-hint">勾选账户会包含该账户现金和全部标的；若只选账户现金或部分标的，先取消勾选账户，再在下面单独勾选。已被其他分组选择的成员会置灰。</div>' +
     '<div class="check-list account-tree">' + (tree || '<div class="tiny">还没有账户</div>') + '</div>' +
     '<div class="info-banner" style="margin-top:14px">' + icon('info') + '<div>保存后，符合本组条件的资产会从其他分组中移出；实际归属按分组列表顺序决定。</div></div>' +
     (editing ? '<button type="button" class="btn danger wide" style="margin-top:14px" data-group-delete>' + icon('trash') + '删除这个分组</button>' : '') +
@@ -112,12 +142,13 @@ function openGroupEditor(schemeId, groupId) {
   if (treeEl) {
     treeEl.querySelectorAll('.tree-account').forEach(box => {
       const main = box.querySelector('.tree-account-row input[type="checkbox"]');
-      const children = Array.from(box.querySelectorAll('.tree-inst input[type="checkbox"]'));
+      const children = Array.from(box.querySelectorAll('.tree-child input[type="checkbox"]'));
       const sync = (initial) => {
         children.forEach(inp => {
-          inp.disabled = main.checked;
+          const covered = inp.dataset.covered === '1';
+          inp.disabled = main.checked || covered;
           if (main.checked) inp.checked = true;
-          else if (!initial) inp.checked = false;
+          else if (!initial && !covered) inp.checked = false;
           const cb = inp.parentNode.querySelector('.checkbox');
           if (cb) cb.classList.toggle('checked', inp.checked);
         });
@@ -125,7 +156,7 @@ function openGroupEditor(schemeId, groupId) {
       main.addEventListener('change', () => sync(false));
       sync(true);
     });
-    treeEl.querySelectorAll('.tree-inst input[type="checkbox"]').forEach(inp => {
+    treeEl.querySelectorAll('.tree-child input[type="checkbox"]').forEach(inp => {
       inp.addEventListener('change', () => {
         const cb = inp.parentNode.querySelector('.checkbox');
         if (cb) cb.classList.toggle('checked', inp.checked);
@@ -155,13 +186,14 @@ function openGroupEditor(schemeId, groupId) {
     if (!name) { toast('请填写分组名称', 'error'); return; }
     const target = clamp(parseNumber(form.querySelector('#group-target').value), 0, 100);
     const color = form.querySelector('#group-color').value || '#ff9f45';
-    const includeAccounts = Array.from(form.querySelectorAll('input[name="accounts"]:checked')).map(x => x.value);
-    const includeInstruments = Array.from(form.querySelectorAll('input[name="instruments"]:checked')).map(x => x.value);
+    const includeAccounts = Array.from(form.querySelectorAll('input[name="accounts"]:checked:not(:disabled)')).map(x => x.value);
+    const includeInstruments = Array.from(form.querySelectorAll('input[name="instruments"]:checked:not(:disabled)')).map(x => x.value);
+    const includeCashAccounts = Array.from(form.querySelectorAll('input[name="cashAccounts"]:checked:not(:disabled)')).map(x => x.value);
     if (editing) {
       editing.name = name; editing.target = target; editing.color = color;
-      editing.includeAccounts = includeAccounts; editing.includeInstruments = includeInstruments; editing.includeClasses = [];
+      editing.includeAccounts = includeAccounts; editing.includeCashAccounts = includeCashAccounts; editing.includeInstruments = includeInstruments; editing.includeClasses = [];
     } else {
-      scheme.groups.push({ id: uid('grp'), name, target, color, includeAccounts, includeClasses: [], includeInstruments });
+      scheme.groups.push({ id: uid('grp'), name, target, color, includeAccounts, includeCashAccounts, includeClasses: [], includeInstruments });
     }
     saveState();
     closeSheet(wrap);
@@ -189,7 +221,7 @@ function openNewSchemeSheet() {
     if (!name) { toast('请填写名称', 'error'); return; }
     const desc = cleanText(wrap.querySelector('#scheme-desc').value, 50);
     const id = uid('scheme');
-    const scheme = { id, name, desc, groups: [{ id: uid('grp'), name: '新分组', target: 100, color: GROUP_COLORS[0], includeAccounts: [], includeClasses: [], includeInstruments: [] }] };
+    const scheme = { id, name, desc, groups: [{ id: uid('grp'), name: '新分组', target: 100, color: GROUP_COLORS[0], includeAccounts: [], includeCashAccounts: [], includeClasses: [], includeInstruments: [] }] };
     state.schemes.push(scheme);
     saveState();
     closeSheet(wrap);

@@ -2,15 +2,40 @@
    09 · 再平衡 / 目标配置
    ========================================================= */
 function rebalanceSchemeId() {
-  const custom = schemesForRebalance();
-  const found = custom.find(s => s.id === ui.rebalanceSchemeId);
-  if (!found) ui.rebalanceSchemeId = (custom[1] || custom[0]) ? (custom[1] || custom[0]).id : '';
+  const enabled = schemesForRebalance();
+  const found = enabled.find(s => s.id === ui.rebalanceSchemeId);
+  if (!found) ui.rebalanceSchemeId = (enabled[1] || enabled[0]) ? (enabled[1] || enabled[0]).id : '';
   return ui.rebalanceSchemeId;
+}
+function seedRebalanceTargets(scheme) {
+  if (!scheme || !scheme.builtin) return;
+  if (!state.rebalance.targets) state.rebalance.targets = {};
+  const existing = state.rebalance.targets[scheme.id] || {};
+  if (Object.keys(existing).some(id => Number(existing[id]) > 0)) return;
+  const gb = groupBreakdown(scheme.id);
+  const targets = {};
+  gb.items.forEach(it => { if (it.id !== '__ungrouped') targets[it.id] = round(it.pct * 100, 1); });
+  state.rebalance.targets[scheme.id] = targets;
+}
+function toggleRebalanceScheme(schemeId) {
+  const scheme = schemeById(schemeId);
+  if (!scheme) return;
+  const next = !rebalanceEnabled(scheme);
+  setRebalanceEnabled(scheme.id, next);
+  if (next && scheme.builtin) seedRebalanceTargets(scheme);
+  if (!next && ui.rebalanceSchemeId === scheme.id) ui.rebalanceSchemeId = '';
+  saveState();
+  toast(next ? (scheme.builtin ? '已开启再平衡，并按当前权重初始化目标' : '已开启再平衡') : '已关闭再平衡', 'success');
+  refreshPage();
 }
 
 function renderRebalancePage() {
   const sid = rebalanceSchemeId();
-  const scheme = schemeById(sid);
+  const scheme = sid ? schemeById(sid) : null;
+  if (!scheme) {
+    return pageTop({ eyebrow: 'REBALANCE', title: '再平衡', sub: '让配置回到你设定的目标区间。' }) +
+      '<div class="detail-body">' + emptyBlock('还没有启用再平衡的分组方式', '到分组管理中打开「参与再平衡」开关，即可按该分组设置目标。', '<a class="btn primary sm" href="#/settings">去设置</a>', 'scale') + '</div>';
+  }
   const gb = groupBreakdown(sid);
   const items = gb.items.filter(x => x.id !== '__ungrouped');
   const ungrouped = gb.ungrouped;
@@ -73,7 +98,7 @@ function rebalanceRows(items, tolerance) {
 
 function openTargetEditor(sid) {
   const scheme = schemeById(sid || rebalanceSchemeId());
-  if (!scheme || isBuiltinScheme(scheme)) return;
+  if (!scheme || !rebalanceEnabled(scheme)) { toast('请先在分组管理中开启再平衡', 'error'); return; }
   const tolerance = Number(state.settings.tolerance) || 0;
   const body = '<form id="target-form">' +
     '<div class="info-banner" style="margin-top:0">' + icon('target') + '<div>目标比例合计建议为 100%。你可以为每个分组设定一个目标占比，允许 ±' + tolerance.toFixed(1) + '% 的偏离。</div></div>' +
@@ -81,7 +106,7 @@ function openTargetEditor(sid) {
     '<div style="display:flex;flex-direction:column;gap:10px">' +
       scheme.groups.map(g => '<div class="field" style="display:grid;grid-template-columns:1fr 98px;align-items:center;gap:10px">' +
         '<div style="display:flex;align-items:center;gap:8px;min-width:0"><span style="width:8px;height:8px;border-radius:3px;background:' + g.color + '"></span><span style="font-size:11px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(g.name) + '</span></div>' +
-        '<div class="amount-input"><input class="input target-input" type="text" inputmode="decimal" name="target_' + esc(g.id) + '" id="target_' + esc(g.id) + '" value="' + (Number(g.target) || 0) + '" placeholder="0"><span class="unit">%</span></div>' +
+        '<div class="amount-input"><input class="input target-input" type="text" inputmode="decimal" name="target_' + esc(g.id) + '" id="target_' + esc(g.id) + '" value="' + rebalanceTargetFor(scheme, g) + '" placeholder="0"><span class="unit">%</span></div>' +
       '</div>').join('') +
     '</div>' +
     '<div class="row-between" style="margin-top:12px;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,.035)"><span class="tiny">目标合计</span><b id="target-total" style="font-size:13px">' + schemeTargetTotal(scheme).toFixed(1) + '%</b></div>' +
@@ -114,7 +139,11 @@ function openTargetEditor(sid) {
       total += v;
     });
     const tol = clamp(parseNumber(form.querySelector('#target-tolerance').value), 0.1, 30);
-    scheme.groups.forEach(g => { g.target = values[g.id]; });
+    if (scheme.builtin) {
+      state.rebalance.targets[scheme.id] = Object.assign({}, state.rebalance.targets[scheme.id] || {}, values);
+    } else {
+      scheme.groups.forEach(g => { g.target = values[g.id]; });
+    }
     state.settings.tolerance = tol;
     saveState();
     closeSheet(wrap);
@@ -156,6 +185,7 @@ function buildRebalancePlan(sid) {
 
 function openRebalancePlanSheet(sid) {
   const plan = buildRebalancePlan(sid || rebalanceSchemeId());
+  if (!plan.scheme) { toast('请先开启再平衡', 'error'); return; }
   const rows = plan.rows;
   const body = '<div class="stat-hero" style="margin-bottom:0"><div><div class="eyebrow">建议调仓金额</div><div class="big" style="font-size:25px">' + fmtMoney(plan.buy) + '</div><div class="cap">买入总额 · 卖出 ' + fmtMoney(plan.sell) + '</div></div>' +
     '<div class="right">需要调整<b>' + rows.length + ' 组</b><span>目标区间</span></div></div>' +

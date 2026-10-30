@@ -11,6 +11,7 @@ function defaultUi() {
     instrumentPeriod: 365,
     instrumentChartMode: 'price',
     trendPeriod: 365,
+    trendMetric: 'amount',
     flowAccountPeriod: {},
     flowInstrumentPeriod: {},
     statsSchemeId: '__auto_account',
@@ -111,6 +112,7 @@ function handleAction(action, el) {
     case 'set-instrument-period': ui.instrumentPeriod = Number(d.value); refreshPage(); return;
     case 'set-instrument-chart-mode': ui.instrumentChartMode = d.value; refreshPage(); return;
     case 'set-trend-period': ui.trendPeriod = Number(d.value); refreshPage(); return;
+    case 'set-trend-metric': ui.trendMetric = d.value === 'percent' ? 'percent' : 'amount'; refreshPage(); return;
     case 'set-flow-period': {
       const map = d.scope === 'account' ? (ui.flowAccountPeriod || (ui.flowAccountPeriod = {})) : (ui.flowInstrumentPeriod || (ui.flowInstrumentPeriod = {}));
       map[d.id] = d.period;
@@ -121,6 +123,7 @@ function handleAction(action, el) {
     case 'select-stats-scheme': ui.statsSchemeId = d.id; ui.sankeyMode = ui.sankeyMode || 'account'; refreshPage(); return;
     case 'set-sankey-mode': ui.sankeyMode = d.value; refreshPage(); return;
     case 'select-rebalance-scheme': ui.rebalanceSchemeId = d.id; refreshPage(); return;
+    case 'toggle-rebalance-scheme': toggleRebalanceScheme(d.scheme); return;
     case 'select-calendar-scheme': ui.calendarSchemeId = d.id; ui.calendarGroupId = 'all'; refreshPage(); return;
     case 'select-calendar-group': ui.calendarGroupId = d.id; refreshPage(); return;
     case 'set-calendar-mode':

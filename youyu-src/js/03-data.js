@@ -67,6 +67,9 @@ function normalizeState(obj) {
   });
   obj.prices = obj.prices || {};
   obj.fxHistory = obj.fxHistory || {};
+  obj.rebalance = obj.rebalance && typeof obj.rebalance === 'object' ? obj.rebalance : {};
+  obj.rebalance.schemes = obj.rebalance.schemes && typeof obj.rebalance.schemes === 'object' ? obj.rebalance.schemes : {};
+  obj.rebalance.targets = obj.rebalance.targets && typeof obj.rebalance.targets === 'object' ? obj.rebalance.targets : {};
   if (!Array.isArray(obj.schemes) || !obj.schemes.length) obj.schemes = buildSeed().schemes;
   obj.schemes.forEach(s => {
     s.id = s.id || uid('sch');
@@ -77,6 +80,7 @@ function normalizeState(obj) {
       g.color = g.color || GROUP_COLORS[gi % GROUP_COLORS.length];
       g.target = Number.isFinite(Number(g.target)) ? Number(g.target) : 0;
       g.includeAccounts = Array.isArray(g.includeAccounts) ? g.includeAccounts : [];
+      g.includeCashAccounts = Array.isArray(g.includeCashAccounts) ? g.includeCashAccounts : [];
       g.includeClasses = Array.isArray(g.includeClasses) ? g.includeClasses : [];
       g.includeInstruments = Array.isArray(g.includeInstruments) ? g.includeInstruments : [];
     });
@@ -148,6 +152,7 @@ function builtinSchemes() {
     target: 0,
     auto: true,
     includeAccounts: [a.id],
+    includeCashAccounts: [],
     includeClasses: [],
     includeInstruments: []
   }));
@@ -162,6 +167,7 @@ function builtinSchemes() {
       auto: true,
       cashOnly: true,
       includeAccounts: [a.id],
+      includeCashAccounts: [],
       includeClasses: [],
       includeInstruments: []
     });
@@ -173,6 +179,7 @@ function builtinSchemes() {
         target: 0,
         auto: true,
         includeAccounts: [],
+        includeCashAccounts: [],
         includeClasses: [],
         includeInstruments: [inst.id]
       });
@@ -188,7 +195,7 @@ function builtinSchemes() {
       color: t.color || autoGroupColor(i),
       target: 0, auto: true,
       includeAccounts: list.map(a => a.id),
-      includeClasses: [], includeInstruments: []
+      includeCashAccounts: [], includeClasses: [], includeInstruments: []
     });
   });
   const instTypeGroups = [{
@@ -197,7 +204,7 @@ function builtinSchemes() {
     color: instrumentTypeColor('cash'),
     target: 0, auto: true, cashOnly: true,
     includeAccounts: accounts().map(a => a.id),
-    includeClasses: [], includeInstruments: []
+    includeCashAccounts: [], includeClasses: [], includeInstruments: []
   }];
   const usedTypes = new Set();
   accounts().forEach(a => (a.instruments || []).forEach(i => usedTypes.add(i.cls)));
@@ -208,7 +215,7 @@ function builtinSchemes() {
       name: t.name,
       color: t.color || autoGroupColor(i),
       target: 0, auto: true, typeFilter: t.id,
-      includeAccounts: [], includeClasses: [], includeInstruments: []
+      includeAccounts: [], includeCashAccounts: [], includeClasses: [], includeInstruments: []
     });
   });
   return [
@@ -220,7 +227,33 @@ function builtinSchemes() {
 }
 function schemes() { return builtinSchemes().concat(state.schemes || []); }
 function isBuiltinScheme(scheme) { return !!(scheme && scheme.builtin); }
-function schemesForRebalance() { return state.schemes || []; }
+function rebalanceConfig(schemeId) {
+  if (!state.rebalance) state.rebalance = { schemes: {}, targets: {} };
+  if (!state.rebalance.schemes) state.rebalance.schemes = {};
+  if (!state.rebalance.targets) state.rebalance.targets = {};
+  return state.rebalance.schemes[schemeId] || {};
+}
+function rebalanceEnabled(scheme) {
+  if (!scheme) return false;
+  const cfg = rebalanceConfig(scheme.id);
+  if (typeof cfg.enabled === 'boolean') return cfg.enabled;
+  return !scheme.builtin;
+}
+function setRebalanceEnabled(schemeId, enabled) {
+  if (!state.rebalance) state.rebalance = { schemes: {}, targets: {} };
+  if (!state.rebalance.schemes) state.rebalance.schemes = {};
+  state.rebalance.schemes[schemeId] = Object.assign({}, rebalanceConfig(schemeId), { enabled: !!enabled });
+}
+function rebalanceTargetFor(scheme, group) {
+  if (!scheme || !group) return 0;
+  if (!scheme.builtin) return Number(group.target) || 0;
+  const targets = (state.rebalance && state.rebalance.targets && state.rebalance.targets[scheme.id]) || {};
+  return Number(targets[group.id]) || 0;
+}
+function groupTargetValue(scheme, group) { return rebalanceTargetFor(scheme, group); }
+function schemesForRebalance() {
+  return schemes().filter(s => rebalanceEnabled(s));
+}
 function schemeById(id) { return schemes().find(s => s.id === id) || schemes()[0]; }
 function groupById(schemeId, groupId) {
   const s = schemeById(schemeId);
@@ -544,7 +577,9 @@ function groupMatches(group, account, inst) {
     return false;
   }
   if (group.cashOnly) return (group.includeAccounts || []).indexOf(account.id) >= 0;
-  return (group.includeAccounts || []).indexOf(account.id) >= 0;
+  if ((group.includeAccounts || []).indexOf(account.id) >= 0) return true;
+  if ((group.includeCashAccounts || []).indexOf(account.id) >= 0) return true;
+  return false;
 }
 function resolveGroupId(scheme, account, inst) {
   if (!scheme) return null;
@@ -554,19 +589,20 @@ function resolveGroupId(scheme, account, inst) {
   return null;
 }
 function groupTarget(g) { return Number(g.target) || 0; }
-function schemeTargetTotal(scheme) { return sum(scheme ? scheme.groups : [], g => Number(g.target) || 0); }
+function schemeTargetTotal(scheme) { return sum(scheme ? scheme.groups : [], g => rebalanceTargetFor(scheme, g)); }
 function normalizeTargets(scheme) {
   const total = schemeTargetTotal(scheme);
   return (scheme ? scheme.groups : []).map(g => ({
     group: g,
-    raw: Number(g.target) || 0,
-    normalized: total > 0 ? (Number(g.target) || 0) / total : 0
+    raw: rebalanceTargetFor(scheme, g),
+    normalized: total > 0 ? rebalanceTargetFor(scheme, g) / total : 0
   }));
 }
 function groupIncludeSummary(group) {
   if (group.typeFilter) return instrumentTypeName(group.typeFilter) + ' · 按标的类型';
   const names = [];
   (group.includeAccounts || []).forEach(id => { const a = accountById(id); if (a) names.push(a.name); });
+  (group.includeCashAccounts || []).forEach(id => { if ((group.includeAccounts || []).indexOf(id) < 0) { const a = accountById(id); if (a) names.push(a.name + ' · 现金'); } });
   (group.includeInstruments || []).forEach(id => { const i = instrumentById(id); if (i) names.push(i.name); });
   return names.length ? names.join(' · ') : '尚未选择资产';
 }
@@ -709,7 +745,7 @@ function groupDailySeries(schemeId) {
   const map = new Map();
   scheme.groups.forEach(g => {
     map.set(g.id, {
-      id: g.id, name: g.name, color: g.color, target: g.target, group: g,
+      id: g.id, name: g.name, color: g.color, target: groupTargetValue(scheme, g), group: g,
       values: new Array(N).fill(0), pnls: new Array(N).fill(0)
     });
   });
@@ -827,7 +863,7 @@ function groupBreakdown(schemeId) {
   const items = gs.groups.map(g => {
     const value = Math.max(0, g.values[last] || 0);
     const pct = total > 0 ? value / total : 0;
-    const targetRaw = g.id === '__ungrouped' ? 0 : Number(g.target) || 0;
+    const targetRaw = g.id === '__ungrouped' ? 0 : rebalanceTargetFor(gs.scheme, g);
     const normalizedTarget = g.id === '__ungrouped' ? 0 : (targetRaw / norm) * 100;
     const targetValue = total * normalizedTarget / 100;
     const delta = targetValue - value;
@@ -842,7 +878,7 @@ function groupBreakdown(schemeId) {
   const tolerance = Number(state.settings.tolerance) || 0;
   items.forEach(it => {
     if (it.id === '__ungrouped') { it.status = 'unassigned'; return; }
-    if (gs.scheme && gs.scheme.builtin) { it.status = 'auto'; return; }
+    if (gs.scheme && gs.scheme.builtin && !rebalanceEnabled(gs.scheme)) { it.status = 'auto'; return; }
     it.status = it.drift > tolerance ? 'high' : it.drift < -tolerance ? 'low' : 'ok';
   });
   return { scheme: gs.scheme, items, total, tolerance, targetTotal, dates: daily.dates, ungrouped: items.find(x => x.id === '__ungrouped') || null };

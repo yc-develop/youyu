@@ -16,7 +16,7 @@ function renderStatsPage() {
   const retMap = new Map(groupReturns.map(x => [x.group.id, x]));
   const sankeyMode = ui.sankeyMode || 'account';
   const builtin = !!scheme.builtin;
-  const manageSid = builtin ? (customSchemes()[0] ? customSchemes()[0].id : '') : sid;
+  const manageSid = sid;
   return pageTop({
     eyebrow: 'ALLOCATION & FLOW',
     title: '统计',
@@ -75,22 +75,46 @@ function statsGroupRows(gb, retMap, scheme) {
 function portfolioTrendCard(p, opts) {
   const o = opts || {};
   const days = Number(ui.trendPeriod == null ? 365 : ui.trendPeriod);
+  const metric = o.metric || ui.trendMetric || 'amount';
   const daily = buildDailyAnalytics();
   const series = o.series || daily.total;
   const tw = twrStats(series, days || daily.n - 1);
   const pnl = sum(series.pnls.slice(Math.max(1, daily.n - 1 - (days || daily.n - 1))));
-  const points = tw.points.map(x => ({ date: x.date, value: x.value }));
   const title = o.title || '组合走势';
   const scope = o.scopeName || '全部资产';
   const labels = { 30: '1月', 90: '3月', 365: '1年', 0: '全部' };
+  const lookback = days || daily.n - 1;
+  const start = Math.max(1, daily.n - 1 - lookback);
+  let points = [];
+  if (metric === 'amount') {
+    let cumulative = 0;
+    points.push({ date: daily.dates[Math.max(0, start - 1)], value: 0 });
+    for (let i = start; i < daily.n; i++) {
+      cumulative += series.pnls[i] || 0;
+      points.push({ date: daily.dates[i], value: cumulative });
+    }
+  } else {
+    points = tw.points.map(x => ({ date: x.date, value: x.value }));
+  }
   let chart = '';
   if (points.length > 1) {
-    chart = lineChartHTML({ points, mode: 'percent', color: tw.totalReturn >= 0 ? '#ff5d6c' : '#35d39a', height: 156, baseline: true, aria: scope + '收益率走势' });
+    chart = lineChartHTML({
+      points,
+      mode: metric === 'amount' ? 'amount' : 'percent',
+      currency: baseCurrency(),
+      color: (metric === 'amount' ? pnl : tw.totalReturn) >= 0 ? '#ff5d6c' : '#35d39a',
+      height: 156, baseline: true,
+      aria: scope + (metric === 'amount' ? '收益金额走势' : '收益率走势')
+    });
   } else chart = chartEmptyHTML('还没有足够的历史数据', 156);
+  const pill = metric === 'amount' ? pnlText(pnl, { compact: true }) : fmtPct(tw.totalReturn, 2);
+  const sub = metric === 'amount' ? '累计收益金额' : '时间加权收益率';
   return '<section class="detail-chart-card" style="margin:14px 0 0;border-radius:20px">' +
-    '<div class="chart-head"><div><h2>' + esc(title) + '</h2><div class="sub">时间加权收益率 · ' + esc(scope) + ' · ' + (state.settings.considerFx ? '含汇率影响' : '不含汇率影响') + '</div></div>' +
-      '<span class="pill-btn" style="height:26px;font-size:9px;padding:0 9px">' + icon('trendUp') + (tw.totalReturn >= 0 ? '+' : '') + fmtPct(tw.totalReturn, 2) + '</span></div>' +
+    '<div class="chart-head"><div><h2>' + esc(title) + '</h2><div class="sub">' + sub + ' · ' + esc(scope) + ' · ' + (state.settings.considerFx ? '含汇率影响' : '不含汇率影响') + '</div></div>' +
+      '<span class="pill-btn" style="height:26px;font-size:9px;padding:0 9px">' + icon('trendUp') + pill + '</span></div>' +
     chart +
+    '<div class="trend-metric-row"><div class="segmented small" style="width:112px"><button class="seg ' + (metric === 'amount' ? 'active' : '') + '" data-action="set-trend-metric" data-value="amount">金额</button><button class="seg ' + (metric === 'percent' ? 'active' : '') + '" data-action="set-trend-metric" data-value="percent">收益率</button></div>' +
+      '<span class="tiny">更新至 ' + shortDate(todayKey()) + '</span></div>' +
     '<div class="metrics">' +
       '<div class="metric"><div class="lab">区间收益</div><div class="val ' + pnlClass(pnl) + '">' + pnlText(pnl, { compact: true }) + '</div><div class="sub">金额</div></div>' +
       '<div class="metric"><div class="lab">最大回撤</div><div class="val loss">' + fmtPct(tw.maxDrawdown, 2) + '</div><div class="sub">回撤</div></div>' +
@@ -98,7 +122,7 @@ function portfolioTrendCard(p, opts) {
       '<div class="metric"><div class="lab">正收益天</div><div class="val">' + (tw.positiveRate * 100).toFixed(0) + '%</div><div class="sub">胜率</div></div>' +
     '</div>' +
     '<div class="period-row"><div class="segmented small">' + [30, 90, 365, 0].map(d => '<button class="seg ' + (days === d ? 'active' : '') + '" data-action="set-trend-period" data-value="' + d + '">' + labels[d] + '</button>').join('') + '</div>' +
-      '<span class="tiny">更新至 ' + shortDate(todayKey()) + '</span></div>' +
+      '<span class="tiny">' + (metric === 'amount' ? '累计盈亏' : '时间加权') + '</span></div>' +
   '</section>';
 }
 

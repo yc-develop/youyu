@@ -1135,3 +1135,24 @@ body.has-overlay .toast-root{top:calc(var(--safe-top) + 14px);bottom:auto}
 .type-chev{color:rgba(255,255,255,.2)}
 .type-chev .icon{width:12px;height:12px}
 .type-add{margin-top:10px}
+
+/* ---------- rebalance switch ---------- */
+.scheme-rebalance-row{display:flex;align-items:center;gap:9px;width:100%;text-align:left;padding:11px 0 0;margin-top:12px;border-top:1px solid var(--line)}
+.scheme-rebalance-row .setting-icon{width:28px;height:28px;flex:0 0 28px}
+.scheme-rebalance-row .sr-main{flex:1;min-width:0;display:flex;flex-direction:column}
+.scheme-rebalance-row .sr-main .t{display:block;font-size:10.5px;font-weight:600;color:var(--ink-2)}
+.scheme-rebalance-row .sr-main .s{display:block;font-size:8px;color:var(--faint);margin-top:2px;line-height:1.45}
+.scheme-rebalance-row .switch{flex:0 0 40px}
+
+/* ---------- calendar trend metric ---------- */
+.trend-metric-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:10px 0 0}
+.trend-metric-row .segmented{width:112px!important}
+.trend-metric-row .seg{height:25px;font-size:9px}
+
+/* ---------- group coverage / cash ---------- */
+.check-row.covered{opacity:.55}
+.check-row.covered .checkbox{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.1)}
+.covered-tag{display:inline-block;font-size:7px;font-weight:500;color:var(--warning);background:rgba(242,196,92,.08);border:1px solid rgba(242,196,92,.16);border-radius:4px;padding:1px 4px;margin-left:5px;vertical-align:1px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.covered-hint{font-size:7.5px;color:var(--faint);margin-left:5px;font-weight:400}
+.tree-cash{background:rgba(255,255,255,.012)}
+.tree-cash .check-name{color:var(--muted)}

@@ -390,6 +390,7 @@ function buildSeed() {
     prices,
     fxHistory,
     schemes,
+    rebalance: { schemes: {}, targets: {} },
     meta: { name: '我的投资组合', lastUpdated: nowISO() }
   };
 }
