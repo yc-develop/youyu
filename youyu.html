@@ -425,11 +425,11 @@ ul,ol{margin:0;padding:0;list-style:none}
 .rec-title{font-size:11.5px;font-weight:550;display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rec-title .tag{font-size:7.5px;border-radius:4px;padding:1px 4px;background:rgba(255,255,255,.06);color:var(--faint);font-weight:500}
 .rec-sub{font-size:8.5px;color:var(--faint);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.rec-val{text-align:right;font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rec-val{text-align:right;font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;padding-right:1px}
 .rec-val .small{display:block;font-size:8px;color:var(--faint);font-weight:400;margin-top:3px}
-.rec-del{color:rgba(255,255,255,.2);width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:8px;flex:0 0 26px;margin-left:1px}
+.rec-del{color:rgba(255,255,255,.2);width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:9px;flex:0 0 30px}
 .rec-del:active{background:rgba(255,93,108,.12);color:var(--gain)}
-.rec-del .icon{width:13px;height:13px}
+.rec-del .icon{width:14px;height:14px}
 .records-more{padding:12px 14px;border-top:1px solid var(--line);text-align:center}
 
 /* ---------- donut ---------- */
@@ -1075,11 +1075,11 @@ body.has-overlay .toast-root{top:calc(var(--safe-top) + 14px);bottom:auto}
 
 .auto-tag{display:inline-block;font-size:7px;line-height:1;padding:2px 4px;border-radius:4px;background:rgba(91,140,255,.12);color:var(--blue);font-weight:600;vertical-align:1px}
 
-.rec-actions{display:flex;align-items:center;gap:1px;margin-left:1px;flex:0 0 auto}
-.rec-edit{width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:8px;color:rgba(255,255,255,.24)}
+.rec-actions{display:flex;align-items:center;gap:6px;margin-left:4px;flex:0 0 auto}
+.rec-edit{width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:9px;color:rgba(255,255,255,.24)}
 .rec-edit:active{background:rgba(91,140,255,.12);color:var(--blue)}
-.rec-edit .icon{width:13px;height:13px}
-.rec-val{max-width:112px}
+.rec-edit .icon{width:14px;height:14px}
+.rec-val{max-width:102px}
 .rec-val .gain,.rec-val .loss{white-space:nowrap}
 
 /* ---------- flow corrections ---------- */
@@ -1939,7 +1939,7 @@ const RECORD_META = {
   fee:      { label: '费用',     icon: 'minus',         tone: 'loss' },
   price:    { label: '更新估值', icon: 'refresh',       tone: 'blue' },
   fx:       { label: '换汇',     icon: 'swap',          tone: 'blue' },
-  flow:     { label: '资金流校正', icon: 'pen',          tone: 'blue' }
+  flow:     { label: '资金流调整', icon: 'pen',          tone: 'blue' }
 };
 
 /* ---------- persistence ---------- */
@@ -1990,6 +1990,8 @@ function normalizeState(obj) {
     r.fee = Number(r.fee) || 0;
     r.fxRate = Number(r.fxRate) || 0;
   });
+  // 账本调整替代旧版仅报表的 flowSnapshot；旧记录不兼容，直接移除。
+  obj.records = obj.records.filter(r => r.type !== 'flow' || r.ledgerAdjust);
   obj.prices = obj.prices || {};
   obj.fxHistory = obj.fxHistory || {};
   obj.rebalance = obj.rebalance && typeof obj.rebalance === 'object' ? obj.rebalance : {};
@@ -2301,6 +2303,7 @@ function recordCashDelta(rec, account) {
     case 'dividend':
     case 'interest': return (Number(rec.amount) || 0) * rate;
     case 'fee': return -(Number(rec.amount) || 0);
+    case 'flow': return rec.ledgerAdjust ? (Number(rec.cashNative) || 0) : 0;
     default: return 0;
   }
 }
@@ -2416,10 +2419,21 @@ function accountIncome(account) {
 
 function accountNetDeposits(account) {
   let net = 0, deposits = 0, withdrawals = 0;
-  recordsForAccount(account.id).filter(r => r.type === 'deposit' || r.type === 'withdraw').forEach(r => {
-    const v = recordBase(r, account.currency);
-    if (r.type === 'deposit') { deposits += v; net += v; }
-    else { withdrawals += v; net -= v; }
+  recordsForAccount(account.id).forEach(r => {
+    if (r.type === 'deposit' || r.type === 'withdraw') {
+      const v = recordBase(r, account.currency);
+      if (r.type === 'deposit') { deposits += v; net += v; }
+      else { withdrawals += v; net -= v; }
+      return;
+    }
+    if (r.type !== 'flow' || !r.ledgerAdjust) return;
+    if (r.flowField === 'in' || r.flowField === 'out') {
+      const d = (Number(r.flowDeltaNative) || 0) * fxToBaseAt(account.currency, r.date);
+      if (r.flowField === 'in') { deposits += d; net += d; }
+      else { withdrawals += d; net -= d; }
+    } else if (r.flowField === 'opening') {
+      net += (Number(r.netDeltaNative) || 0) * fxToBaseAt(account.currency, r.date);
+    }
   });
   return { net, deposits, withdrawals };
 }
@@ -2576,7 +2590,7 @@ function buildDailyAnalytics() {
       const d = dates[i];
       const prevD = addDays(d, -1);
       const cashStart = cash;
-      let income = 0, fees = 0;
+      let income = 0, fees = 0, valuation = 0;
       (recordsByDate[d] || []).forEach(r => {
         if (r.accountId !== account.id) return;
         cash += recordCashDelta(r, account);
@@ -2586,12 +2600,13 @@ function buildDailyAnalytics() {
         if (r.type === 'dividend' || r.type === 'interest') income += (Number(r.amount) || 0) * toAcc;
         if (r.type === 'fee') fees += (Number(r.amount) || 0);
         if (r.type === 'buy' || r.type === 'sell') fees += (Number(r.fee) || 0) * toAcc;
+        if (r.type === 'flow' && r.ledgerAdjust && (r.flowField === 'ending' || r.flowField === 'profit')) valuation += (Number(r.cashNative) || 0) * fxToBaseAt(account.currency, d);
       });
       const baseNow = fxAt(account.currency, d) / baseRate;
       const basePrev = fxAt(account.currency, prevD) / baseRate;
       const cashFx = consider ? cashStart * (baseNow - basePrev) : 0;
       cashValues[i] = cash * baseNow;
-      cashPnls[i] = (income - fees) * baseNow + cashFx;
+      cashPnls[i] = (income - fees) * baseNow + valuation + cashFx;
       cashFxSeries[i] = cashFx;
     }
     const cashComp = {
@@ -2823,11 +2838,11 @@ function groupPeriodSummary(schemeId, days) {
 
 /* ---------- flow / waterfall ---------- */
 const FLOW_FIELD_META = {
-  opening: { label: '期初金额', title: '期初金额更新' },
-  ending:  { label: '期末余额', title: '期末金额更新' },
-  profit:  { label: '资产盈亏', title: '资产盈亏更新' },
-  in:      { label: '投入',     title: '存入金额更新' },
-  out:     { label: '转出',     title: '取出金额更新' }
+  opening: { label: '期初金额', title: '期初金额调整' },
+  ending:  { label: '期末余额', title: '期末金额调整' },
+  profit:  { label: '资产盈亏', title: '资产盈亏调整' },
+  in:      { label: '投入',     title: '存入金额调整' },
+  out:     { label: '转出',     title: '取出金额调整' }
 };
 
 function flowPeriodLabel(periodKey) {
@@ -2882,22 +2897,6 @@ function flowInPeriod(rec, bounds) {
   if (bounds.end && rec.date > bounds.end) return false;
   return true;
 }
-function latestFlowAdjustment(scope, id, periodKey) {
-  const list = (state.records || []).filter(r => {
-    if (r.type !== 'flow' || r.periodKey !== periodKey) return false;
-    return scope === 'account' ? (r.accountId === id && !r.instrumentId) : r.instrumentId === id;
-  });
-  if (!list.length) return null;
-  list.sort((a, b) => String(a.createdAt || a.date).localeCompare(String(b.createdAt || b.date)));
-  return list[list.length - 1];
-}
-function applyFlowAdjustment(scope, id, periodKey, base) {
-  const rec = latestFlowAdjustment(scope, id, periodKey);
-  if (!rec || !rec.flowSnapshot) return base;
-  const out = Object.assign({}, base, rec.flowSnapshot, { adjusted: true, adjustmentId: rec.id });
-  out.net = (Number(out.in) || 0) - (Number(out.out) || 0);
-  return out;
-}
 function accountFlow(accountId, periodKey) {
   const account = accountById(accountId);
   if (!account) return null;
@@ -2905,21 +2904,32 @@ function accountFlow(accountId, periodKey) {
   const bounds = flowPeriodBounds(key);
   const daily = buildDailyAnalytics();
   const series = daily.byAccount.get(accountId);
-  const beginning = bounds.start ? flowValueAt(series, addDays(bounds.start, -1)) : 0;
+  const recs = recordsForAccount(accountId);
+  let beginning = bounds.start ? flowValueAt(series, addDays(bounds.start, -1)) : 0;
+  if (bounds.start) {
+    recs.filter(r => r.type === 'flow' && r.ledgerAdjust && r.flowField === 'opening' && r.date === bounds.start)
+      .forEach(r => { beginning += (Number(r.netDeltaNative) || 0) * fxToBaseAt(account.currency, r.date); });
+  }
   const ending = flowValueAt(series, bounds.end);
   let inAmt = 0, outAmt = 0;
-  recordsForAccount(accountId).forEach(r => {
+  recs.forEach(r => {
     if (!flowInPeriod(r, bounds)) return;
     if (r.type === 'deposit') inAmt += flowRecordBase(r, account.currency);
     else if (r.type === 'withdraw') outAmt += flowRecordBase(r, account.currency);
+    else if (r.type === 'flow' && r.ledgerAdjust) {
+      if (r.flowField === 'in') inAmt += (Number(r.flowDeltaNative) || 0) * fxToBaseAt(account.currency, r.date);
+      else if (r.flowField === 'out') outAmt += (Number(r.flowDeltaNative) || 0) * fxToBaseAt(account.currency, r.date);
+      else if (r.flowField === 'opening' && !bounds.start) inAmt += (Number(r.netDeltaNative) || 0) * fxToBaseAt(account.currency, r.date);
+    }
   });
   const net = inAmt - outAmt;
   const profit = ending - beginning - net;
-  return applyFlowAdjustment('account', accountId, key, {
+  return {
     scope: 'account', periodKey: key, periodLabel: bounds.label,
     beginning, in: inAmt, out: outAmt, net, profit, ending,
-    label: bounds.label
-  });
+    label: bounds.label,
+    adjusted: recs.some(r => r.type === 'flow' && r.ledgerAdjust && (key === 'all' || r.periodKey === key))
+  };
 }
 function instrumentFlow(instrumentId, periodKey) {
   const im = computeInstrumentMetrics(instrumentId);
@@ -2940,11 +2950,11 @@ function instrumentFlow(instrumentId, periodKey) {
   });
   const net = inAmt - outAmt;
   const profit = ending - beginning - net;
-  return applyFlowAdjustment('instrument', instrumentId, key, {
+  return {
     scope: 'instrument', periodKey: key, periodLabel: bounds.label,
     beginning, in: inAmt, out: outAmt, net, profit, ending,
     label: bounds.label
-  });
+  };
 }
 
 /* ---------- current snapshot for a group ---------- */
@@ -3011,7 +3021,9 @@ function recordAmountHTML(rec) {
   const ccy = recordCurrency(rec);
   if (rec.type === 'price') return '<span class="mono">' + fmtPrice(rec.price, ccy) + '</span>';
   if (rec.type === 'flow') {
-    const v = Number(rec.amount) || 0;
+    const acc = accountById(rec.accountId);
+    const fx = acc ? fxToBaseAt(acc.currency, rec.date) : 1;
+    const v = (Number(rec.flowValueNative) || 0) * fx;
     const sign = rec.flowField === 'out' ? '−' : rec.flowField === 'in' ? '+' : rec.flowField === 'profit' ? (v > 0 ? '+' : v < 0 ? '-' : '') : '';
     const cls = rec.flowField === 'out' ? 'loss' : (rec.flowField === 'in' || (rec.flowField === 'profit' && v > 0)) ? 'gain' : (rec.flowField === 'profit' && v < 0 ? 'loss' : '');
     const body = (rec.flowField === 'opening' || rec.flowField === 'ending') ? fmtMoney(v, { currency: ccy }) : sign + fmtMoney(Math.abs(v), { currency: ccy });
@@ -3033,7 +3045,7 @@ function recordSubHTML(rec) {
     // 价格已在上方金额位置展示，避免重复
   } else if (rec.type === 'flow') {
     parts.push(flowPeriodLabel(rec.periodKey));
-    parts.push('手工校正');
+    parts.push('账本调整');
   }
   if (rec.note && !(rec.type === 'price' && /估值更新|价格更新/.test(rec.note)) && rec.type !== 'flow') parts.push(rec.note);
   return parts.map(esc).join(' · ');
@@ -3323,8 +3335,8 @@ function flowDiagramHTML(flow, opts) {
     periods.map(p => '<button class="chip ' + (p === periodKey ? 'active' : '') + '" data-action="set-flow-period" data-scope="' + esc(scope) + '" data-id="' + esc(id) + '" data-period="' + esc(p) + '">' + flowPeriodLabel(p) + '</button>').join('') +
     '</div>' : '';
   return '<div class="flow-card card">' +
-    '<div class="card-head" style="padding:0"><div><h2>资金流 ' + (f.adjusted ? '<span class="flow-adjusted">已校正</span>' : '') + '</h2><div class="sub">' + esc(periodLabel) + ' · 期初 + 净投入 + 盈亏 = 期末' + (o.isInstrument ? ' · 转出含分红' : '') + '</div></div>' +
-      (f.adjusted ? '<button class="text-btn" style="font-size:9px" data-action="reset-flow" data-scope="' + esc(scope) + '" data-id="' + esc(id) + '" data-period="' + esc(periodKey) + '">恢复自动</button>' : '<span class="pill-btn" style="height:26px;font-size:9px;padding:0 9px">' + icon('info') + '点击可校正</span>') + '</div>' +
+    '<div class="card-head" style="padding:0"><div><h2>资金流 ' + (f.adjusted ? '<span class="flow-adjusted">已调整</span>' : '') + '</h2><div class="sub">' + esc(periodLabel) + ' · 期初 + 净投入 + 盈亏 = 期末' + (o.isInstrument ? ' · 转出含分红' : '') + '</div></div>' +
+      (f.adjusted ? '<button class="text-btn" style="font-size:9px" data-action="reset-flow" data-scope="' + esc(scope) + '" data-id="' + esc(id) + '" data-period="' + esc(periodKey) + '">撤销调整</button>' : '<span class="pill-btn" style="height:26px;font-size:9px;padding:0 9px">' + icon('info') + '点击可校正</span>') + '</div>' +
     periodChips +
     '<div class="flow-diagram">' +
       '<svg class="flow-svg" viewBox="0 0 100 100" preserveAspectRatio="none">' +
@@ -3343,7 +3355,7 @@ function flowDiagramHTML(flow, opts) {
       node('ending', 'flow-end total', '期末金额', fmtMoney(f.ending || 0)) +
     '</div>' +
     '<div class="flow-legend"><span class="dot"></span>净投入 + 资产盈亏 = 期末 − 期初' + (editable ? ' · 点击金额可校正' : '') + '</div>' +
-    (f.adjusted ? '<div class="flow-adjusted-note">本周期使用手工校正值，仅影响资金流报表，不改变账户持仓市值。</div>' : '') +
+    (f.adjusted ? '<div class="flow-adjusted-note">本周期已写入账本调整，资产统计已同步；可在更新记录中删除调整或撤销本周期调整。</div>' : '') +
   '</div>';
 }
 
@@ -4129,7 +4141,7 @@ function renderInstrumentPage(instrumentId) {
         positionRow('持有天数', im.firstDate ? im.holdingDays + ' 天' : '—', im.firstDate ? '首次买入 ' + im.firstDate : '暂无交易') +
         (inst.market ? positionRow('行情来源', esc('腾讯行情 · ' + (inst.market.label || '') + ' ' + (inst.market.symbol || '')), inst.market.lastUpdated ? '最近同步 ' + inst.market.lastUpdated : '尚未同步，可点击刷新行情') : '') +
       '</div></div>' +
-    '<div class="detail-section" style="margin-top:14px">' + flowDiagramHTML(instrumentFlow(instrumentId, flowPeriod), { isInstrument: true, scope: 'instrument', id: instrumentId, periodKey: flowPeriod, periods: flowPeriods('instrument', instrumentId), editable: true }) + '</div>' +
+    '<div class="detail-section" style="margin-top:14px">' + flowDiagramHTML(instrumentFlow(instrumentId, flowPeriod), { isInstrument: true, scope: 'instrument', id: instrumentId, periodKey: flowPeriod, periods: flowPeriods('instrument', instrumentId), editable: false }) + '</div>' +
     (isForeign ? '<div class="info-banner">' + icon('swap') + '<div>以 ' + inst.currency + ' 计价，按当前汇率 <b>1 ' + inst.currency + ' = ' + fmtPrice(fxToBase(inst.currency), baseCurrency()) + '</b> 折算。汇兑损益 <b class="' + pnlClass(im.fxPnl) + '">' + pnlText(im.fxPnl) + '</b> ' + (state.settings.considerFx ? '已计入' : '未计入') + '累计收益。</div></div>' : '') +
     '<div class="detail-section"><div class="section-head"><div><h2>更新记录</h2><div class="sub">买入、卖出、分红与估值更新</div></div><button class="text-btn" data-action="open-records" data-scope="instrument" data-id="' + esc(inst.id) + '">全部 ' + records.length + '</button></div>' +
       recordsCardHTML(records, { limit: 7 }) + '</div>' +
@@ -5124,7 +5136,7 @@ function renderSettingsPage() {
   '<div class="settings-group"><div class="label">关于</div><div class="settings-card">' +
     '<div class="setting-row"><span class="setting-icon accent">' + icon('shield') + '</span><span class="setting-main"><span class="t">本地存储</span><span class="s">所有数据保存在浏览器 localStorage，不上传服务器。清除浏览器数据会丢失账本，请定期导出备份。</span></span></div>' +
     '<div class="setting-row"><span class="setting-icon blue">' + icon('chart') + '</span><span class="setting-main"><span class="t">行情数据</span><span class="s">名称搜索来自新浪财经，最新报价来自腾讯行情；公开接口可能受网络影响，仅供估值参考。</span></span></div>' +
-    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v1.3</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
+    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v1.4</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
   '</div></div>' +
   '<div class="version">' + esc(APP_NAME) + ' · 投资组合<br>不构成投资建议 · 数据仅供参考</div>' +
   '<div style="height:8px"></div>';
@@ -5812,30 +5824,33 @@ function shadeColor(hex, percent) {
   return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
 }
 
-/* ---------- flow corrections ---------- */
+/* ---------- flow adjustments (account ledger) ---------- */
 function flowAdjustmentRecords(scope, id, periodKey) {
-  return (state.records || []).filter(r => {
-    if (r.type !== 'flow' || r.periodKey !== periodKey) return false;
-    return scope === 'account' ? (r.accountId === id && !r.instrumentId) : r.instrumentId === id;
-  });
+  if (scope !== 'account') return [];
+  return (state.records || []).filter(r => r.type === 'flow' && r.ledgerAdjust && (periodKey === 'all' || r.periodKey === periodKey) && r.accountId === id && !r.instrumentId);
 }
 function openFlowFieldEditor(scope, id, periodKey, field) {
-  const flow = scope === 'account' ? accountFlow(id, periodKey) : instrumentFlow(id, periodKey);
+  if (scope !== 'account') { toast('标的级资金流校正已取消', 'error'); return; }
+  const account = accountById(id);
+  if (!account) return;
+  const flow = accountFlow(id, periodKey);
   if (!flow) return;
   const meta = FLOW_FIELD_META[field];
   if (!meta) return;
-  const scopeName = scope === 'account' ? (accountById(id) || {}).name : (instrumentById(id) || {}).name;
-  if (!scopeName) return;
+  if (field === 'opening' && periodKey === 'all') {
+    toast('记账以来的期初固定为 0，请选择具体年份调整', 'error');
+    return;
+  }
   const current = Number(flow[field]) || 0;
   const descriptions = {
-    opening: '修改期初金额后，期末保持不变，资产盈亏会按公式重新计算。',
-    ending: '输入当前期末余额后，资产盈亏会重新计算。',
-    profit: '输入资产盈亏后，期末余额 = 期初 + 净投入 + 盈亏。',
-    in: '输入本期投入总额后，净投入和期末金额会按当前盈亏重算。',
-    out: '输入本期取出总额后，净投入和期末金额会按当前盈亏重算。'
+    opening: '调整期初金额会把差额写入该年份开始时的账本，并同步更新之后所有周期的资产统计。',
+    ending: '调整期末余额会把差额写入该周期末的账本，资产市值和资产盈亏会同步更新。',
+    profit: '调整资产盈亏会把差额写入该周期末的账本，期末余额和资产市值会同步更新。',
+    in: '调整投入总额会写入一笔账本资金调整，影响净投入和资产市值，不会改变真实交易记录。',
+    out: '调整取出总额会写入一笔账本资金调整，影响净投入和资产市值，不会改变真实交易记录。'
   };
   const body = '<form id="flow-edit-form">' +
-    '<div class="info-banner" style="margin-top:0">' + icon('pen') + '<div>' + esc(descriptions[field] || '') + '<br><span class="faint">保存后会写入一条「' + esc(meta.title) + '」记录，便于审计。</span></div></div>' +
+    '<div class="info-banner" style="margin-top:0">' + icon('pen') + '<div>' + esc(descriptions[field] || '') + '<br><span class="faint">保存后会写入一条「' + esc(meta.title) + '」账本调整记录，并立即更新资产统计。</span></div></div>' +
     '<div class="form-section">' + esc(meta.label) + '</div>' +
     fieldHTML({ id: 'flow-edit-value', label: meta.label, value: Number(current).toFixed(2), inputmode: 'decimal', unit: baseCurrency(), full: true }) +
     '<div class="flow-edit-current"><span>当前周期</span><b>' + esc(flow.periodLabel || flowPeriodLabel(periodKey)) + '</b></div>' +
@@ -5843,57 +5858,45 @@ function openFlowFieldEditor(scope, id, periodKey, field) {
     '<div class="flow-edit-current"><span>当前期末</span><b>' + fmtMoney(flow.ending) + '</b></div>' +
   '</form>';
   const wrap = openSheet({
-    title: '校正' + meta.label, sub: scopeName + ' · ' + (flow.periodLabel || flowPeriodLabel(periodKey)),
-    body, footer: '<button class="btn ghost" data-sheet-close>取消</button><button class="btn primary" data-flow-save>保存校正</button>'
+    title: '调整' + meta.label, sub: account.name + ' · ' + (flow.periodLabel || flowPeriodLabel(periodKey)),
+    body, footer: '<button class="btn ghost" data-sheet-close>取消</button><button class="btn primary" data-flow-save>保存调整</button>'
   });
   wrap.querySelector('[data-flow-save]').addEventListener('click', () => {
     const raw = wrap.querySelector('#flow-edit-value').value;
     if (String(raw).trim() === '') { toast('请输入金额', 'error'); return; }
     const value = round(parseNumber(raw), 2);
     if ((field === 'in' || field === 'out') && value < 0) { toast('投入/转出不能为负数', 'error'); return; }
-    const snap = {
-      beginning: round(Number(flow.beginning) || 0, 2),
-      in: round(Number(flow.in) || 0, 2),
-      out: round(Number(flow.out) || 0, 2),
-      ending: round(Number(flow.ending) || 0, 2),
-      profit: round(Number(flow.profit) || 0, 2)
-    };
-    snap.net = round(snap.in - snap.out, 2);
-    if (field === 'opening') {
-      snap.beginning = value;
-      snap.profit = round(snap.ending - snap.beginning - snap.net, 2);
-    } else if (field === 'ending') {
-      snap.ending = value;
-      snap.profit = round(snap.ending - snap.beginning - snap.net, 2);
-    } else if (field === 'profit') {
-      snap.profit = value;
-      snap.ending = round(snap.beginning + snap.net + snap.profit, 2);
-    } else if (field === 'in' || field === 'out') {
-      snap[field] = value;
-      snap.net = round(snap.in - snap.out, 2);
-      snap.ending = round(snap.beginning + snap.net + snap.profit, 2);
-    }
-    const inst = scope === 'instrument' ? instrumentById(id) : null;
-    const accountId = scope === 'account' ? id : (inst ? inst.accountId : null);
-    if (!accountId) return;
+    const delta = round(value - current, 2);
+    if (Math.abs(delta) < 0.005) { toast('金额没有变化', 'info'); return; }
+    const bounds = flowPeriodBounds(periodKey);
+    const date = field === 'opening' ? bounds.start : bounds.end;
+    if (!date) return;
+    const fx = fxToBaseAt(account.currency, date) || 1;
+    const cashNative = (field === 'out' ? -delta : delta) / fx;
+    const flowDeltaNative = (field === 'in' || field === 'out') ? delta / fx : 0;
+    const netDeltaNative = field === 'out' ? -delta / fx : (field === 'in' || field === 'opening') ? delta / fx : 0;
     state.records.push({
       id: uid('rec'),
-      date: todayKey(),
+      date,
       type: 'flow',
-      accountId,
-      instrumentId: scope === 'instrument' ? id : null,
-      amount: value,
-      qty: 0, price: 0, fee: 0, fxRate: 1,
+      ledgerAdjust: true,
+      accountId: id,
+      instrumentId: null,
+      amount: cashNative,
+      cashNative,
+      flowDeltaNative,
+      netDeltaNative,
+      flowValueNative: value / fx,
       flowField: field,
       periodKey,
-      flowSnapshot: snap,
-      note: meta.title,
+      qty: 0, price: 0, fee: 0, fxRate: fxAt(account.currency, date),
+      note: meta.title + ' · ' + (flow.periodLabel || flowPeriodLabel(periodKey)),
       createdAt: nowISO()
     });
     state.isDemo = false;
     saveState();
     closeAllSheets();
-    toast(meta.title + '已记录', 'success');
+    toast(meta.title + '已写入账本', 'success');
     refreshPage();
   });
 }
@@ -5901,15 +5904,15 @@ function resetFlowAdjustments(scope, id, periodKey) {
   const list = flowAdjustmentRecords(scope, id, periodKey);
   if (!list.length) return;
   confirmDialog({
-    title: '恢复自动计算？',
-    message: '会删除当前周期的手工校正记录，资金流恢复为按账户/标的记录自动计算。',
-    confirmText: '恢复自动', danger: true,
+    title: '撤销本周期调整？',
+    message: '会删除当前周期的账本调整记录，相关资产市值和盈亏会回滚到调整前。真实交易记录不受影响。',
+    confirmText: '撤销调整', danger: true,
     onConfirm: () => {
       const ids = new Set(list.map(r => r.id));
       state.records = state.records.filter(r => !ids.has(r.id));
       saveState();
       closeAllSheets();
-      toast('已恢复自动计算', 'success');
+      toast('已撤销账本调整', 'success');
       refreshPage();
     }
   });

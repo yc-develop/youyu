@@ -408,11 +408,11 @@ ul,ol{margin:0;padding:0;list-style:none}
 .rec-title{font-size:11.5px;font-weight:550;display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rec-title .tag{font-size:7.5px;border-radius:4px;padding:1px 4px;background:rgba(255,255,255,.06);color:var(--faint);font-weight:500}
 .rec-sub{font-size:8.5px;color:var(--faint);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.rec-val{text-align:right;font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rec-val{text-align:right;font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;padding-right:1px}
 .rec-val .small{display:block;font-size:8px;color:var(--faint);font-weight:400;margin-top:3px}
-.rec-del{color:rgba(255,255,255,.2);width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:8px;flex:0 0 26px;margin-left:1px}
+.rec-del{color:rgba(255,255,255,.2);width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:9px;flex:0 0 30px}
 .rec-del:active{background:rgba(255,93,108,.12);color:var(--gain)}
-.rec-del .icon{width:13px;height:13px}
+.rec-del .icon{width:14px;height:14px}
 .records-more{padding:12px 14px;border-top:1px solid var(--line);text-align:center}
 
 /* ---------- donut ---------- */
@@ -1058,11 +1058,11 @@ body.has-overlay .toast-root{top:calc(var(--safe-top) + 14px);bottom:auto}
 
 .auto-tag{display:inline-block;font-size:7px;line-height:1;padding:2px 4px;border-radius:4px;background:rgba(91,140,255,.12);color:var(--blue);font-weight:600;vertical-align:1px}
 
-.rec-actions{display:flex;align-items:center;gap:1px;margin-left:1px;flex:0 0 auto}
-.rec-edit{width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:8px;color:rgba(255,255,255,.24)}
+.rec-actions{display:flex;align-items:center;gap:6px;margin-left:4px;flex:0 0 auto}
+.rec-edit{width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:9px;color:rgba(255,255,255,.24)}
 .rec-edit:active{background:rgba(91,140,255,.12);color:var(--blue)}
-.rec-edit .icon{width:13px;height:13px}
-.rec-val{max-width:112px}
+.rec-edit .icon{width:14px;height:14px}
+.rec-val{max-width:102px}
 .rec-val .gain,.rec-val .loss{white-space:nowrap}
 
 /* ---------- flow corrections ---------- */

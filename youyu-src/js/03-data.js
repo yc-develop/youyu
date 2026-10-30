@@ -14,7 +14,7 @@ const RECORD_META = {
   fee:      { label: '费用',     icon: 'minus',         tone: 'loss' },
   price:    { label: '更新估值', icon: 'refresh',       tone: 'blue' },
   fx:       { label: '换汇',     icon: 'swap',          tone: 'blue' },
-  flow:     { label: '资金流校正', icon: 'pen',          tone: 'blue' }
+  flow:     { label: '资金流调整', icon: 'pen',          tone: 'blue' }
 };
 
 /* ---------- persistence ---------- */
@@ -65,6 +65,8 @@ function normalizeState(obj) {
     r.fee = Number(r.fee) || 0;
     r.fxRate = Number(r.fxRate) || 0;
   });
+  // 账本调整替代旧版仅报表的 flowSnapshot；旧记录不兼容，直接移除。
+  obj.records = obj.records.filter(r => r.type !== 'flow' || r.ledgerAdjust);
   obj.prices = obj.prices || {};
   obj.fxHistory = obj.fxHistory || {};
   obj.rebalance = obj.rebalance && typeof obj.rebalance === 'object' ? obj.rebalance : {};
@@ -376,6 +378,7 @@ function recordCashDelta(rec, account) {
     case 'dividend':
     case 'interest': return (Number(rec.amount) || 0) * rate;
     case 'fee': return -(Number(rec.amount) || 0);
+    case 'flow': return rec.ledgerAdjust ? (Number(rec.cashNative) || 0) : 0;
     default: return 0;
   }
 }
@@ -491,10 +494,21 @@ function accountIncome(account) {
 
 function accountNetDeposits(account) {
   let net = 0, deposits = 0, withdrawals = 0;
-  recordsForAccount(account.id).filter(r => r.type === 'deposit' || r.type === 'withdraw').forEach(r => {
-    const v = recordBase(r, account.currency);
-    if (r.type === 'deposit') { deposits += v; net += v; }
-    else { withdrawals += v; net -= v; }
+  recordsForAccount(account.id).forEach(r => {
+    if (r.type === 'deposit' || r.type === 'withdraw') {
+      const v = recordBase(r, account.currency);
+      if (r.type === 'deposit') { deposits += v; net += v; }
+      else { withdrawals += v; net -= v; }
+      return;
+    }
+    if (r.type !== 'flow' || !r.ledgerAdjust) return;
+    if (r.flowField === 'in' || r.flowField === 'out') {
+      const d = (Number(r.flowDeltaNative) || 0) * fxToBaseAt(account.currency, r.date);
+      if (r.flowField === 'in') { deposits += d; net += d; }
+      else { withdrawals += d; net -= d; }
+    } else if (r.flowField === 'opening') {
+      net += (Number(r.netDeltaNative) || 0) * fxToBaseAt(account.currency, r.date);
+    }
   });
   return { net, deposits, withdrawals };
 }
@@ -651,7 +665,7 @@ function buildDailyAnalytics() {
       const d = dates[i];
       const prevD = addDays(d, -1);
       const cashStart = cash;
-      let income = 0, fees = 0;
+      let income = 0, fees = 0, valuation = 0;
       (recordsByDate[d] || []).forEach(r => {
         if (r.accountId !== account.id) return;
         cash += recordCashDelta(r, account);
@@ -661,12 +675,13 @@ function buildDailyAnalytics() {
         if (r.type === 'dividend' || r.type === 'interest') income += (Number(r.amount) || 0) * toAcc;
         if (r.type === 'fee') fees += (Number(r.amount) || 0);
         if (r.type === 'buy' || r.type === 'sell') fees += (Number(r.fee) || 0) * toAcc;
+        if (r.type === 'flow' && r.ledgerAdjust && (r.flowField === 'ending' || r.flowField === 'profit')) valuation += (Number(r.cashNative) || 0) * fxToBaseAt(account.currency, d);
       });
       const baseNow = fxAt(account.currency, d) / baseRate;
       const basePrev = fxAt(account.currency, prevD) / baseRate;
       const cashFx = consider ? cashStart * (baseNow - basePrev) : 0;
       cashValues[i] = cash * baseNow;
-      cashPnls[i] = (income - fees) * baseNow + cashFx;
+      cashPnls[i] = (income - fees) * baseNow + valuation + cashFx;
       cashFxSeries[i] = cashFx;
     }
     const cashComp = {
@@ -898,11 +913,11 @@ function groupPeriodSummary(schemeId, days) {
 
 /* ---------- flow / waterfall ---------- */
 const FLOW_FIELD_META = {
-  opening: { label: '期初金额', title: '期初金额更新' },
-  ending:  { label: '期末余额', title: '期末金额更新' },
-  profit:  { label: '资产盈亏', title: '资产盈亏更新' },
-  in:      { label: '投入',     title: '存入金额更新' },
-  out:     { label: '转出',     title: '取出金额更新' }
+  opening: { label: '期初金额', title: '期初金额调整' },
+  ending:  { label: '期末余额', title: '期末金额调整' },
+  profit:  { label: '资产盈亏', title: '资产盈亏调整' },
+  in:      { label: '投入',     title: '存入金额调整' },
+  out:     { label: '转出',     title: '取出金额调整' }
 };
 
 function flowPeriodLabel(periodKey) {
@@ -957,22 +972,6 @@ function flowInPeriod(rec, bounds) {
   if (bounds.end && rec.date > bounds.end) return false;
   return true;
 }
-function latestFlowAdjustment(scope, id, periodKey) {
-  const list = (state.records || []).filter(r => {
-    if (r.type !== 'flow' || r.periodKey !== periodKey) return false;
-    return scope === 'account' ? (r.accountId === id && !r.instrumentId) : r.instrumentId === id;
-  });
-  if (!list.length) return null;
-  list.sort((a, b) => String(a.createdAt || a.date).localeCompare(String(b.createdAt || b.date)));
-  return list[list.length - 1];
-}
-function applyFlowAdjustment(scope, id, periodKey, base) {
-  const rec = latestFlowAdjustment(scope, id, periodKey);
-  if (!rec || !rec.flowSnapshot) return base;
-  const out = Object.assign({}, base, rec.flowSnapshot, { adjusted: true, adjustmentId: rec.id });
-  out.net = (Number(out.in) || 0) - (Number(out.out) || 0);
-  return out;
-}
 function accountFlow(accountId, periodKey) {
   const account = accountById(accountId);
   if (!account) return null;
@@ -980,21 +979,32 @@ function accountFlow(accountId, periodKey) {
   const bounds = flowPeriodBounds(key);
   const daily = buildDailyAnalytics();
   const series = daily.byAccount.get(accountId);
-  const beginning = bounds.start ? flowValueAt(series, addDays(bounds.start, -1)) : 0;
+  const recs = recordsForAccount(accountId);
+  let beginning = bounds.start ? flowValueAt(series, addDays(bounds.start, -1)) : 0;
+  if (bounds.start) {
+    recs.filter(r => r.type === 'flow' && r.ledgerAdjust && r.flowField === 'opening' && r.date === bounds.start)
+      .forEach(r => { beginning += (Number(r.netDeltaNative) || 0) * fxToBaseAt(account.currency, r.date); });
+  }
   const ending = flowValueAt(series, bounds.end);
   let inAmt = 0, outAmt = 0;
-  recordsForAccount(accountId).forEach(r => {
+  recs.forEach(r => {
     if (!flowInPeriod(r, bounds)) return;
     if (r.type === 'deposit') inAmt += flowRecordBase(r, account.currency);
     else if (r.type === 'withdraw') outAmt += flowRecordBase(r, account.currency);
+    else if (r.type === 'flow' && r.ledgerAdjust) {
+      if (r.flowField === 'in') inAmt += (Number(r.flowDeltaNative) || 0) * fxToBaseAt(account.currency, r.date);
+      else if (r.flowField === 'out') outAmt += (Number(r.flowDeltaNative) || 0) * fxToBaseAt(account.currency, r.date);
+      else if (r.flowField === 'opening' && !bounds.start) inAmt += (Number(r.netDeltaNative) || 0) * fxToBaseAt(account.currency, r.date);
+    }
   });
   const net = inAmt - outAmt;
   const profit = ending - beginning - net;
-  return applyFlowAdjustment('account', accountId, key, {
+  return {
     scope: 'account', periodKey: key, periodLabel: bounds.label,
     beginning, in: inAmt, out: outAmt, net, profit, ending,
-    label: bounds.label
-  });
+    label: bounds.label,
+    adjusted: recs.some(r => r.type === 'flow' && r.ledgerAdjust && (key === 'all' || r.periodKey === key))
+  };
 }
 function instrumentFlow(instrumentId, periodKey) {
   const im = computeInstrumentMetrics(instrumentId);
@@ -1015,11 +1025,11 @@ function instrumentFlow(instrumentId, periodKey) {
   });
   const net = inAmt - outAmt;
   const profit = ending - beginning - net;
-  return applyFlowAdjustment('instrument', instrumentId, key, {
+  return {
     scope: 'instrument', periodKey: key, periodLabel: bounds.label,
     beginning, in: inAmt, out: outAmt, net, profit, ending,
     label: bounds.label
-  });
+  };
 }
 
 /* ---------- current snapshot for a group ---------- */
@@ -1086,7 +1096,9 @@ function recordAmountHTML(rec) {
   const ccy = recordCurrency(rec);
   if (rec.type === 'price') return '<span class="mono">' + fmtPrice(rec.price, ccy) + '</span>';
   if (rec.type === 'flow') {
-    const v = Number(rec.amount) || 0;
+    const acc = accountById(rec.accountId);
+    const fx = acc ? fxToBaseAt(acc.currency, rec.date) : 1;
+    const v = (Number(rec.flowValueNative) || 0) * fx;
     const sign = rec.flowField === 'out' ? '−' : rec.flowField === 'in' ? '+' : rec.flowField === 'profit' ? (v > 0 ? '+' : v < 0 ? '-' : '') : '';
     const cls = rec.flowField === 'out' ? 'loss' : (rec.flowField === 'in' || (rec.flowField === 'profit' && v > 0)) ? 'gain' : (rec.flowField === 'profit' && v < 0 ? 'loss' : '');
     const body = (rec.flowField === 'opening' || rec.flowField === 'ending') ? fmtMoney(v, { currency: ccy }) : sign + fmtMoney(Math.abs(v), { currency: ccy });
@@ -1108,7 +1120,7 @@ function recordSubHTML(rec) {
     // 价格已在上方金额位置展示，避免重复
   } else if (rec.type === 'flow') {
     parts.push(flowPeriodLabel(rec.periodKey));
-    parts.push('手工校正');
+    parts.push('账本调整');
   }
   if (rec.note && !(rec.type === 'price' && /估值更新|价格更新/.test(rec.note)) && rec.type !== 'flow') parts.push(rec.note);
   return parts.map(esc).join(' · ');
