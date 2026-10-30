@@ -18,6 +18,7 @@ import subprocess
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -98,13 +99,23 @@ def deploy(token: str, site: dict) -> None:
     site_id = site["id"]
     print(f"发布到 {site.get('name')} ({site_id})")
     payload = ZIP_FILE.read_bytes()
-    dep = api(f"/sites/{site_id}/deploys", token, "POST", payload, "application/zip")
-    deploy_id = dep.get("id")
+    title = urllib.parse.quote("有余 · 手动发布")
+    build = api(f"/sites/{site_id}/builds?title={title}", token, "POST", payload, "application/zip")
+    deploy_id = build.get("deploy_id")
+    build_id = build.get("id")
+    if not deploy_id and build_id:
+        for _ in range(30):
+            time.sleep(2)
+            build = api(f"/builds/{build_id}", token)
+            deploy_id = build.get("deploy_id")
+            if deploy_id or build.get("error"):
+                break
     if not deploy_id:
-        raise SystemExit(f"Netlify 未返回 deploy id：{dep}")
+        raise SystemExit(f"Netlify 未返回 deploy id：{build}")
     print(f"部署已创建：{deploy_id}")
-    state = dep.get("state", "")
-    for _ in range(45):
+    state = build.get("deploy_state") or build.get("state") or "new"
+    dep = {}
+    for _ in range(60):
         if state in ("ready", "current"):
             break
         if state in ("error", "rejected"):
@@ -114,8 +125,15 @@ def deploy(token: str, site: dict) -> None:
         state = dep.get("state", state)
     if state not in ("ready", "current"):
         raise SystemExit(f"部署未完成，当前状态：{state}")
+    files = api(f"/deploys/{deploy_id}/files", token)
+    index = next((f for f in files if f.get("path") in ("/index.html", "index.html")), None)
+    if not index:
+        raise SystemExit("部署完成但没有找到 index.html，请检查 zip 内容。")
+    if "html" not in (index.get("mime_type") or ""):
+        raise SystemExit(f"index.html 的 MIME 类型异常：{index.get('mime_type')}")
     url = dep.get("ssl_url") or dep.get("deploy_ssl_url") or site.get("ssl_url") or site.get("url")
     print(f"发布完成：{url}")
+    print(f"已校验：{index.get('path')} · {index.get('mime_type')} · {index.get('size')} bytes")
 
 
 def main() -> None:
