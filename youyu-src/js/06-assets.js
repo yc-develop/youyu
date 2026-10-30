@@ -78,7 +78,7 @@ function renderAccountPage(accountId) {
   '<div class="detail-body">' +
     '<section class="detail-hero with-color" style="--accent-color:' + a.color + '">' +
       '<div class="detail-head">' + accountIconHTML(a) +
-        '<div class="dh-main"><div class="dh-name">' + esc(a.name) + '</div><div class="dh-sub"><span>' + esc(a.typeName || accountTypeLabel(a.type)) + '</span><span class="dot"></span><span>' + a.currency + '</span><span class="dot"></span><span>' + am.positions + ' 个持仓</span></div></div>' +
+        '<div class="dh-main"><div class="dh-name">' + esc(a.name) + '</div><div class="dh-sub"><span>' + esc(accountTypeName(a.type)) + '</span><span class="dot"></span><span>' + a.currency + '</span><span class="dot"></span><span>' + am.positions + ' 个持仓</span></div></div>' +
         '<span class="ccy" style="font-size:9px;border:1px solid var(--line);border-radius:5px;padding:3px 5px;color:var(--faint)">' + (a.note ? esc(a.note) : '账户') + '</span></div>' +
       '<div class="detail-total"><span class="cur">' + money.sym + '</span><span>' + money.main + '</span>' + (money.dec ? '<span class="cur" style="font-size:15px">.' + money.dec + '</span>' : '') + '</div>' +
       '<div class="detail-pnl"><b class="' + pnlClass(am.profit) + '">' + (am.profit >= 0 ? '+' : '') + fmtMoney(am.profit) + '</b><span class="' + pnlClass(am.profit) + '">' + (am.profitPct == null ? '—' : fmtPct(am.profitPct, 2)) + '</span><span class="muted">累计收益</span>' +

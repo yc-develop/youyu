@@ -20,13 +20,14 @@ function parseRoute() {
   if (parts[0] === 'account' && parts[1]) return { name: 'account', id: decodeURIComponent(parts[1]) };
   if (parts[0] === 'instrument' && parts[1]) return { name: 'instrument', id: decodeURIComponent(parts[1]) };
   if (parts[0] === 'groups' && parts[1]) return { name: 'groups', schemeId: decodeURIComponent(parts[1]) };
+  if (parts[0] === 'types') return { name: 'types' };
   if (TABS.some(t => t.key === parts[0])) return { name: parts[0] };
   return { name: 'assets' };
 }
 function routeKey(r) { return r.name + '|' + (r.id || r.schemeId || ''); }
 function activeTabFor(route) {
   if (route.name === 'account' || route.name === 'instrument') return 'assets';
-  if (route.name === 'groups') return 'settings';
+  if (route.name === 'groups' || route.name === 'types') return 'settings';
   return route.name;
 }
 function navigate(hash, replace) {
@@ -53,7 +54,7 @@ function renderTabbar(active) {
 function renderPage(opts) {
   const o = opts || {};
   const route = parseRoute();
-  const isDetail = route.name === 'account' || route.name === 'instrument' || route.name === 'groups';
+  const isDetail = route.name === 'account' || route.name === 'instrument' || route.name === 'groups' || route.name === 'types';
   const screen = $('#screen');
   const scrollY = window.scrollY;
   const prevKey = lastRouteKey;
@@ -67,6 +68,7 @@ function renderPage(opts) {
   else if (route.name === 'account') html = renderAccountPage(route.id);
   else if (route.name === 'instrument') html = renderInstrumentPage(route.id);
   else if (route.name === 'groups') html = renderGroupsPage(route.schemeId);
+  else if (route.name === 'types') html = renderTypesPage();
   if (!html) html = renderNotFound();
   screen.className = 'screen' + (isDetail ? ' detail-screen' : '');
   screen.innerHTML = '<div class="page">' + html + '</div>';

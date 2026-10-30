@@ -25,6 +25,12 @@ function normalizeState(obj) {
   obj.settings.considerFx = obj.settings.considerFx !== false;
   obj.settings.tolerance = Number.isFinite(Number(obj.settings.tolerance)) ? Number(obj.settings.tolerance) : 3;
   obj.settings.hideAmounts = !!obj.settings.hideAmounts;
+  obj.accountTypes = normalizeTypeList(obj.accountTypes, DEFAULT_ACCOUNT_TYPES, 'account');
+  obj.instrumentTypes = normalizeTypeList(obj.instrumentTypes, DEFAULT_INSTRUMENT_TYPES, 'instrument');
+  const validAccountTypes = new Set(obj.accountTypes.map(t => t.id));
+  const validInstrumentTypes = new Set(obj.instrumentTypes.map(t => t.id));
+  const accountTypeById = id => obj.accountTypes.find(t => t.id === id);
+  const instrumentTypeById = id => obj.instrumentTypes.find(t => t.id === id);
   obj.rates = obj.rates || {};
   Object.keys(CURRENCY_META).forEach(ccy => {
     if (!Number.isFinite(Number(obj.rates[ccy])) || Number(obj.rates[ccy]) <= 0) obj.rates[ccy] = CURRENCY_META[ccy].defaultRate;
@@ -33,6 +39,8 @@ function normalizeState(obj) {
     a.id = a.id || uid('acc');
     a.instruments = Array.isArray(a.instruments) ? a.instruments : [];
     a.currency = CURRENCY_META[a.currency] ? a.currency : 'CNY';
+    a.type = validAccountTypes.has(a.type) ? a.type : (validAccountTypes.has('payment') ? 'payment' : obj.accountTypes[0].id);
+    a.typeName = accountTypeById(a.type) ? accountTypeById(a.type).name : a.type;
     a.color = a.color || '#ff9f45';
     a.color2 = a.color2 || a.color || '#d97823';
     a.icon = a.icon || (a.name || '?').slice(0, 1);
@@ -40,8 +48,9 @@ function normalizeState(obj) {
       i.id = i.id || uid('inst');
       i.accountId = a.id;
       i.currency = CURRENCY_META[i.currency] ? i.currency : a.currency;
-      i.cls = ASSET_CLASSES[i.cls] ? i.cls : 'other';
-      i.color = i.color || ASSET_CLASSES[i.cls].color;
+      i.cls = validInstrumentTypes.has(i.cls) ? i.cls : (validInstrumentTypes.has('other') ? 'other' : obj.instrumentTypes[0].id);
+      const typeMeta = instrumentTypeById(i.cls);
+      i.color = i.color || (typeMeta ? typeMeta.color : '#8e9aaf');
       i.color2 = i.color2 || i.color;
       if (!i.market && SEED_MARKET_MAP[i.id]) i.market = JSON.parse(JSON.stringify(SEED_MARKET_MAP[i.id]));
     });
@@ -59,12 +68,6 @@ function normalizeState(obj) {
   obj.prices = obj.prices || {};
   obj.fxHistory = obj.fxHistory || {};
   if (!Array.isArray(obj.schemes) || !obj.schemes.length) obj.schemes = buildSeed().schemes;
-  const seedRisk = obj.schemes.find(s => s.id === 'scheme_risk');
-  const seedSteady = seedRisk && Array.isArray(seedRisk.groups) ? seedRisk.groups.find(g => g.id === 'g_steady') : null;
-  if (seedSteady) {
-    seedSteady.includeClasses = Array.isArray(seedSteady.includeClasses) ? seedSteady.includeClasses : [];
-    if (seedSteady.includeClasses.indexOf('bond') < 0) seedSteady.includeClasses.push('bond');
-  }
   obj.schemes.forEach(s => {
     s.id = s.id || uid('sch');
     s.groups = Array.isArray(s.groups) ? s.groups : [];
@@ -76,6 +79,17 @@ function normalizeState(obj) {
       g.includeAccounts = Array.isArray(g.includeAccounts) ? g.includeAccounts : [];
       g.includeClasses = Array.isArray(g.includeClasses) ? g.includeClasses : [];
       g.includeInstruments = Array.isArray(g.includeInstruments) ? g.includeInstruments : [];
+    });
+  });
+  const allInstruments = [];
+  obj.accounts.forEach(a => (a.instruments || []).forEach(i => allInstruments.push(i)));
+  obj.schemes.forEach(s => {
+    (s.groups || []).forEach(g => {
+      if (Array.isArray(g.includeClasses) && g.includeClasses.length) {
+        const ids = allInstruments.filter(i => g.includeClasses.indexOf(i.cls) >= 0).map(i => i.id);
+        g.includeInstruments = uniq((g.includeInstruments || []).concat(ids));
+        g.includeClasses = [];
+      }
     });
   });
   obj.meta = obj.meta || {};
@@ -127,10 +141,10 @@ function accounts() { return state.accounts || []; }
 function accountById(id) { return accounts().find(a => a.id === id); }
 function customSchemes() { return state.schemes || []; }
 function builtinSchemes() {
-  const acctGroups = accounts().map(a => ({
+  const acctGroups = accounts().map((a, i) => ({
     id: '__auto_acc_' + a.id,
     name: a.name,
-    color: a.color || '#ff9f45',
+    color: autoGroupColor(i),
     target: 0,
     auto: true,
     includeAccounts: [a.id],
@@ -138,11 +152,12 @@ function builtinSchemes() {
     includeInstruments: []
   }));
   const instGroups = [];
+  let instColorIndex = 0;
   accounts().forEach(a => {
     instGroups.push({
       id: '__auto_cash_' + a.id,
       name: a.name + ' · 现金',
-      color: a.color || '#8e9aaf',
+      color: autoGroupColor(instColorIndex++),
       target: 0,
       auto: true,
       cashOnly: true,
@@ -154,7 +169,7 @@ function builtinSchemes() {
       instGroups.push({
         id: '__auto_inst_' + inst.id,
         name: inst.name,
-        color: inst.color || ASSET_CLASSES[inst.cls] && ASSET_CLASSES[inst.cls].color || '#ff9f45',
+        color: autoGroupColor(instColorIndex++),
         target: 0,
         auto: true,
         includeAccounts: [],
@@ -163,9 +178,44 @@ function builtinSchemes() {
       });
     });
   });
+  const acctTypeGroups = [];
+  accountTypes().forEach((t, i) => {
+    const list = accounts().filter(a => a.type === t.id);
+    if (!list.length) return;
+    acctTypeGroups.push({
+      id: '__auto_accttype_' + t.id,
+      name: t.name,
+      color: t.color || autoGroupColor(i),
+      target: 0, auto: true,
+      includeAccounts: list.map(a => a.id),
+      includeClasses: [], includeInstruments: []
+    });
+  });
+  const instTypeGroups = [{
+    id: '__auto_insttype_cash',
+    name: instrumentTypeName('cash'),
+    color: instrumentTypeColor('cash'),
+    target: 0, auto: true, cashOnly: true,
+    includeAccounts: accounts().map(a => a.id),
+    includeClasses: [], includeInstruments: []
+  }];
+  const usedTypes = new Set();
+  accounts().forEach(a => (a.instruments || []).forEach(i => usedTypes.add(i.cls)));
+  instrumentTypes().filter(t => t.id !== 'cash').forEach((t, i) => {
+    if (!usedTypes.has(t.id)) return;
+    instTypeGroups.push({
+      id: '__auto_insttype_' + t.id,
+      name: t.name,
+      color: t.color || autoGroupColor(i),
+      target: 0, auto: true, typeFilter: t.id,
+      includeAccounts: [], includeClasses: [], includeInstruments: []
+    });
+  });
   return [
     { id: '__auto_account', name: '账户分组', desc: '按资金所在账户自动分组', builtin: true, type: 'account', groups: acctGroups },
-    { id: '__auto_instrument', name: '标的分组', desc: '按具体持仓自动分组', builtin: true, type: 'instrument', groups: instGroups }
+    { id: '__auto_instrument', name: '标的分组', desc: '按具体持仓自动分组', builtin: true, type: 'instrument', groups: instGroups },
+    { id: '__auto_account_type', name: '账户类型分组', desc: '按账户类型自动分组', builtin: true, type: 'accountType', groups: acctTypeGroups },
+    { id: '__auto_instrument_type', name: '标的类型分组', desc: '按标的类型自动分组', builtin: true, type: 'instrumentType', groups: instTypeGroups }
   ];
 }
 function schemes() { return builtinSchemes().concat(state.schemes || []); }
@@ -486,17 +536,15 @@ function portfolioSummary() {
 /* ---------- schemes / membership ---------- */
 function groupMatches(group, account, inst) {
   if (!group) return false;
+  if (group.typeFilter) return !!inst && inst.cls === group.typeFilter;
   if (inst) {
     if (group.cashOnly) return false;
     if ((group.includeInstruments || []).indexOf(inst.id) >= 0) return true;
-    if ((group.includeClasses || []).indexOf(inst.cls) >= 0) return true;
     if ((group.includeAccounts || []).indexOf(account.id) >= 0) return true;
     return false;
   }
   if (group.cashOnly) return (group.includeAccounts || []).indexOf(account.id) >= 0;
-  if ((group.includeAccounts || []).indexOf(account.id) >= 0) return true;
-  if ((group.includeClasses || []).indexOf('cash') >= 0) return true;
-  return false;
+  return (group.includeAccounts || []).indexOf(account.id) >= 0;
 }
 function resolveGroupId(scheme, account, inst) {
   if (!scheme) return null;
@@ -516,9 +564,9 @@ function normalizeTargets(scheme) {
   }));
 }
 function groupIncludeSummary(group) {
+  if (group.typeFilter) return instrumentTypeName(group.typeFilter) + ' · 按标的类型';
   const names = [];
   (group.includeAccounts || []).forEach(id => { const a = accountById(id); if (a) names.push(a.name); });
-  (group.includeClasses || []).forEach(c => { if (ASSET_CLASSES[c]) names.push(ASSET_CLASSES[c].name); });
   (group.includeInstruments || []).forEach(id => { const i = instrumentById(id); if (i) names.push(i.name); });
   return names.length ? names.join(' · ') : '尚未选择资产';
 }
@@ -1085,10 +1133,54 @@ function importData(text) {
 }
 
 /* ---------- names ---------- */
-function accountTypeLabel(type) {
-  return { payment: '支付', cash: '现金', bank: '银行', fund: '基金', deposit: '存款', broker: '证券' }[type] || '账户';
+function normalizeTypeList(list, defaults, kind) {
+  const source = Array.isArray(list) && list.length ? list : [];
+  const out = [];
+  const seen = new Set();
+  source.forEach((raw, index) => {
+    if (!raw || typeof raw !== 'object') return;
+    const id = String(raw.id || '').trim() || uid(kind + '_type');
+    if (seen.has(id)) return;
+    const fallback = defaults.find(d => d.id === id);
+    const name = String(raw.name || '').trim() || (fallback && fallback.name) || '未命名类型';
+    const color = /^#[0-9a-f]{6}$/i.test(String(raw.color || '')) ? raw.color : ((fallback && fallback.color) || autoGroupColor(index));
+    const item = {
+      id, name, color,
+      builtin: raw.builtin == null ? !!(fallback && fallback.builtin) : !!raw.builtin
+    };
+    if (kind === 'instrument') {
+      item.short = String(raw.short || '').trim() || (fallback && fallback.short) || name.slice(0, 2);
+      item.group = String(raw.group || '').trim() || (fallback && fallback.group) || 'other';
+    }
+    out.push(item);
+    seen.add(id);
+  });
+  defaults.forEach(d => {
+    if (!seen.has(d.id)) { out.push(Object.assign({}, d)); seen.add(d.id); }
+  });
+  return out;
 }
-function assetClassName(cls) { return (ASSET_CLASSES[cls] || ASSET_CLASSES.other).name; }
+function accountTypes() {
+  return Array.isArray(state.accountTypes) && state.accountTypes.length ? state.accountTypes : defaultAccountTypes();
+}
+function instrumentTypes() {
+  return Array.isArray(state.instrumentTypes) && state.instrumentTypes.length ? state.instrumentTypes : defaultInstrumentTypes();
+}
+function accountTypeMeta(type) {
+  return accountTypes().find(t => t.id === type) || { id: type, name: type || '账户', color: '#8e9aaf' };
+}
+function accountTypeName(type) { return accountTypeMeta(type).name; }
+function accountTypeLabel(type) { return accountTypeName(type); }
+function instrumentTypeMeta(cls) {
+  return instrumentTypes().find(t => t.id === cls) || { id: cls || 'other', name: cls || '其他', short: '其他', color: '#9ca3af', group: 'other' };
+}
+function instrumentTypeName(cls) { return instrumentTypeMeta(cls).name; }
+function instrumentTypeColor(cls) { return instrumentTypeMeta(cls).color; }
+function accountTypeOptions() { return accountTypes().map(t => ({ value: t.id, label: t.name })); }
+function instrumentTypeOptions() {
+  return instrumentTypes().filter(t => t.id !== 'cash').map(t => ({ value: t.id, label: t.name }));
+}
+function assetClassName(cls) { return instrumentTypeName(cls); }
 function scopeName(scope, schemeId) {
   if (scope === 'all' || !scope) return '全部资产';
   const g = groupById(schemeId, scope);

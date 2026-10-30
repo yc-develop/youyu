@@ -22,10 +22,13 @@ function renderSettingsPage() {
     settingRowHTML('隐藏金额', state.settings.hideAmounts ? '已隐藏' : '显示金额', state.settings.hideAmounts ? 'eyeOff' : 'eye', 'toggle-hide', '适合在公共场合查看', '<span class="switch ' + (state.settings.hideAmounts ? 'on' : '') + '"></span>') +
     settingRowHTML('再平衡容忍带', '±' + (Number(state.settings.tolerance) || 0).toFixed(1) + '%', 'scale', 'open-tolerance', '偏离目标多少时提示再平衡') +
   '</div></div>' +
+  '<div class="settings-group"><div class="label">账户与标的</div><div class="settings-card">' +
+    '<a class="setting-row" href="#/types"><span class="setting-icon blue">' + icon('grid') + '</span><span class="setting-main"><span class="t">类型管理</span><span class="s">编辑账户类型与标的类型，供添加资产和默认分组使用</span></span><span class="setting-value">' + accountTypes().length + ' / ' + instrumentTypes().length + ' 类' + icon('chevronRight') + '</span></a>' +
+  '</div></div>' +
   '<div class="settings-group"><div class="label">默认分组 · 自动</div><div class="settings-card">' +
     builtinSchemes().map(s => '<div class="scheme-manage-row">' +
-      '<span class="dot" style="background:' + ((s.groups.find(g => g.id.indexOf('__auto_cash_') !== 0) || s.groups[0] || {}).color || '#ff9f45') + '"></span>' +
-      '<span class="sm-main"><span class="t">' + esc(s.name) + ' <span class="auto-tag">自动</span></span><span class="s">' + s.groups.length + ' 个分组 · 按' + (s.type === 'account' ? '账户' : '标的') + '实时生成</span></span>' +
+      '<span class="dot" style="background:' + ((s.groups.find(g => !g.cashOnly) || s.groups[0] || {}).color || '#ff9f45') + '"></span>' +
+      '<span class="sm-main"><span class="t">' + esc(s.name) + ' <span class="auto-tag">自动</span></span><span class="s">' + s.groups.length + ' 个分组 · 按' + (s.type === 'account' ? '账户' : s.type === 'instrument' ? '标的' : s.type === 'accountType' ? '账户类型' : '标的类型') + '实时生成</span></span>' +
       '<span class="setting-value" style="font-size:8.5px">只读</span></div>').join('') +
   '</div></div>' +
   '<div class="settings-group"><div class="label">自定义分组</div><div class="settings-card">' +
@@ -49,7 +52,7 @@ function renderSettingsPage() {
   '<div class="settings-group"><div class="label">关于</div><div class="settings-card">' +
     '<div class="setting-row"><span class="setting-icon accent">' + icon('shield') + '</span><span class="setting-main"><span class="t">本地存储</span><span class="s">所有数据保存在浏览器 localStorage，不上传服务器。清除浏览器数据会丢失账本，请定期导出备份。</span></span></div>' +
     '<div class="setting-row"><span class="setting-icon blue">' + icon('chart') + '</span><span class="setting-main"><span class="t">行情数据</span><span class="s">名称搜索来自新浪财经，最新报价来自腾讯行情；公开接口可能受网络影响，仅供估值参考。</span></span></div>' +
-    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v1.1</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
+    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v1.2</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
   '</div></div>' +
   '<div class="version">' + esc(APP_NAME) + ' · 投资组合<br>不构成投资建议 · 数据仅供参考</div>' +
   '<div style="height:8px"></div>';

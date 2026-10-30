@@ -72,20 +72,23 @@ function statsGroupRows(gb, retMap, scheme) {
   }).join('') || '<div class="tiny" style="padding:20px;text-align:center">暂无分组数据</div>';
 }
 
-function portfolioTrendCard(p) {
+function portfolioTrendCard(p, opts) {
+  const o = opts || {};
   const days = Number(ui.trendPeriod == null ? 365 : ui.trendPeriod);
   const daily = buildDailyAnalytics();
-  const tw = twrStats(daily.total, days || daily.n - 1);
-  const start = days ? Math.max(0, daily.n - 1 - days) : 0;
-  const pnl = sum(daily.total.pnls.slice(Math.max(1, daily.n - 1 - (days || daily.n - 1))));
+  const series = o.series || daily.total;
+  const tw = twrStats(series, days || daily.n - 1);
+  const pnl = sum(series.pnls.slice(Math.max(1, daily.n - 1 - (days || daily.n - 1))));
   const points = tw.points.map(x => ({ date: x.date, value: x.value }));
+  const title = o.title || '组合走势';
+  const scope = o.scopeName || '全部资产';
   const labels = { 30: '1月', 90: '3月', 365: '1年', 0: '全部' };
   let chart = '';
   if (points.length > 1) {
-    chart = lineChartHTML({ points, mode: 'percent', color: tw.totalReturn >= 0 ? '#ff5d6c' : '#35d39a', height: 156, baseline: true, aria: '组合收益率走势' });
+    chart = lineChartHTML({ points, mode: 'percent', color: tw.totalReturn >= 0 ? '#ff5d6c' : '#35d39a', height: 156, baseline: true, aria: scope + '收益率走势' });
   } else chart = chartEmptyHTML('还没有足够的历史数据', 156);
   return '<section class="detail-chart-card" style="margin:14px 0 0;border-radius:20px">' +
-    '<div class="chart-head"><div><h2>组合走势</h2><div class="sub">时间加权收益率 · ' + (state.settings.considerFx ? '含汇率影响' : '不含汇率影响') + '</div></div>' +
+    '<div class="chart-head"><div><h2>' + esc(title) + '</h2><div class="sub">时间加权收益率 · ' + esc(scope) + ' · ' + (state.settings.considerFx ? '含汇率影响' : '不含汇率影响') + '</div></div>' +
       '<span class="pill-btn" style="height:26px;font-size:9px;padding:0 9px">' + icon('trendUp') + (tw.totalReturn >= 0 ? '+' : '') + fmtPct(tw.totalReturn, 2) + '</span></div>' +
     chart +
     '<div class="metrics">' +

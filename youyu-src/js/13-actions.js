@@ -153,6 +153,7 @@ function handleAction(action, el) {
     case 'edit-scheme': closeAllSheets(); setTimeout(() => openEditSchemeSheet(d.scheme), 50); return;
     case 'delete-scheme': closeAllSheets(); setTimeout(() => deleteSchemeById(d.scheme), 50); return;
     case 'open-group-editor': closeAllSheets(); setTimeout(() => openGroupEditor(d.scheme, d.id || null), 50); return;
+    case 'open-type-editor': closeAllSheets(); setTimeout(() => openTypeEditor(d.kind, d.id || ''), 50); return;
     case 'move-group': moveGroup(d.id, Number(d.dir)); return;
     case 'open-group-detail': openGroupDetailSheet(d.id); return;
     case 'open-target-editor': closeAllSheets(); setTimeout(() => openTargetEditor(d.scheme), 60); return;

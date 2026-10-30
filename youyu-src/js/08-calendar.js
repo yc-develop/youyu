@@ -101,7 +101,7 @@ function renderCalendarPage() {
   return header + controls + summaryHTML + nav + bodyHTML +
     '<div class="cal-legend"><span>' + (mode === 'day' || mode === 'week' ? '当月每日盈亏' : mode === 'month' ? '本年每月盈亏' : '年度收益') + '</span><div class="scale"><span class="loss">亏</span><i class="l3"></i><i class="l2"></i><i class="l1"></i><i></i><i class="g1"></i><i class="g2"></i><i class="g3"></i><span class="gain">盈</span></div></div>' +
     '<div style="height:10px"></div>' +
-    portfolioTrendCard(portfolioSummary()) +
+    portfolioTrendCard(portfolioSummary(), { series, title: gid === 'all' ? '组合走势' : series.name + '走势', scopeName: series.name }) +
     '<div style="height:10px"></div>';
 }
 
@@ -252,7 +252,10 @@ function openCalendarDaySheet(date) {
   const groupRows = gs.groups.map(g => {
     const p = idx != null ? g.pnls[idx] : 0;
     return { name: g.name, color: g.color, p };
-  }).sort((a, b) => Math.abs(b.p) - Math.abs(a.p)).slice(0, 5);
+  }).filter(r => Math.abs(r.p) > 0.005)
+    .sort((a, b) => Math.abs(b.p) - Math.abs(a.p))
+    .slice(0, 5)
+    .sort((a, b) => b.p - a.p);
   let dayRecords = recordsSorted().filter(r => r.date === date).reverse();
   if (gid !== 'all') {
     const sch = schemeById(sid);

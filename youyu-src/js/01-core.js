@@ -24,7 +24,7 @@ const ASSET_CLASSES = {
   moneyFund: { name: '货币基金',   short: '货基', color: '#43d6b0', group: 'cash' },
   bondFund:  { name: '债券基金',   short: '债基', color: '#5b8cff', group: 'income' },
   bond:      { name: '债券',       short: '债券', color: '#7c9cff', group: 'income' },
-  deposit:   { name: '银行存款',   short: '定存', color: '#7c9cff', group: 'income' },
+  deposit:   { name: '银行存款',   short: '定存', color: '#38bdf8', group: 'income' },
   equityFund:{ name: '股票基金',   short: '股基', color: '#ff9f45', group: 'equity' },
   stock:     { name: '股票',       short: '股票', color: '#ff5d6c', group: 'equity' },
   etf:       { name: 'ETF',        short: 'ETF',  color: '#b18cff', group: 'equity' },
@@ -33,8 +33,37 @@ const ASSET_CLASSES = {
   other:     { name: '其他',       short: '其他', color: '#9ca3af', group: 'other' }
 };
 
+const DEFAULT_ACCOUNT_TYPES = [
+  { id: 'payment', name: '支付账户', color: '#1677ff', builtin: true },
+  { id: 'cash',    name: '现金',     color: '#c69236', builtin: true },
+  { id: 'bank',    name: '银行账户', color: '#c23b32', builtin: true },
+  { id: 'fund',    name: '基金账户', color: '#ff6b35', builtin: true },
+  { id: 'deposit', name: '存款',     color: '#6d7cff', builtin: true },
+  { id: 'broker',  name: '证券账户', color: '#b18cff', builtin: true }
+];
+
+const DEFAULT_INSTRUMENT_TYPES = Object.keys(ASSET_CLASSES).map(id => ({
+  id,
+  name: ASSET_CLASSES[id].name,
+  short: ASSET_CLASSES[id].short,
+  color: ASSET_CLASSES[id].color,
+  group: ASSET_CLASSES[id].group,
+  builtin: true
+}));
+
+function defaultAccountTypes() { return DEFAULT_ACCOUNT_TYPES.map(t => Object.assign({}, t)); }
+function defaultInstrumentTypes() { return DEFAULT_INSTRUMENT_TYPES.map(t => Object.assign({}, t)); }
+
 const PALETTE = ['#ff9f45', '#5b8cff', '#b18cff', '#43d6b0', '#f2c45c', '#ff7aa2', '#7c9cff', '#ff5d6c', '#87c38f', '#c9a0ff'];
 const GROUP_COLORS = ['#ff9f45', '#5b8cff', '#b18cff', '#43d6b0', '#f2c45c', '#ff7aa2', '#7c9cff', '#ff5d6c'];
+
+function autoGroupColor(index) {
+  const i = Number(index) || 0;
+  const hue = (18 + i * 137.508) % 360;
+  const light = 58 + (i % 3) * 4;
+  return 'hsl(' + hue.toFixed(1) + ', 72%, ' + light + '%)';
+}
+
 
 /* ---------- basic ---------- */
 function clamp(n, a, b) { return Math.min(b, Math.max(a, n)); }

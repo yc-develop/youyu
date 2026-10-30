@@ -1128,6 +1128,31 @@ body.has-overlay .toast-root{top:calc(var(--safe-top) + 14px);bottom:auto}
 .market-status.warn{color:var(--warning)}
 .market-connected{font-size:7px;color:var(--teal);border:1px solid rgba(67,214,176,.2);background:rgba(67,214,176,.07);border-radius:4px;padding:1px 4px;margin-left:5px;white-space:nowrap}
 
+/* ---------- account tree / type management ---------- */
+.account-tree{background:var(--line);border-radius:13px;overflow:hidden;display:flex;flex-direction:column;gap:1px}
+.tree-account{background:rgba(255,255,255,.022)}
+.tree-account-row{min-height:50px}
+.tree-account-row .check-name{font-size:11.5px;font-weight:600;color:var(--ink)}
+.tree-children{padding:0 0 6px 28px;display:flex;flex-direction:column;gap:1px;background:rgba(0,0,0,.1)}
+.tree-inst{min-height:38px;padding-top:7px;padding-bottom:7px;background:transparent;border-radius:0}
+.tree-inst .check-name{font-size:10px;color:var(--muted)}
+.tree-inst .check-sub{font-size:8px}
+.tree-inst input:disabled + .checkbox{opacity:.45;background:rgba(255,159,69,.18);border-color:rgba(255,159,69,.28)}
+.tree-inst input:disabled + .checkbox .icon{opacity:.55}
+.tree-empty{font-size:8.5px;color:var(--faint);padding:0 0 9px 54px}
+.type-list{background:var(--surface);border:1px solid var(--line);border-radius:18px;overflow:hidden}
+.type-row{display:flex;align-items:center;gap:11px;padding:12px 14px;width:100%;text-align:left;border-bottom:1px solid var(--line)}
+.type-row:last-child{border-bottom:0}
+.type-row:active{background:rgba(255,255,255,.03)}
+.type-swatch{width:11px;height:11px;border-radius:4px;flex:0 0 11px;box-shadow:0 0 0 1px rgba(255,255,255,.08) inset}
+.type-main{flex:1;min-width:0}
+.type-main .t{font-size:11.5px;font-weight:600;color:var(--ink-2);display:flex;align-items:center;gap:5px}
+.type-main .s{font-size:8.5px;color:var(--faint);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.type-tag{font-size:7px;font-weight:500;color:var(--blue);background:var(--blue-soft);border-radius:4px;padding:1px 4px}
+.type-chev{color:rgba(255,255,255,.2)}
+.type-chev .icon{width:12px;height:12px}
+.type-add{margin-top:10px}
+
 </style>
 </head>
 <body>
@@ -1168,7 +1193,7 @@ const ASSET_CLASSES = {
   moneyFund: { name: '货币基金',   short: '货基', color: '#43d6b0', group: 'cash' },
   bondFund:  { name: '债券基金',   short: '债基', color: '#5b8cff', group: 'income' },
   bond:      { name: '债券',       short: '债券', color: '#7c9cff', group: 'income' },
-  deposit:   { name: '银行存款',   short: '定存', color: '#7c9cff', group: 'income' },
+  deposit:   { name: '银行存款',   short: '定存', color: '#38bdf8', group: 'income' },
   equityFund:{ name: '股票基金',   short: '股基', color: '#ff9f45', group: 'equity' },
   stock:     { name: '股票',       short: '股票', color: '#ff5d6c', group: 'equity' },
   etf:       { name: 'ETF',        short: 'ETF',  color: '#b18cff', group: 'equity' },
@@ -1177,8 +1202,37 @@ const ASSET_CLASSES = {
   other:     { name: '其他',       short: '其他', color: '#9ca3af', group: 'other' }
 };
 
+const DEFAULT_ACCOUNT_TYPES = [
+  { id: 'payment', name: '支付账户', color: '#1677ff', builtin: true },
+  { id: 'cash',    name: '现金',     color: '#c69236', builtin: true },
+  { id: 'bank',    name: '银行账户', color: '#c23b32', builtin: true },
+  { id: 'fund',    name: '基金账户', color: '#ff6b35', builtin: true },
+  { id: 'deposit', name: '存款',     color: '#6d7cff', builtin: true },
+  { id: 'broker',  name: '证券账户', color: '#b18cff', builtin: true }
+];
+
+const DEFAULT_INSTRUMENT_TYPES = Object.keys(ASSET_CLASSES).map(id => ({
+  id,
+  name: ASSET_CLASSES[id].name,
+  short: ASSET_CLASSES[id].short,
+  color: ASSET_CLASSES[id].color,
+  group: ASSET_CLASSES[id].group,
+  builtin: true
+}));
+
+function defaultAccountTypes() { return DEFAULT_ACCOUNT_TYPES.map(t => Object.assign({}, t)); }
+function defaultInstrumentTypes() { return DEFAULT_INSTRUMENT_TYPES.map(t => Object.assign({}, t)); }
+
 const PALETTE = ['#ff9f45', '#5b8cff', '#b18cff', '#43d6b0', '#f2c45c', '#ff7aa2', '#7c9cff', '#ff5d6c', '#87c38f', '#c9a0ff'];
 const GROUP_COLORS = ['#ff9f45', '#5b8cff', '#b18cff', '#43d6b0', '#f2c45c', '#ff7aa2', '#7c9cff', '#ff5d6c'];
+
+function autoGroupColor(index) {
+  const i = Number(index) || 0;
+  const hue = (18 + i * 137.508) % 360;
+  const light = 58 + (i % 3) * 4;
+  return 'hsl(' + hue.toFixed(1) + ', 72%, ' + light + '%)';
+}
+
 
 /* ---------- basic ---------- */
 function clamp(n, a, b) { return Math.min(b, Math.max(a, n)); }
@@ -1835,6 +1889,8 @@ function buildSeed() {
       showWeekends: true
     },
     rates: Object.assign({}, SEED_RATES),
+    accountTypes: defaultAccountTypes(),
+    instrumentTypes: defaultInstrumentTypes(),
     accounts,
     records,
     prices,
@@ -1872,6 +1928,12 @@ function normalizeState(obj) {
   obj.settings.considerFx = obj.settings.considerFx !== false;
   obj.settings.tolerance = Number.isFinite(Number(obj.settings.tolerance)) ? Number(obj.settings.tolerance) : 3;
   obj.settings.hideAmounts = !!obj.settings.hideAmounts;
+  obj.accountTypes = normalizeTypeList(obj.accountTypes, DEFAULT_ACCOUNT_TYPES, 'account');
+  obj.instrumentTypes = normalizeTypeList(obj.instrumentTypes, DEFAULT_INSTRUMENT_TYPES, 'instrument');
+  const validAccountTypes = new Set(obj.accountTypes.map(t => t.id));
+  const validInstrumentTypes = new Set(obj.instrumentTypes.map(t => t.id));
+  const accountTypeById = id => obj.accountTypes.find(t => t.id === id);
+  const instrumentTypeById = id => obj.instrumentTypes.find(t => t.id === id);
   obj.rates = obj.rates || {};
   Object.keys(CURRENCY_META).forEach(ccy => {
     if (!Number.isFinite(Number(obj.rates[ccy])) || Number(obj.rates[ccy]) <= 0) obj.rates[ccy] = CURRENCY_META[ccy].defaultRate;
@@ -1880,6 +1942,8 @@ function normalizeState(obj) {
     a.id = a.id || uid('acc');
     a.instruments = Array.isArray(a.instruments) ? a.instruments : [];
     a.currency = CURRENCY_META[a.currency] ? a.currency : 'CNY';
+    a.type = validAccountTypes.has(a.type) ? a.type : (validAccountTypes.has('payment') ? 'payment' : obj.accountTypes[0].id);
+    a.typeName = accountTypeById(a.type) ? accountTypeById(a.type).name : a.type;
     a.color = a.color || '#ff9f45';
     a.color2 = a.color2 || a.color || '#d97823';
     a.icon = a.icon || (a.name || '?').slice(0, 1);
@@ -1887,8 +1951,9 @@ function normalizeState(obj) {
       i.id = i.id || uid('inst');
       i.accountId = a.id;
       i.currency = CURRENCY_META[i.currency] ? i.currency : a.currency;
-      i.cls = ASSET_CLASSES[i.cls] ? i.cls : 'other';
-      i.color = i.color || ASSET_CLASSES[i.cls].color;
+      i.cls = validInstrumentTypes.has(i.cls) ? i.cls : (validInstrumentTypes.has('other') ? 'other' : obj.instrumentTypes[0].id);
+      const typeMeta = instrumentTypeById(i.cls);
+      i.color = i.color || (typeMeta ? typeMeta.color : '#8e9aaf');
       i.color2 = i.color2 || i.color;
       if (!i.market && SEED_MARKET_MAP[i.id]) i.market = JSON.parse(JSON.stringify(SEED_MARKET_MAP[i.id]));
     });
@@ -1906,12 +1971,6 @@ function normalizeState(obj) {
   obj.prices = obj.prices || {};
   obj.fxHistory = obj.fxHistory || {};
   if (!Array.isArray(obj.schemes) || !obj.schemes.length) obj.schemes = buildSeed().schemes;
-  const seedRisk = obj.schemes.find(s => s.id === 'scheme_risk');
-  const seedSteady = seedRisk && Array.isArray(seedRisk.groups) ? seedRisk.groups.find(g => g.id === 'g_steady') : null;
-  if (seedSteady) {
-    seedSteady.includeClasses = Array.isArray(seedSteady.includeClasses) ? seedSteady.includeClasses : [];
-    if (seedSteady.includeClasses.indexOf('bond') < 0) seedSteady.includeClasses.push('bond');
-  }
   obj.schemes.forEach(s => {
     s.id = s.id || uid('sch');
     s.groups = Array.isArray(s.groups) ? s.groups : [];
@@ -1923,6 +1982,17 @@ function normalizeState(obj) {
       g.includeAccounts = Array.isArray(g.includeAccounts) ? g.includeAccounts : [];
       g.includeClasses = Array.isArray(g.includeClasses) ? g.includeClasses : [];
       g.includeInstruments = Array.isArray(g.includeInstruments) ? g.includeInstruments : [];
+    });
+  });
+  const allInstruments = [];
+  obj.accounts.forEach(a => (a.instruments || []).forEach(i => allInstruments.push(i)));
+  obj.schemes.forEach(s => {
+    (s.groups || []).forEach(g => {
+      if (Array.isArray(g.includeClasses) && g.includeClasses.length) {
+        const ids = allInstruments.filter(i => g.includeClasses.indexOf(i.cls) >= 0).map(i => i.id);
+        g.includeInstruments = uniq((g.includeInstruments || []).concat(ids));
+        g.includeClasses = [];
+      }
     });
   });
   obj.meta = obj.meta || {};
@@ -1974,10 +2044,10 @@ function accounts() { return state.accounts || []; }
 function accountById(id) { return accounts().find(a => a.id === id); }
 function customSchemes() { return state.schemes || []; }
 function builtinSchemes() {
-  const acctGroups = accounts().map(a => ({
+  const acctGroups = accounts().map((a, i) => ({
     id: '__auto_acc_' + a.id,
     name: a.name,
-    color: a.color || '#ff9f45',
+    color: autoGroupColor(i),
     target: 0,
     auto: true,
     includeAccounts: [a.id],
@@ -1985,11 +2055,12 @@ function builtinSchemes() {
     includeInstruments: []
   }));
   const instGroups = [];
+  let instColorIndex = 0;
   accounts().forEach(a => {
     instGroups.push({
       id: '__auto_cash_' + a.id,
       name: a.name + ' · 现金',
-      color: a.color || '#8e9aaf',
+      color: autoGroupColor(instColorIndex++),
       target: 0,
       auto: true,
       cashOnly: true,
@@ -2001,7 +2072,7 @@ function builtinSchemes() {
       instGroups.push({
         id: '__auto_inst_' + inst.id,
         name: inst.name,
-        color: inst.color || ASSET_CLASSES[inst.cls] && ASSET_CLASSES[inst.cls].color || '#ff9f45',
+        color: autoGroupColor(instColorIndex++),
         target: 0,
         auto: true,
         includeAccounts: [],
@@ -2010,9 +2081,44 @@ function builtinSchemes() {
       });
     });
   });
+  const acctTypeGroups = [];
+  accountTypes().forEach((t, i) => {
+    const list = accounts().filter(a => a.type === t.id);
+    if (!list.length) return;
+    acctTypeGroups.push({
+      id: '__auto_accttype_' + t.id,
+      name: t.name,
+      color: t.color || autoGroupColor(i),
+      target: 0, auto: true,
+      includeAccounts: list.map(a => a.id),
+      includeClasses: [], includeInstruments: []
+    });
+  });
+  const instTypeGroups = [{
+    id: '__auto_insttype_cash',
+    name: instrumentTypeName('cash'),
+    color: instrumentTypeColor('cash'),
+    target: 0, auto: true, cashOnly: true,
+    includeAccounts: accounts().map(a => a.id),
+    includeClasses: [], includeInstruments: []
+  }];
+  const usedTypes = new Set();
+  accounts().forEach(a => (a.instruments || []).forEach(i => usedTypes.add(i.cls)));
+  instrumentTypes().filter(t => t.id !== 'cash').forEach((t, i) => {
+    if (!usedTypes.has(t.id)) return;
+    instTypeGroups.push({
+      id: '__auto_insttype_' + t.id,
+      name: t.name,
+      color: t.color || autoGroupColor(i),
+      target: 0, auto: true, typeFilter: t.id,
+      includeAccounts: [], includeClasses: [], includeInstruments: []
+    });
+  });
   return [
     { id: '__auto_account', name: '账户分组', desc: '按资金所在账户自动分组', builtin: true, type: 'account', groups: acctGroups },
-    { id: '__auto_instrument', name: '标的分组', desc: '按具体持仓自动分组', builtin: true, type: 'instrument', groups: instGroups }
+    { id: '__auto_instrument', name: '标的分组', desc: '按具体持仓自动分组', builtin: true, type: 'instrument', groups: instGroups },
+    { id: '__auto_account_type', name: '账户类型分组', desc: '按账户类型自动分组', builtin: true, type: 'accountType', groups: acctTypeGroups },
+    { id: '__auto_instrument_type', name: '标的类型分组', desc: '按标的类型自动分组', builtin: true, type: 'instrumentType', groups: instTypeGroups }
   ];
 }
 function schemes() { return builtinSchemes().concat(state.schemes || []); }
@@ -2333,17 +2439,15 @@ function portfolioSummary() {
 /* ---------- schemes / membership ---------- */
 function groupMatches(group, account, inst) {
   if (!group) return false;
+  if (group.typeFilter) return !!inst && inst.cls === group.typeFilter;
   if (inst) {
     if (group.cashOnly) return false;
     if ((group.includeInstruments || []).indexOf(inst.id) >= 0) return true;
-    if ((group.includeClasses || []).indexOf(inst.cls) >= 0) return true;
     if ((group.includeAccounts || []).indexOf(account.id) >= 0) return true;
     return false;
   }
   if (group.cashOnly) return (group.includeAccounts || []).indexOf(account.id) >= 0;
-  if ((group.includeAccounts || []).indexOf(account.id) >= 0) return true;
-  if ((group.includeClasses || []).indexOf('cash') >= 0) return true;
-  return false;
+  return (group.includeAccounts || []).indexOf(account.id) >= 0;
 }
 function resolveGroupId(scheme, account, inst) {
   if (!scheme) return null;
@@ -2363,9 +2467,9 @@ function normalizeTargets(scheme) {
   }));
 }
 function groupIncludeSummary(group) {
+  if (group.typeFilter) return instrumentTypeName(group.typeFilter) + ' · 按标的类型';
   const names = [];
   (group.includeAccounts || []).forEach(id => { const a = accountById(id); if (a) names.push(a.name); });
-  (group.includeClasses || []).forEach(c => { if (ASSET_CLASSES[c]) names.push(ASSET_CLASSES[c].name); });
   (group.includeInstruments || []).forEach(id => { const i = instrumentById(id); if (i) names.push(i.name); });
   return names.length ? names.join(' · ') : '尚未选择资产';
 }
@@ -2932,10 +3036,54 @@ function importData(text) {
 }
 
 /* ---------- names ---------- */
-function accountTypeLabel(type) {
-  return { payment: '支付', cash: '现金', bank: '银行', fund: '基金', deposit: '存款', broker: '证券' }[type] || '账户';
+function normalizeTypeList(list, defaults, kind) {
+  const source = Array.isArray(list) && list.length ? list : [];
+  const out = [];
+  const seen = new Set();
+  source.forEach((raw, index) => {
+    if (!raw || typeof raw !== 'object') return;
+    const id = String(raw.id || '').trim() || uid(kind + '_type');
+    if (seen.has(id)) return;
+    const fallback = defaults.find(d => d.id === id);
+    const name = String(raw.name || '').trim() || (fallback && fallback.name) || '未命名类型';
+    const color = /^#[0-9a-f]{6}$/i.test(String(raw.color || '')) ? raw.color : ((fallback && fallback.color) || autoGroupColor(index));
+    const item = {
+      id, name, color,
+      builtin: raw.builtin == null ? !!(fallback && fallback.builtin) : !!raw.builtin
+    };
+    if (kind === 'instrument') {
+      item.short = String(raw.short || '').trim() || (fallback && fallback.short) || name.slice(0, 2);
+      item.group = String(raw.group || '').trim() || (fallback && fallback.group) || 'other';
+    }
+    out.push(item);
+    seen.add(id);
+  });
+  defaults.forEach(d => {
+    if (!seen.has(d.id)) { out.push(Object.assign({}, d)); seen.add(d.id); }
+  });
+  return out;
 }
-function assetClassName(cls) { return (ASSET_CLASSES[cls] || ASSET_CLASSES.other).name; }
+function accountTypes() {
+  return Array.isArray(state.accountTypes) && state.accountTypes.length ? state.accountTypes : defaultAccountTypes();
+}
+function instrumentTypes() {
+  return Array.isArray(state.instrumentTypes) && state.instrumentTypes.length ? state.instrumentTypes : defaultInstrumentTypes();
+}
+function accountTypeMeta(type) {
+  return accountTypes().find(t => t.id === type) || { id: type, name: type || '账户', color: '#8e9aaf' };
+}
+function accountTypeName(type) { return accountTypeMeta(type).name; }
+function accountTypeLabel(type) { return accountTypeName(type); }
+function instrumentTypeMeta(cls) {
+  return instrumentTypes().find(t => t.id === cls) || { id: cls || 'other', name: cls || '其他', short: '其他', color: '#9ca3af', group: 'other' };
+}
+function instrumentTypeName(cls) { return instrumentTypeMeta(cls).name; }
+function instrumentTypeColor(cls) { return instrumentTypeMeta(cls).color; }
+function accountTypeOptions() { return accountTypes().map(t => ({ value: t.id, label: t.name })); }
+function instrumentTypeOptions() {
+  return instrumentTypes().filter(t => t.id !== 'cash').map(t => ({ value: t.id, label: t.name }));
+}
+function assetClassName(cls) { return instrumentTypeName(cls); }
 function scopeName(scope, schemeId) {
   if (scope === 'all' || !scope) return '全部资产';
   const g = groupById(schemeId, scope);
@@ -3389,13 +3537,14 @@ function parseRoute() {
   if (parts[0] === 'account' && parts[1]) return { name: 'account', id: decodeURIComponent(parts[1]) };
   if (parts[0] === 'instrument' && parts[1]) return { name: 'instrument', id: decodeURIComponent(parts[1]) };
   if (parts[0] === 'groups' && parts[1]) return { name: 'groups', schemeId: decodeURIComponent(parts[1]) };
+  if (parts[0] === 'types') return { name: 'types' };
   if (TABS.some(t => t.key === parts[0])) return { name: parts[0] };
   return { name: 'assets' };
 }
 function routeKey(r) { return r.name + '|' + (r.id || r.schemeId || ''); }
 function activeTabFor(route) {
   if (route.name === 'account' || route.name === 'instrument') return 'assets';
-  if (route.name === 'groups') return 'settings';
+  if (route.name === 'groups' || route.name === 'types') return 'settings';
   return route.name;
 }
 function navigate(hash, replace) {
@@ -3422,7 +3571,7 @@ function renderTabbar(active) {
 function renderPage(opts) {
   const o = opts || {};
   const route = parseRoute();
-  const isDetail = route.name === 'account' || route.name === 'instrument' || route.name === 'groups';
+  const isDetail = route.name === 'account' || route.name === 'instrument' || route.name === 'groups' || route.name === 'types';
   const screen = $('#screen');
   const scrollY = window.scrollY;
   const prevKey = lastRouteKey;
@@ -3436,6 +3585,7 @@ function renderPage(opts) {
   else if (route.name === 'account') html = renderAccountPage(route.id);
   else if (route.name === 'instrument') html = renderInstrumentPage(route.id);
   else if (route.name === 'groups') html = renderGroupsPage(route.schemeId);
+  else if (route.name === 'types') html = renderTypesPage();
   if (!html) html = renderNotFound();
   screen.className = 'screen' + (isDetail ? ' detail-screen' : '');
   screen.innerHTML = '<div class="page">' + html + '</div>';
@@ -3796,7 +3946,7 @@ function renderAccountPage(accountId) {
   '<div class="detail-body">' +
     '<section class="detail-hero with-color" style="--accent-color:' + a.color + '">' +
       '<div class="detail-head">' + accountIconHTML(a) +
-        '<div class="dh-main"><div class="dh-name">' + esc(a.name) + '</div><div class="dh-sub"><span>' + esc(a.typeName || accountTypeLabel(a.type)) + '</span><span class="dot"></span><span>' + a.currency + '</span><span class="dot"></span><span>' + am.positions + ' 个持仓</span></div></div>' +
+        '<div class="dh-main"><div class="dh-name">' + esc(a.name) + '</div><div class="dh-sub"><span>' + esc(accountTypeName(a.type)) + '</span><span class="dot"></span><span>' + a.currency + '</span><span class="dot"></span><span>' + am.positions + ' 个持仓</span></div></div>' +
         '<span class="ccy" style="font-size:9px;border:1px solid var(--line);border-radius:5px;padding:3px 5px;color:var(--faint)">' + (a.note ? esc(a.note) : '账户') + '</span></div>' +
       '<div class="detail-total"><span class="cur">' + money.sym + '</span><span>' + money.main + '</span>' + (money.dec ? '<span class="cur" style="font-size:15px">.' + money.dec + '</span>' : '') + '</div>' +
       '<div class="detail-pnl"><b class="' + pnlClass(am.profit) + '">' + (am.profit >= 0 ? '+' : '') + fmtMoney(am.profit) + '</b><span class="' + pnlClass(am.profit) + '">' + (am.profitPct == null ? '—' : fmtPct(am.profitPct, 2)) + '</span><span class="muted">累计收益</span>' +
@@ -4048,20 +4198,23 @@ function statsGroupRows(gb, retMap, scheme) {
   }).join('') || '<div class="tiny" style="padding:20px;text-align:center">暂无分组数据</div>';
 }
 
-function portfolioTrendCard(p) {
+function portfolioTrendCard(p, opts) {
+  const o = opts || {};
   const days = Number(ui.trendPeriod == null ? 365 : ui.trendPeriod);
   const daily = buildDailyAnalytics();
-  const tw = twrStats(daily.total, days || daily.n - 1);
-  const start = days ? Math.max(0, daily.n - 1 - days) : 0;
-  const pnl = sum(daily.total.pnls.slice(Math.max(1, daily.n - 1 - (days || daily.n - 1))));
+  const series = o.series || daily.total;
+  const tw = twrStats(series, days || daily.n - 1);
+  const pnl = sum(series.pnls.slice(Math.max(1, daily.n - 1 - (days || daily.n - 1))));
   const points = tw.points.map(x => ({ date: x.date, value: x.value }));
+  const title = o.title || '组合走势';
+  const scope = o.scopeName || '全部资产';
   const labels = { 30: '1月', 90: '3月', 365: '1年', 0: '全部' };
   let chart = '';
   if (points.length > 1) {
-    chart = lineChartHTML({ points, mode: 'percent', color: tw.totalReturn >= 0 ? '#ff5d6c' : '#35d39a', height: 156, baseline: true, aria: '组合收益率走势' });
+    chart = lineChartHTML({ points, mode: 'percent', color: tw.totalReturn >= 0 ? '#ff5d6c' : '#35d39a', height: 156, baseline: true, aria: scope + '收益率走势' });
   } else chart = chartEmptyHTML('还没有足够的历史数据', 156);
   return '<section class="detail-chart-card" style="margin:14px 0 0;border-radius:20px">' +
-    '<div class="chart-head"><div><h2>组合走势</h2><div class="sub">时间加权收益率 · ' + (state.settings.considerFx ? '含汇率影响' : '不含汇率影响') + '</div></div>' +
+    '<div class="chart-head"><div><h2>' + esc(title) + '</h2><div class="sub">时间加权收益率 · ' + esc(scope) + ' · ' + (state.settings.considerFx ? '含汇率影响' : '不含汇率影响') + '</div></div>' +
       '<span class="pill-btn" style="height:26px;font-size:9px;padding:0 9px">' + icon('trendUp') + (tw.totalReturn >= 0 ? '+' : '') + fmtPct(tw.totalReturn, 2) + '</span></div>' +
     chart +
     '<div class="metrics">' +
@@ -4205,7 +4358,7 @@ function renderCalendarPage() {
   return header + controls + summaryHTML + nav + bodyHTML +
     '<div class="cal-legend"><span>' + (mode === 'day' || mode === 'week' ? '当月每日盈亏' : mode === 'month' ? '本年每月盈亏' : '年度收益') + '</span><div class="scale"><span class="loss">亏</span><i class="l3"></i><i class="l2"></i><i class="l1"></i><i></i><i class="g1"></i><i class="g2"></i><i class="g3"></i><span class="gain">盈</span></div></div>' +
     '<div style="height:10px"></div>' +
-    portfolioTrendCard(portfolioSummary()) +
+    portfolioTrendCard(portfolioSummary(), { series, title: gid === 'all' ? '组合走势' : series.name + '走势', scopeName: series.name }) +
     '<div style="height:10px"></div>';
 }
 
@@ -4356,7 +4509,10 @@ function openCalendarDaySheet(date) {
   const groupRows = gs.groups.map(g => {
     const p = idx != null ? g.pnls[idx] : 0;
     return { name: g.name, color: g.color, p };
-  }).sort((a, b) => Math.abs(b.p) - Math.abs(a.p)).slice(0, 5);
+  }).filter(r => Math.abs(r.p) > 0.005)
+    .sort((a, b) => Math.abs(b.p) - Math.abs(a.p))
+    .slice(0, 5)
+    .sort((a, b) => b.p - a.p);
   let dayRecords = recordsSorted().filter(r => r.date === date).reverse();
   if (gid !== 'all') {
     const sch = schemeById(sid);
@@ -4584,7 +4740,7 @@ function renderGroupsPage(schemeId) {
         '<button class="btn ghost sm danger" data-action="delete-scheme" data-scheme="' + esc(scheme.id) + '">' + icon('trash') + '删除</button></div>' +
     '</div>' +
     '<div class="info-banner">' + icon('info') + '<div>分组按从上到下的顺序匹配：同一资产只会计入第一个符合条件的分组。用右侧箭头调整优先级。</div></div>' +
-    '<div class="section-head" style="margin-top:18px"><div><h2>分组成员</h2><div class="sub">账户、资产类别与具体标的可以组合使用</div></div><span class="tiny">' + scheme.groups.length + ' 组</span></div>' +
+    '<div class="section-head" style="margin-top:18px"><div><h2>分组成员</h2><div class="sub">账户与账户下的具体标的可以组合使用</div></div><span class="tiny">' + scheme.groups.length + ' 组</span></div>' +
     '<div class="group-list">' + (groupCards || '<div class="card">' + emptyBlock('还没有分组', '添加第一个分组，并设置目标占比。', '<button class="btn primary sm" data-action="open-group-editor" data-scheme="' + esc(scheme.id) + '">添加分组</button>', 'grid') + '</div>') + '</div>' +
     '<button class="btn wide ghost" style="margin-top:12px" data-action="open-group-editor" data-scheme="' + esc(scheme.id) + '">' + icon('plus') + '添加分组</button>' +
     '<div class="info-banner" style="margin-top:14px">' + icon('sliders') + '<div>多个分组方式互不影响。你可以为「账户归属」「风险属性」分别设置目标，再在不同页面切换查看。</div></div>' +
@@ -4619,10 +4775,20 @@ function openGroupEditor(schemeId, groupId) {
     id: '', name: '', color: GROUP_COLORS[scheme.groups.length % GROUP_COLORS.length],
     target: 0, includeAccounts: [], includeClasses: [], includeInstruments: []
   };
-  const accountRows = accounts().map(a => checkRowHTML('accounts', a.id, a.name, a.currency + ' · ' + (a.instruments.length ? a.instruments.length + ' 个标的' : '现金账户'), (g.includeAccounts || []).indexOf(a.id) >= 0)).join('');
-  const classChips = Object.keys(ASSET_CLASSES).filter(c => c !== 'cash').map(c => '<button type="button" class="class-chip ' + ((g.includeClasses || []).indexOf(c) >= 0 ? 'active' : '') + '" data-class="' + c + '"><i style="background:' + ASSET_CLASSES[c].color + '"></i>' + esc(ASSET_CLASSES[c].name) + '</button>').join('');
-  const instSections = accounts().filter(a => a.instruments.length).map(a => '<div class="inst-picker-group"><div class="inst-picker-title">' + esc(a.name) + ' · ' + a.currency + '</div>' +
-    a.instruments.map(inst => checkRowHTML('instruments', inst.id, inst.name, inst.symbol + ' · ' + ASSET_CLASSES[inst.cls].name, (g.includeInstruments || []).indexOf(inst.id) >= 0)).join('') + '</div>').join('');
+  const tree = accounts().map(a => {
+    const accountChecked = (g.includeAccounts || []).indexOf(a.id) >= 0;
+    const children = a.instruments.map(inst => {
+      const checked = accountChecked || (g.includeInstruments || []).indexOf(inst.id) >= 0;
+      return '<label class="check-row tree-inst"><input type="checkbox" name="instruments" value="' + esc(inst.id) + '" data-account="' + esc(a.id) + '"' + (checked ? ' checked' : '') + (accountChecked ? ' disabled' : '') + '><span class="checkbox ' + (checked ? 'checked' : '') + '">' + icon('check') + '</span>' +
+        '<span class="check-name">' + esc(inst.name) + '<span class="check-sub">' + esc(inst.symbol) + ' · ' + esc(instrumentTypeName(inst.cls)) + '</span></span></label>';
+    }).join('');
+    return '<div class="tree-account">' +
+      '<label class="check-row tree-account-row"><input type="checkbox" name="accounts" value="' + esc(a.id) + '"' + (accountChecked ? ' checked' : '') + '><span class="checkbox ' + (accountChecked ? 'checked' : '') + '">' + icon('check') + '</span>' +
+        '<span class="check-name">' + esc(a.name) + '<span class="check-sub">' + esc(accountTypeName(a.type)) + ' · ' + a.currency + ' · ' + (a.instruments.length ? a.instruments.length + ' 个标的' : '现金') + '</span></span></label>' +
+      (a.instruments.length ? '<div class="tree-children">' + children + '</div>' : '<div class="tree-empty">账户现金</div>') +
+    '</div>';
+  }).join('');
+
   const colors = ['#ff9f45', '#5b8cff', '#b18cff', '#43d6b0', '#f2c45c', '#ff7aa2', '#7c9cff', '#ff5d6c', '#8e9aaf', '#f7931a'];
   const body = '<form id="group-form" data-scheme="' + esc(scheme.id) + '" data-group="' + esc(editing ? editing.id : '') + '">' +
     '<div class="form-grid">' +
@@ -4630,15 +4796,9 @@ function openGroupEditor(schemeId, groupId) {
       fieldHTML({ id: 'group-target', label: '目标占比', value: Number(g.target) || 0, unit: '%', inputmode: 'decimal' }) +
       '<div class="field"><label>分组颜色</label><div class="color-row">' + colors.map(c => '<button type="button" class="color-dot ' + (c === g.color ? 'active' : '') + '" style="background:' + c + '" data-color="' + c + '" aria-label="选择颜色"></button>').join('') + '</div><input type="hidden" name="group-color" id="group-color" value="' + g.color + '"></div>' +
     '</div>' +
-    '<div class="form-section">按账户纳入</div>' +
-    '<div class="form-hint">勾选后，该账户的现金和全部标的都会归入此分组。若同时选了具体标的，也以分组顺序优先匹配。</div>' +
-    '<div class="check-list">' + accountRows + '</div>' +
-    '<div class="form-section">按资产类别纳入</div>' +
-    '<div class="form-hint">例如勾选「债券基金」，所有账户里的债券基金都会归入本组。</div>' +
-    '<div class="class-chips">' + classChips + '</div>' +
-    '<div class="form-section">按具体标的纳入</div>' +
-    '<div class="form-hint">适合更精细的风险分组，例如同一基金账户里的债券基金和股票基金分别归组。</div>' +
-    '<details class="inst-details"' + (editing ? '' : '') + '><summary>选择具体标的</summary><div class="inst-picker">' + (instSections || '<div class="tiny">还没有标的</div>') + '</div></details>' +
+    '<div class="form-section">选择账户与标的</div>' +
+    '<div class="form-hint">勾选账户会包含该账户现金和全部标的；若只选部分标的，先取消勾选账户，再展开勾选。实际归属仍按分组列表顺序决定。</div>' +
+    '<div class="check-list account-tree">' + (tree || '<div class="tiny">还没有账户</div>') + '</div>' +
     '<div class="info-banner" style="margin-top:14px">' + icon('info') + '<div>保存后，符合本组条件的资产会从其他分组中移出；实际归属按分组列表顺序决定。</div></div>' +
     (editing ? '<button type="button" class="btn danger wide" style="margin-top:14px" data-group-delete>' + icon('trash') + '删除这个分组</button>' : '') +
   '</form>';
@@ -4658,7 +4818,30 @@ function openGroupEditor(schemeId, groupId) {
       if (box) box.classList.toggle('checked', inp.checked);
     });
   });
-  form.querySelectorAll('.class-chip').forEach(btn => btn.addEventListener('click', () => btn.classList.toggle('active')));
+  const treeEl = form.querySelector('.account-tree');
+  if (treeEl) {
+    treeEl.querySelectorAll('.tree-account').forEach(box => {
+      const main = box.querySelector('.tree-account-row input[type="checkbox"]');
+      const children = Array.from(box.querySelectorAll('.tree-inst input[type="checkbox"]'));
+      const sync = (initial) => {
+        children.forEach(inp => {
+          inp.disabled = main.checked;
+          if (main.checked) inp.checked = true;
+          else if (!initial) inp.checked = false;
+          const cb = inp.parentNode.querySelector('.checkbox');
+          if (cb) cb.classList.toggle('checked', inp.checked);
+        });
+      };
+      main.addEventListener('change', () => sync(false));
+      sync(true);
+    });
+    treeEl.querySelectorAll('.tree-inst input[type="checkbox"]').forEach(inp => {
+      inp.addEventListener('change', () => {
+        const cb = inp.parentNode.querySelector('.checkbox');
+        if (cb) cb.classList.toggle('checked', inp.checked);
+      });
+    });
+  }
   const delBtn = wrap.querySelector('[data-group-delete]');
   if (delBtn) delBtn.addEventListener('click', () => {
     setTimeout(() => {
@@ -4684,12 +4867,11 @@ function openGroupEditor(schemeId, groupId) {
     const color = form.querySelector('#group-color').value || '#ff9f45';
     const includeAccounts = Array.from(form.querySelectorAll('input[name="accounts"]:checked')).map(x => x.value);
     const includeInstruments = Array.from(form.querySelectorAll('input[name="instruments"]:checked')).map(x => x.value);
-    const includeClasses = Array.from(form.querySelectorAll('.class-chip.active')).map(x => x.getAttribute('data-class'));
     if (editing) {
       editing.name = name; editing.target = target; editing.color = color;
-      editing.includeAccounts = includeAccounts; editing.includeInstruments = includeInstruments; editing.includeClasses = includeClasses;
+      editing.includeAccounts = includeAccounts; editing.includeInstruments = includeInstruments; editing.includeClasses = [];
     } else {
-      scheme.groups.push({ id: uid('grp'), name, target, color, includeAccounts, includeClasses, includeInstruments });
+      scheme.groups.push({ id: uid('grp'), name, target, color, includeAccounts, includeClasses: [], includeInstruments });
     }
     saveState();
     closeSheet(wrap);
@@ -4766,10 +4948,13 @@ function renderSettingsPage() {
     settingRowHTML('隐藏金额', state.settings.hideAmounts ? '已隐藏' : '显示金额', state.settings.hideAmounts ? 'eyeOff' : 'eye', 'toggle-hide', '适合在公共场合查看', '<span class="switch ' + (state.settings.hideAmounts ? 'on' : '') + '"></span>') +
     settingRowHTML('再平衡容忍带', '±' + (Number(state.settings.tolerance) || 0).toFixed(1) + '%', 'scale', 'open-tolerance', '偏离目标多少时提示再平衡') +
   '</div></div>' +
+  '<div class="settings-group"><div class="label">账户与标的</div><div class="settings-card">' +
+    '<a class="setting-row" href="#/types"><span class="setting-icon blue">' + icon('grid') + '</span><span class="setting-main"><span class="t">类型管理</span><span class="s">编辑账户类型与标的类型，供添加资产和默认分组使用</span></span><span class="setting-value">' + accountTypes().length + ' / ' + instrumentTypes().length + ' 类' + icon('chevronRight') + '</span></a>' +
+  '</div></div>' +
   '<div class="settings-group"><div class="label">默认分组 · 自动</div><div class="settings-card">' +
     builtinSchemes().map(s => '<div class="scheme-manage-row">' +
-      '<span class="dot" style="background:' + ((s.groups.find(g => g.id.indexOf('__auto_cash_') !== 0) || s.groups[0] || {}).color || '#ff9f45') + '"></span>' +
-      '<span class="sm-main"><span class="t">' + esc(s.name) + ' <span class="auto-tag">自动</span></span><span class="s">' + s.groups.length + ' 个分组 · 按' + (s.type === 'account' ? '账户' : '标的') + '实时生成</span></span>' +
+      '<span class="dot" style="background:' + ((s.groups.find(g => !g.cashOnly) || s.groups[0] || {}).color || '#ff9f45') + '"></span>' +
+      '<span class="sm-main"><span class="t">' + esc(s.name) + ' <span class="auto-tag">自动</span></span><span class="s">' + s.groups.length + ' 个分组 · 按' + (s.type === 'account' ? '账户' : s.type === 'instrument' ? '标的' : s.type === 'accountType' ? '账户类型' : '标的类型') + '实时生成</span></span>' +
       '<span class="setting-value" style="font-size:8.5px">只读</span></div>').join('') +
   '</div></div>' +
   '<div class="settings-group"><div class="label">自定义分组</div><div class="settings-card">' +
@@ -4793,7 +4978,7 @@ function renderSettingsPage() {
   '<div class="settings-group"><div class="label">关于</div><div class="settings-card">' +
     '<div class="setting-row"><span class="setting-icon accent">' + icon('shield') + '</span><span class="setting-main"><span class="t">本地存储</span><span class="s">所有数据保存在浏览器 localStorage，不上传服务器。清除浏览器数据会丢失账本，请定期导出备份。</span></span></div>' +
     '<div class="setting-row"><span class="setting-icon blue">' + icon('chart') + '</span><span class="setting-main"><span class="t">行情数据</span><span class="s">名称搜索来自新浪财经，最新报价来自腾讯行情；公开接口可能受网络影响，仅供估值参考。</span></span></div>' +
-    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v1.1</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
+    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v1.2</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
   '</div></div>' +
   '<div class="version">' + esc(APP_NAME) + ' · 投资组合<br>不构成投资建议 · 数据仅供参考</div>' +
   '<div style="height:8px"></div>';
@@ -4967,14 +5152,6 @@ function clearAllData() {
 /* =========================================================
    12 · 添加账户 / 标的 / 记录 / 菜单
    ========================================================= */
-const ACCOUNT_TYPE_OPTIONS = [
-  { value: 'payment', label: '支付账户 · 支付宝 / 微信' },
-  { value: 'cash', label: '现金' },
-  { value: 'bank', label: '银行账户' },
-  { value: 'fund', label: '基金账户' },
-  { value: 'deposit', label: '存款 / 定存' },
-  { value: 'broker', label: '证券账户' }
-];
 const RECORD_TYPE_INFO = {
   deposit:  { label: '存入', desc: '从外部转入资金', icon: 'arrowDownLeft' },
   withdraw: { label: '取出', desc: '把钱转出账户', icon: 'arrowUpRight' },
@@ -4993,7 +5170,7 @@ function openAccountForm(accountId) {
   const colors = ['#1677ff', '#27b768', '#c69236', '#c23b32', '#ff6b35', '#6d7cff', '#ff7a00', '#2b6bf3', '#b18cff', '#43d6b0'];
   const body = '<form id="account-form"><div class="form-grid">' +
     fieldHTML({ id: 'account-name', label: '账户名称', value: editing ? editing.name : '', placeholder: '例如：支付宝', full: true }) +
-    fieldHTML({ id: 'account-type', label: '账户类型', type: 'select', value: editing ? editing.type : 'payment', options: ACCOUNT_TYPE_OPTIONS }) +
+    fieldHTML({ id: 'account-type', label: '账户类型', type: 'select', value: editing ? editing.type : (accountTypes()[0] ? accountTypes()[0].id : 'payment'), options: accountTypeOptions(), hint: '用于「账户类型分组」和账户筛选；可在「我的 → 类型管理」中维护。' }) +
     (editing ? fieldHTML({ id: 'account-currency', label: '币种', type: 'select', value: editing.currency, options: currencyOptions(), attrs: 'disabled' }) : fieldHTML({ id: 'account-currency', label: '币种', type: 'select', value: 'CNY', options: currencyOptions() })) +
     (editing ? '' : fieldHTML({ id: 'account-initial', label: '初始余额', value: '', placeholder: '0.00', unit: 'CNY', inputmode: 'decimal' })) +
     fieldHTML({ id: 'account-note', label: '备注（可选）', value: editing ? (editing.note || '') : '', placeholder: '例如：日常消费账户', full: true }) +
@@ -5028,14 +5205,14 @@ function openAccountForm(accountId) {
     const color = form.querySelector('#account-color').value || '#ff9f45';
     state.isDemo = false;
     if (editing) {
-      editing.name = name; editing.type = type; editing.typeName = accountTypeLabel(type); editing.note = note; editing.color = color;
+      editing.name = name; editing.type = type; editing.typeName = accountTypeName(type); editing.note = note; editing.color = color;
       editing.color2 = shadeColor(color, -18);
       editing.icon = name.slice(0, 1);
       saveState(); closeSheet(wrap); toast('账户已更新', 'success'); refreshPage(); return;
     }
     const id = uid('acc');
     const account = {
-      id, name, type, typeName: accountTypeLabel(type), currency, color, color2: shadeColor(color, -18), icon: name.slice(0, 1), note,
+      id, name, type, typeName: accountTypeName(type), currency, color, color2: shadeColor(color, -18), icon: name.slice(0, 1), note,
       instruments: []
     };
     state.accounts.push(account);
@@ -5056,7 +5233,7 @@ function openInstrumentForm(accountId, instrumentId) {
   const account = accountById(accountId);
   if (!account) return;
   const editing = instrumentId ? instrumentById(instrumentId) : null;
-  const classes = Object.keys(ASSET_CLASSES).filter(c => c !== 'cash').map(c => ({ value: c, label: ASSET_CLASSES[c].name }));
+  const classes = instrumentTypeOptions();
   const colors = ['#ff6b35', '#ff9f45', '#5b8cff', '#b18cff', '#43d6b0', '#f2c45c', '#ff7a00', '#2b6bf3', '#c9d1d9', '#9ca3af'];
   const body = '<form id="instrument-form">' +
     '<div class="market-search-block">' +
@@ -5068,7 +5245,7 @@ function openInstrumentForm(accountId, instrumentId) {
     '<div class="form-grid">' +
     fieldHTML({ id: 'inst-name', label: '标的名称', value: editing ? editing.name : '', placeholder: '例如：苹果 / 沪深300ETF', full: true }) +
     fieldHTML({ id: 'inst-symbol', label: '代码 / 简称', value: editing ? editing.symbol : '', placeholder: 'AAPL / 000051' }) +
-    fieldHTML({ id: 'inst-class', label: '资产类别', type: 'select', value: editing ? editing.cls : 'stock', options: classes }) +
+    fieldHTML({ id: 'inst-class', label: '标的类型', type: 'select', value: editing ? editing.cls : (instrumentTypes().find(t => t.id === 'stock') ? 'stock' : (instrumentTypes()[0] || {}).id), options: classes, hint: '用于资产归类、默认分组和统计口径；可在「我的 → 类型管理」中新增或改名。' }) +
     fieldHTML({ id: 'inst-currency', label: '计价币种', type: 'select', value: editing ? editing.currency : account.currency, options: currencyOptions(), attrs: editing ? 'disabled' : '' }) +
     fieldHTML({ id: 'inst-price', label: editing ? '当前价格' : '当前价格 / 净值', value: editing ? fmtNumber(priceNow(editing.id), { decimals: 4 }) : '', placeholder: '0.00', inputmode: 'decimal' }) +
     (editing ? '' : fieldHTML({ id: 'inst-qty', label: '初始持有数量', value: '', placeholder: '可不填', inputmode: 'decimal' })) +
@@ -5787,6 +5964,108 @@ async function refreshQuoteForInstrument(id) {
 
 
 /* =========================================================
+   12c · 账户类型 / 标的类型管理
+   ========================================================= */
+function typeUsageCount(kind, id) {
+  if (kind === 'account') return accounts().filter(a => a.type === id).length;
+  return accounts().reduce((n, a) => n + (a.instruments || []).filter(i => i.cls === id).length, 0);
+}
+function typeRowsHTML(kind, list) {
+  return list.map(t => {
+    const count = typeUsageCount(kind, t.id);
+    const unit = kind === 'account' ? ' 个账户' : ' 个标的';
+    return '<button class="type-row" data-action="open-type-editor" data-kind="' + kind + '" data-id="' + esc(t.id) + '">' +
+      '<span class="type-swatch" style="background:' + t.color + '"></span>' +
+      '<span class="type-main"><span class="t">' + esc(t.name) + (t.builtin ? '<span class="type-tag">内置</span>' : '') + '</span>' +
+      '<span class="s">' + esc(kind === 'instrument' ? (t.short || t.name) + ' · ' : '') + count + unit + '</span></span>' +
+      '<span class="type-chev">' + icon('chevronRight') + '</span></button>';
+  }).join('') || '<div class="tiny" style="padding:16px">暂无类型</div>';
+}
+function renderTypesPage() {
+  return backHead('类型管理', '', '#/settings') +
+  '<div class="detail-body">' +
+    '<div class="section-head" style="margin-top:2px"><div><h2>账户类型</h2><div class="sub">用于账户添加、筛选和「账户类型分组」</div></div><span class="tiny">' + accountTypes().length + ' 类</span></div>' +
+    '<div class="type-list">' + typeRowsHTML('account', accountTypes()) + '</div>' +
+    '<button class="btn wide ghost type-add" data-action="open-type-editor" data-kind="account">' + icon('plus') + '添加账户类型</button>' +
+    '<div class="section-head" style="margin-top:22px"><div><h2>标的类型</h2><div class="sub">用于标的归类、默认分组和统计口径</div></div><span class="tiny">' + instrumentTypes().length + ' 类</span></div>' +
+    '<div class="type-list">' + typeRowsHTML('instrument', instrumentTypes()) + '</div>' +
+    '<button class="btn wide ghost type-add" data-action="open-type-editor" data-kind="instrument">' + icon('plus') + '添加标的类型</button>' +
+    '<div class="info-banner" style="margin-top:16px">' + icon('info') + '<div>改名或改色会同步到已有账户/标的与默认分组。内置类型不可删除；自定义类型在未被使用时可以删除。</div></div>' +
+    '<div style="height:10px"></div>' +
+  '</div>';
+}
+function openTypeEditor(kind, typeId) {
+  const isAccount = kind === 'account';
+  const list = isAccount ? accountTypes() : instrumentTypes();
+  const editing = typeId ? list.find(t => t.id === typeId) : null;
+  const colors = ['#ff9f45', '#5b8cff', '#b18cff', '#43d6b0', '#f2c45c', '#ff7aa2', '#7c9cff', '#ff5d6c', '#8e9aaf', '#f7931a'];
+  const currentColor = editing ? editing.color : colors[list.length % colors.length];
+  const body = '<form id="type-form" data-kind="' + kind + '" data-id="' + esc(editing ? editing.id : '') + '">' +
+    '<div class="form-grid">' +
+      fieldHTML({ id: 'type-name', label: isAccount ? '账户类型名称' : '标的类型名称', value: editing ? editing.name : '', placeholder: isAccount ? '例如：券商账户' : '例如：REITs', full: true }) +
+      (!isAccount ? fieldHTML({ id: 'type-short', label: '简称（可选）', value: editing ? (editing.short || '') : '', placeholder: '例如：REITs' }) : '') +
+    '</div>' +
+    '<div class="field" style="margin-top:12px"><label>类型颜色</label><div class="color-row">' +
+      colors.map(c => '<button type="button" class="color-dot ' + (c === currentColor ? 'active' : '') + '" style="background:' + c + '" data-color="' + c + '" aria-label="选择颜色"></button>').join('') +
+    '</div><input type="hidden" name="type-color" id="type-color" value="' + currentColor + '"></div>' +
+    (isAccount ? '<div class="info-banner" style="margin-top:14px">' + icon('info') + '<div>账户类型只影响分类与默认分组，不影响账户币种、余额或交易记录。</div></div>' : '<div class="info-banner" style="margin-top:14px">' + icon('info') + '<div>标的类型是统计分类；修改名称不会改变标的的代码、价格或持仓。</div></div>') +
+    (editing && !editing.builtin ? '<button type="button" class="btn danger wide" style="margin-top:14px" data-type-delete>' + icon('trash') + '删除这个类型</button>' : '') +
+  '</form>';
+  const wrap = openSheet({
+    title: editing ? '编辑类型' : '添加类型', sub: isAccount ? '账户类型' : '标的类型',
+    body, footer: '<button class="btn ghost" data-sheet-close>取消</button><button class="btn primary" data-type-save>' + (editing ? '保存' : '添加') + '</button>'
+  });
+  const form = wrap.querySelector('#type-form');
+  form.querySelectorAll('.color-dot').forEach(btn => btn.addEventListener('click', () => {
+    form.querySelectorAll('.color-dot').forEach(x => x.classList.remove('active'));
+    btn.classList.add('active');
+    form.querySelector('#type-color').value = btn.getAttribute('data-color');
+  }));
+  wrap.querySelector('[data-type-save]').addEventListener('click', () => {
+    const name = cleanText(form.querySelector('#type-name').value, 20);
+    if (!name) { toast('请填写类型名称', 'error'); return; }
+    if (list.some(t => t.id !== (editing && editing.id) && t.name === name)) { toast('已存在同名类型', 'error'); return; }
+    const color = form.querySelector('#type-color').value || currentColor;
+    const shortInput = form.querySelector('#type-short');
+    if (editing) {
+      editing.name = name;
+      editing.color = color;
+      if (!isAccount) editing.short = cleanText(shortInput ? shortInput.value : '', 8) || name.slice(0, 2);
+      if (isAccount) state.accounts.filter(a => a.type === editing.id).forEach(a => { a.typeName = name; });
+    } else {
+      const id = uid(isAccount ? 'acc_type' : 'inst_type');
+      list.push(isAccount
+        ? { id, name, color, builtin: false }
+        : { id, name, short: cleanText(shortInput ? shortInput.value : '', 8) || name.slice(0, 2), color, group: 'other', builtin: false });
+    }
+    saveState();
+    closeSheet(wrap);
+    toast(editing ? '类型已更新' : '类型已添加', 'success');
+    refreshPage();
+  });
+  const delBtn = wrap.querySelector('[data-type-delete]');
+  if (delBtn) delBtn.addEventListener('click', () => {
+    const usage = typeUsageCount(kind, editing.id);
+    if (usage > 0) { toast((isAccount ? '还有 ' + usage + ' 个账户使用此类型' : '还有 ' + usage + ' 个标的属于此类型'), 'error'); return; }
+    confirmDialog({
+      title: '删除「' + editing.name + '」？',
+      message: '未被使用的自定义类型可以直接删除，已有记录不会受影响。',
+      confirmText: '删除', danger: true,
+      onConfirm: () => {
+        const target = isAccount ? state.accountTypes : state.instrumentTypes;
+        const idx = target.findIndex(t => t.id === editing.id);
+        if (idx >= 0) target.splice(idx, 1);
+        saveState();
+        closeAllSheets();
+        toast('类型已删除', 'success');
+        refreshPage();
+      }
+    });
+  });
+}
+
+
+/* =========================================================
    13 · 全局交互 / 动作路由
    ========================================================= */
 function defaultUi() {
@@ -5941,6 +6220,7 @@ function handleAction(action, el) {
     case 'edit-scheme': closeAllSheets(); setTimeout(() => openEditSchemeSheet(d.scheme), 50); return;
     case 'delete-scheme': closeAllSheets(); setTimeout(() => deleteSchemeById(d.scheme), 50); return;
     case 'open-group-editor': closeAllSheets(); setTimeout(() => openGroupEditor(d.scheme, d.id || null), 50); return;
+    case 'open-type-editor': closeAllSheets(); setTimeout(() => openTypeEditor(d.kind, d.id || ''), 50); return;
     case 'move-group': moveGroup(d.id, Number(d.dir)); return;
     case 'open-group-detail': openGroupDetailSheet(d.id); return;
     case 'open-target-editor': closeAllSheets(); setTimeout(() => openTargetEditor(d.scheme), 60); return;
@@ -6081,7 +6361,7 @@ function boot() {
     history.replaceState(null, '', '#/assets');
   }
   const route = parseRoute();
-  if (!TABS.some(t => t.key === route.name) && ['account', 'instrument', 'groups'].indexOf(route.name) < 0) {
+  if (!TABS.some(t => t.key === route.name) && ['account', 'instrument', 'groups', 'types'].indexOf(route.name) < 0) {
     history.replaceState(null, '', '#/assets');
   }
   renderPage({ scroll: true });

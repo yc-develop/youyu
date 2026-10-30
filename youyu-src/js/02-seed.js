@@ -383,6 +383,8 @@ function buildSeed() {
       showWeekends: true
     },
     rates: Object.assign({}, SEED_RATES),
+    accountTypes: defaultAccountTypes(),
+    instrumentTypes: defaultInstrumentTypes(),
     accounts,
     records,
     prices,

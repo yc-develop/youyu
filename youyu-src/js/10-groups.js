@@ -30,7 +30,7 @@ function renderGroupsPage(schemeId) {
         '<button class="btn ghost sm danger" data-action="delete-scheme" data-scheme="' + esc(scheme.id) + '">' + icon('trash') + '删除</button></div>' +
     '</div>' +
     '<div class="info-banner">' + icon('info') + '<div>分组按从上到下的顺序匹配：同一资产只会计入第一个符合条件的分组。用右侧箭头调整优先级。</div></div>' +
-    '<div class="section-head" style="margin-top:18px"><div><h2>分组成员</h2><div class="sub">账户、资产类别与具体标的可以组合使用</div></div><span class="tiny">' + scheme.groups.length + ' 组</span></div>' +
+    '<div class="section-head" style="margin-top:18px"><div><h2>分组成员</h2><div class="sub">账户与账户下的具体标的可以组合使用</div></div><span class="tiny">' + scheme.groups.length + ' 组</span></div>' +
     '<div class="group-list">' + (groupCards || '<div class="card">' + emptyBlock('还没有分组', '添加第一个分组，并设置目标占比。', '<button class="btn primary sm" data-action="open-group-editor" data-scheme="' + esc(scheme.id) + '">添加分组</button>', 'grid') + '</div>') + '</div>' +
     '<button class="btn wide ghost" style="margin-top:12px" data-action="open-group-editor" data-scheme="' + esc(scheme.id) + '">' + icon('plus') + '添加分组</button>' +
     '<div class="info-banner" style="margin-top:14px">' + icon('sliders') + '<div>多个分组方式互不影响。你可以为「账户归属」「风险属性」分别设置目标，再在不同页面切换查看。</div></div>' +
@@ -65,10 +65,20 @@ function openGroupEditor(schemeId, groupId) {
     id: '', name: '', color: GROUP_COLORS[scheme.groups.length % GROUP_COLORS.length],
     target: 0, includeAccounts: [], includeClasses: [], includeInstruments: []
   };
-  const accountRows = accounts().map(a => checkRowHTML('accounts', a.id, a.name, a.currency + ' · ' + (a.instruments.length ? a.instruments.length + ' 个标的' : '现金账户'), (g.includeAccounts || []).indexOf(a.id) >= 0)).join('');
-  const classChips = Object.keys(ASSET_CLASSES).filter(c => c !== 'cash').map(c => '<button type="button" class="class-chip ' + ((g.includeClasses || []).indexOf(c) >= 0 ? 'active' : '') + '" data-class="' + c + '"><i style="background:' + ASSET_CLASSES[c].color + '"></i>' + esc(ASSET_CLASSES[c].name) + '</button>').join('');
-  const instSections = accounts().filter(a => a.instruments.length).map(a => '<div class="inst-picker-group"><div class="inst-picker-title">' + esc(a.name) + ' · ' + a.currency + '</div>' +
-    a.instruments.map(inst => checkRowHTML('instruments', inst.id, inst.name, inst.symbol + ' · ' + ASSET_CLASSES[inst.cls].name, (g.includeInstruments || []).indexOf(inst.id) >= 0)).join('') + '</div>').join('');
+  const tree = accounts().map(a => {
+    const accountChecked = (g.includeAccounts || []).indexOf(a.id) >= 0;
+    const children = a.instruments.map(inst => {
+      const checked = accountChecked || (g.includeInstruments || []).indexOf(inst.id) >= 0;
+      return '<label class="check-row tree-inst"><input type="checkbox" name="instruments" value="' + esc(inst.id) + '" data-account="' + esc(a.id) + '"' + (checked ? ' checked' : '') + (accountChecked ? ' disabled' : '') + '><span class="checkbox ' + (checked ? 'checked' : '') + '">' + icon('check') + '</span>' +
+        '<span class="check-name">' + esc(inst.name) + '<span class="check-sub">' + esc(inst.symbol) + ' · ' + esc(instrumentTypeName(inst.cls)) + '</span></span></label>';
+    }).join('');
+    return '<div class="tree-account">' +
+      '<label class="check-row tree-account-row"><input type="checkbox" name="accounts" value="' + esc(a.id) + '"' + (accountChecked ? ' checked' : '') + '><span class="checkbox ' + (accountChecked ? 'checked' : '') + '">' + icon('check') + '</span>' +
+        '<span class="check-name">' + esc(a.name) + '<span class="check-sub">' + esc(accountTypeName(a.type)) + ' · ' + a.currency + ' · ' + (a.instruments.length ? a.instruments.length + ' 个标的' : '现金') + '</span></span></label>' +
+      (a.instruments.length ? '<div class="tree-children">' + children + '</div>' : '<div class="tree-empty">账户现金</div>') +
+    '</div>';
+  }).join('');
+
   const colors = ['#ff9f45', '#5b8cff', '#b18cff', '#43d6b0', '#f2c45c', '#ff7aa2', '#7c9cff', '#ff5d6c', '#8e9aaf', '#f7931a'];
   const body = '<form id="group-form" data-scheme="' + esc(scheme.id) + '" data-group="' + esc(editing ? editing.id : '') + '">' +
     '<div class="form-grid">' +
@@ -76,15 +86,9 @@ function openGroupEditor(schemeId, groupId) {
       fieldHTML({ id: 'group-target', label: '目标占比', value: Number(g.target) || 0, unit: '%', inputmode: 'decimal' }) +
       '<div class="field"><label>分组颜色</label><div class="color-row">' + colors.map(c => '<button type="button" class="color-dot ' + (c === g.color ? 'active' : '') + '" style="background:' + c + '" data-color="' + c + '" aria-label="选择颜色"></button>').join('') + '</div><input type="hidden" name="group-color" id="group-color" value="' + g.color + '"></div>' +
     '</div>' +
-    '<div class="form-section">按账户纳入</div>' +
-    '<div class="form-hint">勾选后，该账户的现金和全部标的都会归入此分组。若同时选了具体标的，也以分组顺序优先匹配。</div>' +
-    '<div class="check-list">' + accountRows + '</div>' +
-    '<div class="form-section">按资产类别纳入</div>' +
-    '<div class="form-hint">例如勾选「债券基金」，所有账户里的债券基金都会归入本组。</div>' +
-    '<div class="class-chips">' + classChips + '</div>' +
-    '<div class="form-section">按具体标的纳入</div>' +
-    '<div class="form-hint">适合更精细的风险分组，例如同一基金账户里的债券基金和股票基金分别归组。</div>' +
-    '<details class="inst-details"' + (editing ? '' : '') + '><summary>选择具体标的</summary><div class="inst-picker">' + (instSections || '<div class="tiny">还没有标的</div>') + '</div></details>' +
+    '<div class="form-section">选择账户与标的</div>' +
+    '<div class="form-hint">勾选账户会包含该账户现金和全部标的；若只选部分标的，先取消勾选账户，再展开勾选。实际归属仍按分组列表顺序决定。</div>' +
+    '<div class="check-list account-tree">' + (tree || '<div class="tiny">还没有账户</div>') + '</div>' +
     '<div class="info-banner" style="margin-top:14px">' + icon('info') + '<div>保存后，符合本组条件的资产会从其他分组中移出；实际归属按分组列表顺序决定。</div></div>' +
     (editing ? '<button type="button" class="btn danger wide" style="margin-top:14px" data-group-delete>' + icon('trash') + '删除这个分组</button>' : '') +
   '</form>';
@@ -104,7 +108,30 @@ function openGroupEditor(schemeId, groupId) {
       if (box) box.classList.toggle('checked', inp.checked);
     });
   });
-  form.querySelectorAll('.class-chip').forEach(btn => btn.addEventListener('click', () => btn.classList.toggle('active')));
+  const treeEl = form.querySelector('.account-tree');
+  if (treeEl) {
+    treeEl.querySelectorAll('.tree-account').forEach(box => {
+      const main = box.querySelector('.tree-account-row input[type="checkbox"]');
+      const children = Array.from(box.querySelectorAll('.tree-inst input[type="checkbox"]'));
+      const sync = (initial) => {
+        children.forEach(inp => {
+          inp.disabled = main.checked;
+          if (main.checked) inp.checked = true;
+          else if (!initial) inp.checked = false;
+          const cb = inp.parentNode.querySelector('.checkbox');
+          if (cb) cb.classList.toggle('checked', inp.checked);
+        });
+      };
+      main.addEventListener('change', () => sync(false));
+      sync(true);
+    });
+    treeEl.querySelectorAll('.tree-inst input[type="checkbox"]').forEach(inp => {
+      inp.addEventListener('change', () => {
+        const cb = inp.parentNode.querySelector('.checkbox');
+        if (cb) cb.classList.toggle('checked', inp.checked);
+      });
+    });
+  }
   const delBtn = wrap.querySelector('[data-group-delete]');
   if (delBtn) delBtn.addEventListener('click', () => {
     setTimeout(() => {
@@ -130,12 +157,11 @@ function openGroupEditor(schemeId, groupId) {
     const color = form.querySelector('#group-color').value || '#ff9f45';
     const includeAccounts = Array.from(form.querySelectorAll('input[name="accounts"]:checked')).map(x => x.value);
     const includeInstruments = Array.from(form.querySelectorAll('input[name="instruments"]:checked')).map(x => x.value);
-    const includeClasses = Array.from(form.querySelectorAll('.class-chip.active')).map(x => x.getAttribute('data-class'));
     if (editing) {
       editing.name = name; editing.target = target; editing.color = color;
-      editing.includeAccounts = includeAccounts; editing.includeInstruments = includeInstruments; editing.includeClasses = includeClasses;
+      editing.includeAccounts = includeAccounts; editing.includeInstruments = includeInstruments; editing.includeClasses = [];
     } else {
-      scheme.groups.push({ id: uid('grp'), name, target, color, includeAccounts, includeClasses, includeInstruments });
+      scheme.groups.push({ id: uid('grp'), name, target, color, includeAccounts, includeClasses: [], includeInstruments });
     }
     saveState();
     closeSheet(wrap);

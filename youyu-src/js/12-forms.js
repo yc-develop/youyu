@@ -1,14 +1,6 @@
 /* =========================================================
    12 · 添加账户 / 标的 / 记录 / 菜单
    ========================================================= */
-const ACCOUNT_TYPE_OPTIONS = [
-  { value: 'payment', label: '支付账户 · 支付宝 / 微信' },
-  { value: 'cash', label: '现金' },
-  { value: 'bank', label: '银行账户' },
-  { value: 'fund', label: '基金账户' },
-  { value: 'deposit', label: '存款 / 定存' },
-  { value: 'broker', label: '证券账户' }
-];
 const RECORD_TYPE_INFO = {
   deposit:  { label: '存入', desc: '从外部转入资金', icon: 'arrowDownLeft' },
   withdraw: { label: '取出', desc: '把钱转出账户', icon: 'arrowUpRight' },
@@ -27,7 +19,7 @@ function openAccountForm(accountId) {
   const colors = ['#1677ff', '#27b768', '#c69236', '#c23b32', '#ff6b35', '#6d7cff', '#ff7a00', '#2b6bf3', '#b18cff', '#43d6b0'];
   const body = '<form id="account-form"><div class="form-grid">' +
     fieldHTML({ id: 'account-name', label: '账户名称', value: editing ? editing.name : '', placeholder: '例如：支付宝', full: true }) +
-    fieldHTML({ id: 'account-type', label: '账户类型', type: 'select', value: editing ? editing.type : 'payment', options: ACCOUNT_TYPE_OPTIONS }) +
+    fieldHTML({ id: 'account-type', label: '账户类型', type: 'select', value: editing ? editing.type : (accountTypes()[0] ? accountTypes()[0].id : 'payment'), options: accountTypeOptions(), hint: '用于「账户类型分组」和账户筛选；可在「我的 → 类型管理」中维护。' }) +
     (editing ? fieldHTML({ id: 'account-currency', label: '币种', type: 'select', value: editing.currency, options: currencyOptions(), attrs: 'disabled' }) : fieldHTML({ id: 'account-currency', label: '币种', type: 'select', value: 'CNY', options: currencyOptions() })) +
     (editing ? '' : fieldHTML({ id: 'account-initial', label: '初始余额', value: '', placeholder: '0.00', unit: 'CNY', inputmode: 'decimal' })) +
     fieldHTML({ id: 'account-note', label: '备注（可选）', value: editing ? (editing.note || '') : '', placeholder: '例如：日常消费账户', full: true }) +
@@ -62,14 +54,14 @@ function openAccountForm(accountId) {
     const color = form.querySelector('#account-color').value || '#ff9f45';
     state.isDemo = false;
     if (editing) {
-      editing.name = name; editing.type = type; editing.typeName = accountTypeLabel(type); editing.note = note; editing.color = color;
+      editing.name = name; editing.type = type; editing.typeName = accountTypeName(type); editing.note = note; editing.color = color;
       editing.color2 = shadeColor(color, -18);
       editing.icon = name.slice(0, 1);
       saveState(); closeSheet(wrap); toast('账户已更新', 'success'); refreshPage(); return;
     }
     const id = uid('acc');
     const account = {
-      id, name, type, typeName: accountTypeLabel(type), currency, color, color2: shadeColor(color, -18), icon: name.slice(0, 1), note,
+      id, name, type, typeName: accountTypeName(type), currency, color, color2: shadeColor(color, -18), icon: name.slice(0, 1), note,
       instruments: []
     };
     state.accounts.push(account);
@@ -90,7 +82,7 @@ function openInstrumentForm(accountId, instrumentId) {
   const account = accountById(accountId);
   if (!account) return;
   const editing = instrumentId ? instrumentById(instrumentId) : null;
-  const classes = Object.keys(ASSET_CLASSES).filter(c => c !== 'cash').map(c => ({ value: c, label: ASSET_CLASSES[c].name }));
+  const classes = instrumentTypeOptions();
   const colors = ['#ff6b35', '#ff9f45', '#5b8cff', '#b18cff', '#43d6b0', '#f2c45c', '#ff7a00', '#2b6bf3', '#c9d1d9', '#9ca3af'];
   const body = '<form id="instrument-form">' +
     '<div class="market-search-block">' +
@@ -102,7 +94,7 @@ function openInstrumentForm(accountId, instrumentId) {
     '<div class="form-grid">' +
     fieldHTML({ id: 'inst-name', label: '标的名称', value: editing ? editing.name : '', placeholder: '例如：苹果 / 沪深300ETF', full: true }) +
     fieldHTML({ id: 'inst-symbol', label: '代码 / 简称', value: editing ? editing.symbol : '', placeholder: 'AAPL / 000051' }) +
-    fieldHTML({ id: 'inst-class', label: '资产类别', type: 'select', value: editing ? editing.cls : 'stock', options: classes }) +
+    fieldHTML({ id: 'inst-class', label: '标的类型', type: 'select', value: editing ? editing.cls : (instrumentTypes().find(t => t.id === 'stock') ? 'stock' : (instrumentTypes()[0] || {}).id), options: classes, hint: '用于资产归类、默认分组和统计口径；可在「我的 → 类型管理」中新增或改名。' }) +
     fieldHTML({ id: 'inst-currency', label: '计价币种', type: 'select', value: editing ? editing.currency : account.currency, options: currencyOptions(), attrs: editing ? 'disabled' : '' }) +
     fieldHTML({ id: 'inst-price', label: editing ? '当前价格' : '当前价格 / 净值', value: editing ? fmtNumber(priceNow(editing.id), { decimals: 4 }) : '', placeholder: '0.00', inputmode: 'decimal' }) +
     (editing ? '' : fieldHTML({ id: 'inst-qty', label: '初始持有数量', value: '', placeholder: '可不填', inputmode: 'decimal' })) +
