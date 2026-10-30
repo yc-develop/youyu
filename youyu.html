@@ -3421,7 +3421,11 @@ function sankeyHTML(schemeId, mode) {
   const leaves = Array.from(leafTotals.values()).sort((a, b) => b.value - a.value);
 
   const nG = groupData.length, nL = leaves.length;
-  const H = clamp(340 + Math.max(0, nG - 2) * 10 + Math.max(0, nL - 6) * 8, 340, 480);
+  const minHeight = Math.max(
+    58 + 22 + nG * 12 + Math.max(0, nG - 1) * 12 + 8,
+    58 + 22 + nL * 11 + Math.max(0, nL - 1) * 6 + 8
+  );
+  const H = clamp(Math.max(340 + Math.max(0, nG - 2) * 10 + Math.max(0, nL - 6) * 8, minHeight), 340, 760);
   const W = 360;
   const top = 58, bottom = 22;
   const x0 = 8, x1 = 116, x2 = 232;
@@ -3429,31 +3433,26 @@ function sankeyHTML(schemeId, mode) {
   const avail = H - top - bottom;
   const gapG = nG > 1 ? 12 : 0;
   const gapL = nL > 1 ? 6 : 0;
-  const scale = Math.max(0, (avail - Math.max(gapG * (nG - 1), gapL * (nL - 1))) / Math.max(1, total));
+  const minGroupH = 12, minLeafH = 11;
+  const groupScale = Math.max(0, (avail - gapG * (nG - 1) - minGroupH * nG) / Math.max(1, total));
+  const leafScale = Math.max(0, (avail - gapL * (nL - 1) - minLeafH * nL) / Math.max(1, total));
 
-  // group y
+  // group y — reserve a minimum node height, then distribute the rest by value
   let gy = top;
   groupData.forEach(gd => {
-    gd.h = Math.max(12, gd.group.value * scale);
+    gd.h = minGroupH + gd.group.value * groupScale;
     gd.y = gy;
     gy += gd.h + gapG;
   });
   const groupsBottom = gy - gapG;
-  // leaf y
+  // leaf y — same sizing rule, so the right column cannot overflow vertically
   let ly = top;
   leaves.forEach(l => {
-    l.h = Math.max(11, l.value * scale);
+    l.h = minLeafH + l.value * leafScale;
     l.y = ly;
     ly += l.h + gapL;
   });
   const leavesBottom = ly - gapL;
-  const usedH = Math.max(groupsBottom, leavesBottom) - top;
-  if (usedH < avail) {
-    const shiftG = (avail - (groupsBottom - top)) / 2;
-    const shiftL = (avail - (leavesBottom - top)) / 2;
-    groupData.forEach(gd => { gd.y += shiftG; });
-    leaves.forEach(l => { l.y += shiftL; });
-  }
   const groupTop = groupData.length ? groupData[0].y : top;
   const totalNodeY = groupTop;
   const totalNodeH = Math.max(0, groupsBottom - groupTop);
