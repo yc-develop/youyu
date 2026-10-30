@@ -42,6 +42,23 @@ python3 build_youyu.py
 
 输出 `youyu.html`。
 
+## 自动发布到 Netlify
+
+首次配置：
+
+1. 在 Netlify 的 User settings → Applications → Personal access tokens 创建 token。
+2. 把 token 写入工作区 `.netlify-token`（该文件已被 `.gitignore` 忽略）。
+3. 运行 `python3 deploy_netlify.py --list` 查看 `cong-yu` 团队下的站点。
+4. 把选中的 Site ID 写入 `.netlify-site-id`。
+
+之后每次更新运行：
+
+```bash
+python3 deploy_netlify.py
+```
+
+脚本会自动构建 `youyu.html`、生成 `youyu-netlify.zip`、上传到 Netlify，并等待部署完成。
+
 ## 部署到 iPhone
 
 推荐 Netlify Drop：

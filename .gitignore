@@ -15,3 +15,7 @@
 /.npm-cache/
 /shots/
 *.log
+
+# 发布凭据（不要提交）
+/.netlify-token
+/.netlify-site-id
