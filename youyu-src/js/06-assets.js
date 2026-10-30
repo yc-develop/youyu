@@ -56,7 +56,7 @@ function renderAssetsPage() {
     '<button class="quick-item violet" data-action="go" data-href="#/rebalance">' + icon('scale') + '再平衡</button>' +
   '</div>' +
   '<div class="asset-toolbar"><div class="left"><span class="dot"></span>共 ' + p.accounts.length + ' 个账户 · ' + p.positions + ' 个持仓</div>' +
-    '<div class="right"><span class="faint tiny">' + (state.isDemo ? '示例数据' : '本地账本') + '</span></div></div>' +
+    '<div class="right"><span class="faint tiny">' + (demoMode ? (state.meta && state.meta.demoHydrated ? '示例数据' : '示例同步中') : '本地账本') + '</span></div></div>' +
   '<section class="section" style="margin-top:10px"><div class="section-head"><div><h2>资产账户</h2><div class="sub">账户资产按当前汇率折算为 ' + baseCurrency() + '</div></div><button class="text-btn" data-action="open-add-account">' + icon('plus') + '新增</button></div>' +
     '<div class="stack-8">' + accountList + '</div></section>' +
   '<div class="version">数据仅保存在本机浏览器 · 建议定期导出备份<br>' + esc(APP_NAME) + ' · ' + (state.meta && state.meta.name ? state.meta.name : '我的投资组合') + '</div>';
@@ -247,7 +247,7 @@ function instrumentChartCard(im) {
     chartHTML = chartEmptyHTML(inst.market ? '正在获取历史行情…' : '还没有足够的价格历史', 174);
   }
   return '<div class="detail-chart-card">' +
-    '<div class="chart-head"><div><h2>价格走势</h2><div class="sub">' + (rangeText || '暂无数据') + ' · ' + inst.currency + ' 原币计价 · ' + (inst.market && !inst.demo ? '行情自动同步' : inst.market ? '示例行情 · 按记录' : '按记录生成') + '</div></div>' +
+    '<div class="chart-head"><div><h2>价格走势</h2><div class="sub">' + (rangeText || '暂无数据') + ' · ' + inst.currency + ' 原币计价 · ' + (inst.market ? '行情自动同步' : '按记录生成') + '</div></div>' +
       '<div class="segmented small chart-toggle"><button class="seg ' + (mode === 'price' ? 'active' : '') + '" data-action="set-instrument-chart-mode" data-value="price">价格</button><button class="seg ' + (mode === 'return' ? 'active' : '') + '" data-action="set-instrument-chart-mode" data-value="return">收益率</button></div></div>' +
     chartHTML + metricsHTML +
     '<div class="period-row"><div class="segmented small">' + [30, 90, 365, 0].map(d => '<button class="seg ' + (period === d ? 'active' : '') + '" data-action="set-instrument-period" data-value="' + d + '">' + labels[d] + '</button>').join('') + '</div>' +

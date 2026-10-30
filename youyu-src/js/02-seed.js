@@ -2,6 +2,7 @@
    02 · 演示数据 / 账本种子
    ========================================================= */
 let state = null;
+let demoMode = false;
 let ui = {};
 let chartRegistry = {};
 let chartSeq = 0;

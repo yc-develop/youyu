@@ -192,7 +192,7 @@ async function autoRefreshMarketQuotes() {
   const last = Date.parse((state.meta && state.meta.marketSyncedAt) || '');
   if (Number.isFinite(last) && Date.now() - last < 30 * 60 * 1000) return;
   const list = [];
-  accounts().forEach(a => (a.instruments || []).forEach(i => { if (i.market && i.market.code && !i.demo) list.push(i.id); }));
+  accounts().forEach(a => (a.instruments || []).forEach(i => { if (i.market && i.market.code) list.push(i.id); }));
   if (!list.length) return;
   let changed = false;
   for (const id of list) {
@@ -283,11 +283,12 @@ function fetchSinaCNHistory(market) {
     document.head.appendChild(script);
   });
 }
-async function ensureInstrumentHistory(id) {
+async function ensureInstrumentHistory(id, opts) {
+  const o = opts || {};
   const found = instrumentById(id);
-  if (!found || !found.market || !found.market.code || found.demo) return;
+  if (!found || !found.market || !found.market.code) return false;
   const actual = (accountById(found.accountId) || { instruments: [] }).instruments.find(x => x.id === id);
-  if (!actual || actual.market.historyLoaded || historyLoadingIds.has(id)) return;
+  if (!actual || actual.market.historyLoaded || historyLoadingIds.has(id)) return !!(actual && actual.market.historyLoaded);
   historyLoadingIds.add(id);
   try {
     let rows = [];
@@ -307,9 +308,62 @@ async function ensureInstrumentHistory(id) {
     });
     historyLoadingIds.delete(id);
     saveState();
-    if (parseRoute().name === 'instrument' && parseRoute().id === id && !document.querySelector('.overlay')) refreshPage();
+    if (!o.noRefresh && parseRoute().name === 'instrument' && parseRoute().id === id && !document.querySelector('.overlay')) refreshPage();
+    return true;
   } catch (e) {
     historyLoadingIds.delete(id);
     console.warn('历史行情获取失败', id, e);
+    return false;
   }
+}
+
+async function hydrateDemoLedger() {
+  if (!demoMode || !state || !state.meta || state.meta.demoHydrated) return;
+  const targetState = state;
+  const list = [];
+  accounts().forEach(a => (a.instruments || []).forEach(i => { if (i.market && i.market.code) list.push(i.id); }));
+  if (!list.length) { state.meta.demoHydrated = true; saveState(true); return; }
+  let all = true;
+  for (const id of list) {
+    if (state !== targetState || !demoMode) return;
+    const ok = await ensureInstrumentHistory(id, { noRefresh: true });
+    all = all && ok;
+    await new Promise(resolve => setTimeout(resolve, 180));
+  }
+  if (state !== targetState || !demoMode) return;
+  const closeAt = (id, date) => {
+    const pts = (state.prices[id] || []).filter(p => p[2] === 'market' && p[0] <= date);
+    return pts.length ? Number(pts[pts.length - 1][1]) : null;
+  };
+  state.records.forEach(rec => {
+    if (!rec.instrumentId || (rec.type !== 'buy' && rec.type !== 'sell' && rec.type !== 'price')) return;
+    const inst = instrumentById(rec.instrumentId);
+    if (!inst || !inst.market) return;
+    const price = closeAt(rec.instrumentId, rec.date);
+    if (!(price > 0)) return;
+    if (rec.type === 'price') { rec.price = price; return; }
+    rec.price = price;
+    rec.amount = round((Number(rec.qty) || 0) * price, 2);
+    rec.fee = inst.cls === 'stock' || inst.cls === 'etf' ? Math.max(1, round(rec.amount * 0.0004, 2)) : 0;
+  });
+  accounts().forEach(account => {
+    const recs = state.records.filter(r => r.accountId === account.id);
+    const spec = SEED_SPECS[account.id];
+    if (!spec) return;
+    let buyCost = 0, sellProceeds = 0, income = 0, otherDep = 0, withdrawals = 0;
+    recs.forEach(r => {
+      if (r.type === 'buy') buyCost += (Number(r.amount) || 0) + (Number(r.fee) || 0);
+      else if (r.type === 'sell') sellProceeds += (Number(r.amount) || 0) - (Number(r.fee) || 0);
+      else if (r.type === 'dividend' || r.type === 'interest') income += Number(r.amount) || 0;
+      else if (r.type === 'withdraw') withdrawals += Number(r.amount) || 0;
+      else if (r.type === 'deposit' && r.note !== '初始资金') otherDep += Number(r.amount) || 0;
+    });
+    const initial = round((Number(spec.targetCash) || 0) - otherDep + withdrawals + buyCost - sellProceeds - income, 2);
+    const initialRec = recs.find(r => r.type === 'deposit' && r.note === '初始资金') || recs.find(r => r.type === 'deposit' && r.date === seedDate(-496));
+    if (initialRec) initialRec.amount = Math.max(0, initial);
+  });
+  state.meta.demoHydrated = true;
+  state.meta.demoHydratedAt = nowISO();
+  saveState(true);
+  if (!document.querySelector('.overlay') && demoMode) refreshPage();
 }

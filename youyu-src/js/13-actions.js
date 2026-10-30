@@ -168,6 +168,8 @@ function handleAction(action, el) {
     case 'export-data': downloadBackup(); return;
     case 'import-data': triggerImport(); return;
     case 'reset-demo': closeAllSheets(); setTimeout(resetDemo, 50); return;
+    case 'switch-demo': closeAllSheets(); setTimeout(() => switchDataMode(true), 50); return;
+    case 'switch-user': closeAllSheets(); setTimeout(() => switchDataMode(false), 50); return;
     case 'clear-data': closeAllSheets(); setTimeout(clearAllData, 50); return;
     default: return;
   }

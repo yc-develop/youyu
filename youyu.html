@@ -1196,6 +1196,7 @@ body.has-overlay .toast-root{top:calc(var(--safe-top) + 14px);bottom:auto}
 const APP_NAME = '有余';
 // 沿用旧存储键，避免改名后已有本地账本丢失
 const STORE_KEY = 'yingji.portfolio.v1';
+const DEMO_STORE_KEY = 'yingji.demo.v1';
 const SCHEMA = 3;
 const DAY_MS = 86400000;
 
@@ -1529,6 +1530,7 @@ function gaussian(rng) {
    02 · 演示数据 / 账本种子
    ========================================================= */
 let state = null;
+let demoMode = false;
 let ui = {};
 let chartRegistry = {};
 let chartSeq = 0;
@@ -2046,21 +2048,41 @@ function normalizeState(obj) {
   return true;
 }
 
+function readStoredState(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && parsed.version === SCHEMA && normalizeState(parsed)) return parsed;
+  } catch (e) {}
+  return null;
+}
 function loadState() {
-  let raw = null;
-  try { raw = localStorage.getItem(STORE_KEY); } catch (e) { raw = null; }
-  if (raw) {
-    try {
-      const parsed = JSON.parse(raw);
-      if (parsed && parsed.version === SCHEMA && normalizeState(parsed)) {
-        state = parsed;
-        ensureRates();
-        return state;
-      }
-    } catch (e) { /* fall through to seed */ }
+  const userState = readStoredState(STORE_KEY);
+  if (userState && !userState.isDemo) {
+    state = userState;
+    demoMode = false;
+    ensureRates();
+    return state;
+  }
+  // 旧版本把演示数据存在用户键中；迁移到独立的演示账本，不污染真实账本。
+  if (userState && userState.isDemo) {
+    state = userState;
+    demoMode = true;
+    try { localStorage.setItem(DEMO_STORE_KEY, JSON.stringify(state)); localStorage.removeItem(STORE_KEY); } catch (e) {}
+    ensureRates();
+    return state;
+  }
+  const demoState = readStoredState(DEMO_STORE_KEY);
+  if (demoState) {
+    state = demoState;
+    demoMode = true;
+    ensureRates();
+    return state;
   }
   state = buildSeed();
   normalizeState(state);
+  demoMode = true;
   saveState(true);
   return state;
 }
@@ -2069,7 +2091,7 @@ function saveState(silent) {
   try {
     state.meta = state.meta || {};
     state.meta.lastUpdated = nowISO();
-    localStorage.setItem(STORE_KEY, JSON.stringify(state));
+    localStorage.setItem(demoMode ? DEMO_STORE_KEY : STORE_KEY, JSON.stringify(state));
   } catch (e) {
     if (!silent) console.warn('保存失败', e);
   }
@@ -4025,7 +4047,7 @@ function renderAssetsPage() {
     '<button class="quick-item violet" data-action="go" data-href="#/rebalance">' + icon('scale') + '再平衡</button>' +
   '</div>' +
   '<div class="asset-toolbar"><div class="left"><span class="dot"></span>共 ' + p.accounts.length + ' 个账户 · ' + p.positions + ' 个持仓</div>' +
-    '<div class="right"><span class="faint tiny">' + (state.isDemo ? '示例数据' : '本地账本') + '</span></div></div>' +
+    '<div class="right"><span class="faint tiny">' + (demoMode ? (state.meta && state.meta.demoHydrated ? '示例数据' : '示例同步中') : '本地账本') + '</span></div></div>' +
   '<section class="section" style="margin-top:10px"><div class="section-head"><div><h2>资产账户</h2><div class="sub">账户资产按当前汇率折算为 ' + baseCurrency() + '</div></div><button class="text-btn" data-action="open-add-account">' + icon('plus') + '新增</button></div>' +
     '<div class="stack-8">' + accountList + '</div></section>' +
   '<div class="version">数据仅保存在本机浏览器 · 建议定期导出备份<br>' + esc(APP_NAME) + ' · ' + (state.meta && state.meta.name ? state.meta.name : '我的投资组合') + '</div>';
@@ -4216,7 +4238,7 @@ function instrumentChartCard(im) {
     chartHTML = chartEmptyHTML(inst.market ? '正在获取历史行情…' : '还没有足够的价格历史', 174);
   }
   return '<div class="detail-chart-card">' +
-    '<div class="chart-head"><div><h2>价格走势</h2><div class="sub">' + (rangeText || '暂无数据') + ' · ' + inst.currency + ' 原币计价 · ' + (inst.market && !inst.demo ? '行情自动同步' : inst.market ? '示例行情 · 按记录' : '按记录生成') + '</div></div>' +
+    '<div class="chart-head"><div><h2>价格走势</h2><div class="sub">' + (rangeText || '暂无数据') + ' · ' + inst.currency + ' 原币计价 · ' + (inst.market ? '行情自动同步' : '按记录生成') + '</div></div>' +
       '<div class="segmented small chart-toggle"><button class="seg ' + (mode === 'price' ? 'active' : '') + '" data-action="set-instrument-chart-mode" data-value="price">价格</button><button class="seg ' + (mode === 'return' ? 'active' : '') + '" data-action="set-instrument-chart-mode" data-value="return">收益率</button></div></div>' +
     chartHTML + metricsHTML +
     '<div class="period-row"><div class="segmented small">' + [30, 90, 365, 0].map(d => '<button class="seg ' + (period === d ? 'active' : '') + '" data-action="set-instrument-period" data-value="' + d + '">' + labels[d] + '</button>').join('') + '</div>' +
@@ -5158,14 +5180,15 @@ function renderSettingsPage() {
   '<div class="settings-group"><div class="label">数据</div><div class="settings-card">' +
     settingRowHTML('导出账本', 'JSON 备份', 'download', 'export-data', '保存账户、交易、价格与分组') +
     settingRowHTML('导入账本', '从备份恢复', 'upload', 'import-data', '导入会覆盖当前账本') +
-    settingRowHTML('恢复示例数据', '重新体验', 'refresh', 'reset-demo', '用演示组合覆盖当前数据') +
+    (demoMode ? settingRowHTML('退出演示', '回到我的账本', 'logout', 'switch-user', '演示账本与真实账本完全分离') : settingRowHTML('体验示例数据', '完整演示', 'sparkles', 'switch-demo', '切换到独立演示账本，不影响真实数据')) +
+    (demoMode ? settingRowHTML('重置示例数据', '重新同步', 'refresh', 'reset-demo', '仅重置演示账本，不影响真实数据') : '') +
     settingRowHTML('清空账本', '从零开始', 'trash', 'clear-data', '删除所有账户与记录', '', 'danger') +
     '<input type="file" id="import-file" accept=".json,application/json" style="display:none">' +
   '</div></div>' +
   '<div class="settings-group"><div class="label">关于</div><div class="settings-card">' +
     '<div class="setting-row"><span class="setting-icon accent">' + icon('shield') + '</span><span class="setting-main"><span class="t">本地存储</span><span class="s">所有数据保存在浏览器 localStorage，不上传服务器。清除浏览器数据会丢失账本，请定期导出备份。</span></span></div>' +
     '<div class="setting-row"><span class="setting-icon blue">' + icon('chart') + '</span><span class="setting-main"><span class="t">行情数据</span><span class="s">名称搜索来自新浪财经，最新报价来自腾讯行情；公开接口可能受网络影响，仅供估值参考。</span></span></div>' +
-    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v1.6</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
+    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v1.7</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
   '</div></div>' +
   '<div class="version">' + esc(APP_NAME) + ' · 投资组合<br>不构成投资建议 · 数据仅供参考</div>' +
   '<div style="height:8px"></div>';
@@ -5304,25 +5327,47 @@ function makeEmptyState() {
   }];
   return s;
 }
-function resetDemo() {
-  confirmDialog({
-    title: '恢复示例数据？', message: '当前账本会被演示组合覆盖。如果你有真实数据，请先导出备份。', confirmText: '恢复示例', danger: true,
-    onConfirm: () => {
-      state = buildSeed();
-      normalizeState(state);
-      saveState();
-      ui = defaultUi();
-      closeAllSheets();
-      toast('已恢复示例数据', 'success');
-      navigate('#/assets', true);
-      renderPage();
-    }
-  });
+function switchDataMode(toDemo) {
+  saveState(true);
+  if (toDemo) {
+    const saved = readStoredState(DEMO_STORE_KEY);
+    state = saved || buildSeed();
+    demoMode = true;
+  } else {
+    const saved = readStoredState(STORE_KEY);
+    state = saved || makeEmptyState();
+    demoMode = false;
+  }
+  normalizeState(state);
+  ensureRates();
+  saveState(true);
+  ui = defaultUi();
+  closeAllSheets();
+  navigate('#/assets', true);
+  renderPage({ scroll: true });
+  toast(toDemo ? '已切换到演示账本' : '已切换到我的账本', 'success');
+  if (toDemo) setTimeout(() => { hydrateDemoLedger().catch(e => console.warn('演示数据同步失败', e)); }, 500);
 }
+function resetDemo() {
+  if (!demoMode) { switchDataMode(true); return; }
+  state = buildSeed();
+  normalizeState(state);
+  demoMode = true;
+  ensureRates();
+  saveState(true);
+  ui = defaultUi();
+  closeAllSheets();
+  toast('示例数据已重置', 'success');
+  navigate('#/assets', true);
+  renderPage({ scroll: true });
+  setTimeout(() => { hydrateDemoLedger().catch(e => console.warn('演示数据同步失败', e)); }, 500);
+}
+
 function clearAllData() {
   confirmDialog({
-    title: '清空整个账本？', message: '所有账户、交易、价格与分组设置都会被删除，且无法恢复。', confirmText: '确认清空', danger: true,
+    title: demoMode ? '重置示例账本？' : '清空整个账本？', message: demoMode ? '示例账本会恢复为初始演示组合，真实账本不受影响。' : '所有账户、交易、价格与分组设置都会被删除，且无法恢复。', confirmText: demoMode ? '确认重置' : '确认清空', danger: true,
     onConfirm: () => {
+      if (demoMode) { resetDemo(); return; }
       state = makeEmptyState();
       normalizeState(state);
       saveState();
@@ -6142,7 +6187,7 @@ async function autoRefreshMarketQuotes() {
   const last = Date.parse((state.meta && state.meta.marketSyncedAt) || '');
   if (Number.isFinite(last) && Date.now() - last < 30 * 60 * 1000) return;
   const list = [];
-  accounts().forEach(a => (a.instruments || []).forEach(i => { if (i.market && i.market.code && !i.demo) list.push(i.id); }));
+  accounts().forEach(a => (a.instruments || []).forEach(i => { if (i.market && i.market.code) list.push(i.id); }));
   if (!list.length) return;
   let changed = false;
   for (const id of list) {
@@ -6233,11 +6278,12 @@ function fetchSinaCNHistory(market) {
     document.head.appendChild(script);
   });
 }
-async function ensureInstrumentHistory(id) {
+async function ensureInstrumentHistory(id, opts) {
+  const o = opts || {};
   const found = instrumentById(id);
-  if (!found || !found.market || !found.market.code || found.demo) return;
+  if (!found || !found.market || !found.market.code) return false;
   const actual = (accountById(found.accountId) || { instruments: [] }).instruments.find(x => x.id === id);
-  if (!actual || actual.market.historyLoaded || historyLoadingIds.has(id)) return;
+  if (!actual || actual.market.historyLoaded || historyLoadingIds.has(id)) return !!(actual && actual.market.historyLoaded);
   historyLoadingIds.add(id);
   try {
     let rows = [];
@@ -6257,11 +6303,64 @@ async function ensureInstrumentHistory(id) {
     });
     historyLoadingIds.delete(id);
     saveState();
-    if (parseRoute().name === 'instrument' && parseRoute().id === id && !document.querySelector('.overlay')) refreshPage();
+    if (!o.noRefresh && parseRoute().name === 'instrument' && parseRoute().id === id && !document.querySelector('.overlay')) refreshPage();
+    return true;
   } catch (e) {
     historyLoadingIds.delete(id);
     console.warn('历史行情获取失败', id, e);
+    return false;
   }
+}
+
+async function hydrateDemoLedger() {
+  if (!demoMode || !state || !state.meta || state.meta.demoHydrated) return;
+  const targetState = state;
+  const list = [];
+  accounts().forEach(a => (a.instruments || []).forEach(i => { if (i.market && i.market.code) list.push(i.id); }));
+  if (!list.length) { state.meta.demoHydrated = true; saveState(true); return; }
+  let all = true;
+  for (const id of list) {
+    if (state !== targetState || !demoMode) return;
+    const ok = await ensureInstrumentHistory(id, { noRefresh: true });
+    all = all && ok;
+    await new Promise(resolve => setTimeout(resolve, 180));
+  }
+  if (state !== targetState || !demoMode) return;
+  const closeAt = (id, date) => {
+    const pts = (state.prices[id] || []).filter(p => p[2] === 'market' && p[0] <= date);
+    return pts.length ? Number(pts[pts.length - 1][1]) : null;
+  };
+  state.records.forEach(rec => {
+    if (!rec.instrumentId || (rec.type !== 'buy' && rec.type !== 'sell' && rec.type !== 'price')) return;
+    const inst = instrumentById(rec.instrumentId);
+    if (!inst || !inst.market) return;
+    const price = closeAt(rec.instrumentId, rec.date);
+    if (!(price > 0)) return;
+    if (rec.type === 'price') { rec.price = price; return; }
+    rec.price = price;
+    rec.amount = round((Number(rec.qty) || 0) * price, 2);
+    rec.fee = inst.cls === 'stock' || inst.cls === 'etf' ? Math.max(1, round(rec.amount * 0.0004, 2)) : 0;
+  });
+  accounts().forEach(account => {
+    const recs = state.records.filter(r => r.accountId === account.id);
+    const spec = SEED_SPECS[account.id];
+    if (!spec) return;
+    let buyCost = 0, sellProceeds = 0, income = 0, otherDep = 0, withdrawals = 0;
+    recs.forEach(r => {
+      if (r.type === 'buy') buyCost += (Number(r.amount) || 0) + (Number(r.fee) || 0);
+      else if (r.type === 'sell') sellProceeds += (Number(r.amount) || 0) - (Number(r.fee) || 0);
+      else if (r.type === 'dividend' || r.type === 'interest') income += Number(r.amount) || 0;
+      else if (r.type === 'withdraw') withdrawals += Number(r.amount) || 0;
+      else if (r.type === 'deposit' && r.note !== '初始资金') otherDep += Number(r.amount) || 0;
+    });
+    const initial = round((Number(spec.targetCash) || 0) - otherDep + withdrawals + buyCost - sellProceeds - income, 2);
+    const initialRec = recs.find(r => r.type === 'deposit' && r.note === '初始资金') || recs.find(r => r.type === 'deposit' && r.date === seedDate(-496));
+    if (initialRec) initialRec.amount = Math.max(0, initial);
+  });
+  state.meta.demoHydrated = true;
+  state.meta.demoHydratedAt = nowISO();
+  saveState(true);
+  if (!document.querySelector('.overlay') && demoMode) refreshPage();
 }
 
 
@@ -6537,6 +6636,8 @@ function handleAction(action, el) {
     case 'export-data': downloadBackup(); return;
     case 'import-data': triggerImport(); return;
     case 'reset-demo': closeAllSheets(); setTimeout(resetDemo, 50); return;
+    case 'switch-demo': closeAllSheets(); setTimeout(() => switchDataMode(true), 50); return;
+    case 'switch-user': closeAllSheets(); setTimeout(() => switchDataMode(false), 50); return;
     case 'clear-data': closeAllSheets(); setTimeout(clearAllData, 50); return;
     default: return;
   }
@@ -6671,6 +6772,7 @@ function boot() {
   }
   renderPage({ scroll: true });
   setTimeout(() => { autoRefreshMarketQuotes().catch(e => console.warn('自动行情失败', e)); }, 900);
+  if (demoMode) setTimeout(() => { hydrateDemoLedger().catch(e => console.warn('演示数据同步失败', e)); }, 1200);
   // 开放给调试与自动化测试
   window.__YINGJI__ = {
     get state() { return state; },

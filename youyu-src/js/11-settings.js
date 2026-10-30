@@ -45,14 +45,15 @@ function renderSettingsPage() {
   '<div class="settings-group"><div class="label">数据</div><div class="settings-card">' +
     settingRowHTML('导出账本', 'JSON 备份', 'download', 'export-data', '保存账户、交易、价格与分组') +
     settingRowHTML('导入账本', '从备份恢复', 'upload', 'import-data', '导入会覆盖当前账本') +
-    settingRowHTML('恢复示例数据', '重新体验', 'refresh', 'reset-demo', '用演示组合覆盖当前数据') +
+    (demoMode ? settingRowHTML('退出演示', '回到我的账本', 'logout', 'switch-user', '演示账本与真实账本完全分离') : settingRowHTML('体验示例数据', '完整演示', 'sparkles', 'switch-demo', '切换到独立演示账本，不影响真实数据')) +
+    (demoMode ? settingRowHTML('重置示例数据', '重新同步', 'refresh', 'reset-demo', '仅重置演示账本，不影响真实数据') : '') +
     settingRowHTML('清空账本', '从零开始', 'trash', 'clear-data', '删除所有账户与记录', '', 'danger') +
     '<input type="file" id="import-file" accept=".json,application/json" style="display:none">' +
   '</div></div>' +
   '<div class="settings-group"><div class="label">关于</div><div class="settings-card">' +
     '<div class="setting-row"><span class="setting-icon accent">' + icon('shield') + '</span><span class="setting-main"><span class="t">本地存储</span><span class="s">所有数据保存在浏览器 localStorage，不上传服务器。清除浏览器数据会丢失账本，请定期导出备份。</span></span></div>' +
     '<div class="setting-row"><span class="setting-icon blue">' + icon('chart') + '</span><span class="setting-main"><span class="t">行情数据</span><span class="s">名称搜索来自新浪财经，最新报价来自腾讯行情；公开接口可能受网络影响，仅供估值参考。</span></span></div>' +
-    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v1.6</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
+    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v1.7</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
   '</div></div>' +
   '<div class="version">' + esc(APP_NAME) + ' · 投资组合<br>不构成投资建议 · 数据仅供参考</div>' +
   '<div style="height:8px"></div>';
@@ -191,25 +192,47 @@ function makeEmptyState() {
   }];
   return s;
 }
-function resetDemo() {
-  confirmDialog({
-    title: '恢复示例数据？', message: '当前账本会被演示组合覆盖。如果你有真实数据，请先导出备份。', confirmText: '恢复示例', danger: true,
-    onConfirm: () => {
-      state = buildSeed();
-      normalizeState(state);
-      saveState();
-      ui = defaultUi();
-      closeAllSheets();
-      toast('已恢复示例数据', 'success');
-      navigate('#/assets', true);
-      renderPage();
-    }
-  });
+function switchDataMode(toDemo) {
+  saveState(true);
+  if (toDemo) {
+    const saved = readStoredState(DEMO_STORE_KEY);
+    state = saved || buildSeed();
+    demoMode = true;
+  } else {
+    const saved = readStoredState(STORE_KEY);
+    state = saved || makeEmptyState();
+    demoMode = false;
+  }
+  normalizeState(state);
+  ensureRates();
+  saveState(true);
+  ui = defaultUi();
+  closeAllSheets();
+  navigate('#/assets', true);
+  renderPage({ scroll: true });
+  toast(toDemo ? '已切换到演示账本' : '已切换到我的账本', 'success');
+  if (toDemo) setTimeout(() => { hydrateDemoLedger().catch(e => console.warn('演示数据同步失败', e)); }, 500);
 }
+function resetDemo() {
+  if (!demoMode) { switchDataMode(true); return; }
+  state = buildSeed();
+  normalizeState(state);
+  demoMode = true;
+  ensureRates();
+  saveState(true);
+  ui = defaultUi();
+  closeAllSheets();
+  toast('示例数据已重置', 'success');
+  navigate('#/assets', true);
+  renderPage({ scroll: true });
+  setTimeout(() => { hydrateDemoLedger().catch(e => console.warn('演示数据同步失败', e)); }, 500);
+}
+
 function clearAllData() {
   confirmDialog({
-    title: '清空整个账本？', message: '所有账户、交易、价格与分组设置都会被删除，且无法恢复。', confirmText: '确认清空', danger: true,
+    title: demoMode ? '重置示例账本？' : '清空整个账本？', message: demoMode ? '示例账本会恢复为初始演示组合，真实账本不受影响。' : '所有账户、交易、价格与分组设置都会被删除，且无法恢复。', confirmText: demoMode ? '确认重置' : '确认清空', danger: true,
     onConfirm: () => {
+      if (demoMode) { resetDemo(); return; }
       state = makeEmptyState();
       normalizeState(state);
       saveState();

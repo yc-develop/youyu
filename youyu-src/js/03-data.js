@@ -107,21 +107,41 @@ function normalizeState(obj) {
   return true;
 }
 
+function readStoredState(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && parsed.version === SCHEMA && normalizeState(parsed)) return parsed;
+  } catch (e) {}
+  return null;
+}
 function loadState() {
-  let raw = null;
-  try { raw = localStorage.getItem(STORE_KEY); } catch (e) { raw = null; }
-  if (raw) {
-    try {
-      const parsed = JSON.parse(raw);
-      if (parsed && parsed.version === SCHEMA && normalizeState(parsed)) {
-        state = parsed;
-        ensureRates();
-        return state;
-      }
-    } catch (e) { /* fall through to seed */ }
+  const userState = readStoredState(STORE_KEY);
+  if (userState && !userState.isDemo) {
+    state = userState;
+    demoMode = false;
+    ensureRates();
+    return state;
+  }
+  // 旧版本把演示数据存在用户键中；迁移到独立的演示账本，不污染真实账本。
+  if (userState && userState.isDemo) {
+    state = userState;
+    demoMode = true;
+    try { localStorage.setItem(DEMO_STORE_KEY, JSON.stringify(state)); localStorage.removeItem(STORE_KEY); } catch (e) {}
+    ensureRates();
+    return state;
+  }
+  const demoState = readStoredState(DEMO_STORE_KEY);
+  if (demoState) {
+    state = demoState;
+    demoMode = true;
+    ensureRates();
+    return state;
   }
   state = buildSeed();
   normalizeState(state);
+  demoMode = true;
   saveState(true);
   return state;
 }
@@ -130,7 +150,7 @@ function saveState(silent) {
   try {
     state.meta = state.meta || {};
     state.meta.lastUpdated = nowISO();
-    localStorage.setItem(STORE_KEY, JSON.stringify(state));
+    localStorage.setItem(demoMode ? DEMO_STORE_KEY : STORE_KEY, JSON.stringify(state));
   } catch (e) {
     if (!silent) console.warn('保存失败', e);
   }
