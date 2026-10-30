@@ -3424,7 +3424,7 @@ function sankeyHTML(schemeId, mode) {
   const H = clamp(340 + Math.max(0, nG - 2) * 10 + Math.max(0, nL - 6) * 8, 340, 480);
   const W = 360;
   const top = 58, bottom = 22;
-  const x0 = 8, x1 = 116, x2 = 250;
+  const x0 = 8, x1 = 116, x2 = 232;
   const nodeW = 9;
   const avail = H - top - bottom;
   const gapG = nG > 1 ? 12 : 0;
@@ -3454,6 +3454,9 @@ function sankeyHTML(schemeId, mode) {
     groupData.forEach(gd => { gd.y += shiftG; });
     leaves.forEach(l => { l.y += shiftL; });
   }
+  const groupTop = groupData.length ? groupData[0].y : top;
+  const totalNodeY = groupTop;
+  const totalNodeH = Math.max(0, groupsBottom - groupTop);
 
   // allocate incoming slices on leaves
   const incomingByLeaf = new Map();
@@ -3488,10 +3491,10 @@ function sankeyHTML(schemeId, mode) {
 
   let linksSvg = '', nodesSvg = '', labelsSvg = '';
   // total -> group links
-  let totalSourceY = top;
-  groupData.forEach(gd => {
+  let totalSourceY = totalNodeY;
+  groupData.forEach((gd, gi) => {
     linksSvg += '<path class="sankey-link" d="' + linkPath(x0 + nodeW, totalSourceY, gd.h, x1, gd.y, gd.h) + '" fill="' + gd.group.color + '" opacity=".16"/>';
-    totalSourceY += gd.h;
+    totalSourceY += gd.h + (gi < groupData.length - 1 ? gapG : 0);
   });
   // group -> leaf links
   groupData.forEach(gd => {
@@ -3502,7 +3505,7 @@ function sankeyHTML(schemeId, mode) {
     });
   });
   // nodes & labels
-  nodesSvg += '<rect x="' + x0 + '" y="' + top + '" width="' + nodeW + '" height="' + (H - top - bottom) + '" rx="4" fill="url(#sankeyTotal)"/>';
+  nodesSvg += '<rect x="' + x0 + '" y="' + totalNodeY.toFixed(2) + '" width="' + nodeW + '" height="' + totalNodeH.toFixed(2) + '" rx="4" fill="url(#sankeyTotal)"/>';
   labelsSvg += '<text class="sankey-head" x="' + x0 + '" y="15">总资产</text>' +
     '<text class="sankey-total" x="' + x0 + '" y="34">' + esc(fmtMoney(total, { compact: true, decimals: 2 })) + '</text>' +
     '<text class="sankey-head" x="' + x1 + '" y="15">分组</text>' +
