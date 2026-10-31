@@ -414,12 +414,14 @@ function openRecordForm(accountId, type, instrumentId, editId) {
       const keepCreated = editRec.createdAt;
       Object.keys(editRec).forEach(k => { if (['id', 'createdAt'].indexOf(k) < 0) delete editRec[k]; });
       Object.assign(editRec, baseRec, { id: keepId, createdAt: keepCreated });
+      rebuildAllRecordPrices();
       saveState();
       closeAllSheets();
       toast('记录已更新', 'success');
     } else {
       baseRec.id = uid('rec');
       state.records.push(baseRec);
+      rebuildAllRecordPrices();
       saveState();
       closeAllSheets();
       toast(type === 'price' ? '价格已更新' : '记录已保存', 'success');

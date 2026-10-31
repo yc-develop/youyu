@@ -18,6 +18,31 @@ const RECORD_META = {
 };
 
 /* ---------- persistence ---------- */
+function recordPricePoints(obj, instrumentId) {
+  const map = new Map();
+  (obj.records || []).forEach(r => {
+    if (r.instrumentId !== instrumentId) return;
+    if (r.type !== 'buy' && r.type !== 'sell' && r.type !== 'price') return;
+    const price = Number(r.price) || 0;
+    if (!(price > 0) || !r.date) return;
+    map.set(r.date, price);
+  });
+  return Array.from(map.entries()).sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0).map(([d, p]) => [d, p, 'record']);
+}
+function rebuildRecordPrices(obj, instrumentId) {
+  const target = obj || state;
+  if (!target || !target.prices) return;
+  let found = null;
+  (target.accounts || []).forEach(a => (a.instruments || []).forEach(i => { if (i.id === instrumentId) found = i; }));
+  if (!found || found.market) return;
+  target.prices[instrumentId] = recordPricePoints(target, instrumentId);
+}
+function rebuildAllRecordPrices() {
+  if (!state) return;
+  (state.accounts || []).forEach(a => (a.instruments || []).forEach(i => {
+    if (!i.market) rebuildRecordPrices(state, i.id);
+  }));
+}
 function normalizeState(obj) {
   if (!obj || !Array.isArray(obj.accounts) || !Array.isArray(obj.records)) return false;
   obj.settings = obj.settings || {};
@@ -73,6 +98,7 @@ function normalizeState(obj) {
   // 账本调整替代旧版仅报表的 flowSnapshot；旧记录不兼容，直接移除。
   obj.records = obj.records.filter(r => r.type !== 'flow' || r.ledgerAdjust);
   obj.prices = obj.prices || {};
+  (obj.accounts || []).forEach(a => (a.instruments || []).forEach(i => { if (!i.market) rebuildRecordPrices(obj, i.id); }));
   obj.fxHistory = obj.fxHistory || {};
   obj.rebalance = obj.rebalance && typeof obj.rebalance === 'object' ? obj.rebalance : {};
   obj.rebalance.schemes = obj.rebalance.schemes && typeof obj.rebalance.schemes === 'object' ? obj.rebalance.schemes : {};
@@ -501,6 +527,72 @@ function computeInstrumentMetrics(instId) {
 
 function instrumentListMetrics(account) {
   return instrumentsOf(account).map(i => computeInstrumentMetrics(i.id)).filter(Boolean);
+}
+
+function instrumentProfitSeries(im) {
+  const inst = im.inst;
+  const period = Number(ui && ui.instrumentPeriod == null ? 365 : ui.instrumentPeriod);
+  const list = priceSeriesRange(inst.id, period || 0);
+  if (!list.length) return [];
+  const recs = recordsForInstrument(inst.id)
+    .filter(r => r.type === 'buy' || r.type === 'sell' || r.type === 'dividend')
+    .slice()
+    .sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+  let ri = 0, qty = 0, costNative = 0, costCNY = 0, realizedNative = 0, dividendsNative = 0;
+  const applyTo = date => {
+    while (ri < recs.length && recs[ri].date <= date) {
+      const rec = recs[ri++];
+      const rate = recordFx(rec, inst.currency);
+      const amount = Number(rec.amount) || (Number(rec.qty) * Number(rec.price)) || 0;
+      const fee = Number(rec.fee) || 0;
+      if (rec.type === 'buy') {
+        const value = amount + fee;
+        qty += Number(rec.qty) || 0;
+        costNative += value;
+        costCNY += value * rate;
+      } else if (rec.type === 'sell') {
+        const sellQty = Math.min(Number(rec.qty) || 0, qty);
+        const avgCost = qty > 0 ? costNative / qty : 0;
+        const avgRate = costNative > 0 ? costCNY / costNative : rate;
+        const soldCost = avgCost * sellQty;
+        realizedNative += (Number(rec.price) || 0) * sellQty - soldCost - fee;
+        qty -= sellQty;
+        costNative = Math.max(0, costNative - soldCost);
+        costCNY = Math.max(0, costCNY - soldCost * avgRate);
+      } else if (rec.type === 'dividend') {
+        dividendsNative += amount;
+      }
+    }
+  };
+  const base = baseCurrency();
+  const rateBase = rateCNY(base);
+  const out = [];
+  list.forEach(([date, price]) => {
+    applyTo(date);
+    const marketNative = qty * Number(price);
+    const curFx = fxToBaseAt(inst.currency, date);
+    const avgFx = costNative > 0 && costCNY > 0 ? (costCNY / rateBase) / costNative : curFx;
+    const realizedBase = realizedNative * curFx;
+    const dividendBase = dividendsNative * curFx;
+    const pricePnlBase = (marketNative - costNative) * curFx;
+    const fxPnlBase = state.settings.considerFx ? costNative * (curFx - avgFx) : 0;
+    out.push({ date, value: realizedBase + pricePnlBase + dividendBase + fxPnlBase });
+  });
+  const today = todayKey();
+  if (inst.market && out.length && out[out.length - 1].date < today && (!period || today >= addDays(today, -period))) {
+    applyTo(today);
+    const price = priceNow(inst.id);
+    const marketNative = qty * price;
+    const curFx = fxToBase(inst.currency);
+    const avgFx = costNative > 0 && costCNY > 0 ? (costCNY / rateBase) / costNative : curFx;
+    const realizedBase = realizedNative * curFx;
+    const dividendBase = dividendsNative * curFx;
+    const pricePnlBase = (marketNative - costNative) * curFx;
+    const fxPnlBase = state.settings.considerFx ? costNative * (curFx - avgFx) : 0;
+    out.push({ date: today, value: realizedBase + pricePnlBase + dividendBase + fxPnlBase });
+  }
+  if (out.length) out[out.length - 1].value = im.profit;
+  return out;
 }
 
 /* ---------- cash income ---------- */
@@ -1179,6 +1271,7 @@ function addRecord(rec) {
     id: uid('rec'), date: todayKey(), type: 'deposit', accountId: '', instrumentId: null,
     amount: 0, qty: 0, price: 0, fee: 0, fxRate: 0, note: '', createdAt: nowISO()
   }, rec));
+  rebuildAllRecordPrices();
   saveState();
 }
 function removePricePoint(instrumentId, date, price) {
@@ -1192,6 +1285,7 @@ function deleteRecord(recId) {
   if (!rec) return;
   if (rec.type === 'price' && rec.pricePoint) removePricePoint(rec.instrumentId, rec.date, rec.price);
   state.records = state.records.filter(r => r.id !== recId);
+  rebuildAllRecordPrices();
   saveState();
 }
 function rateForRecord(ccy, date) {

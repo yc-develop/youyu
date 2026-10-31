@@ -218,11 +218,33 @@ function positionRow(label, value, sub) {
 function instrumentChartCard(im) {
   const inst = im.inst;
   const period = Number(ui.instrumentPeriod == null ? 365 : ui.instrumentPeriod);
-  const mode = ui.instrumentChartMode || 'price';
+  const mode = ui.instrumentChartMode === 'profit' ? 'profit' : 'price';
   const labels = { 30: '近1月', 90: '近3月', 365: '近1年', 0: '全部' };
   const list = priceSeriesRange(inst.id, period || 0);
-  let chartHTML = '', metricsHTML = '', rangeText = '';
-  if (list.length > 2) {
+  let chartHTML = '', metricsHTML = '', rangeText = '', lastDate = '';
+  if (mode === 'profit') {
+    const series = instrumentProfitSeries(im);
+    if (series.length > 1) {
+      let peak = -Infinity, maxDd = 0;
+      series.forEach(p => { if (p.value > peak) peak = p.value; if (Number.isFinite(peak)) maxDd = Math.min(maxDd, p.value - peak); });
+      const finalProfit = im.profit;
+      const color = finalProfit >= 0 ? '#ff5d6c' : '#35d39a';
+      chartHTML = lineChartHTML({
+        points: series, mode: 'amount', currency: baseCurrency(),
+        color, height: 174, baseline: true, aria: '标的累计收益曲线'
+      });
+      rangeText = dateRangeLabel(series[0].date, series[series.length - 1].date);
+      lastDate = series[series.length - 1].date;
+      metricsHTML = '<div class="metrics">' +
+        '<div class="metric"><div class="lab">累计收益</div><div class="val ' + pnlClass(finalProfit) + '">' + fmtMoney(finalProfit) + '</div><div class="sub">' + baseCurrency() + '</div></div>' +
+        '<div class="metric"><div class="lab">最大回撤</div><div class="val loss">' + fmtMoney(maxDd) + '</div><div class="sub">金额</div></div>' +
+        '<div class="metric"><div class="lab">当前浮盈</div><div class="val ' + pnlClass(im.unrealized) + '">' + fmtMoney(im.unrealized) + '</div><div class="sub">未实现</div></div>' +
+        '<div class="metric"><div class="lab">累计已实现</div><div class="val ' + pnlClass(im.realized) + '">' + fmtMoney(im.realized) + '</div><div class="sub">已落袋</div></div>' +
+      '</div>';
+    } else {
+      chartHTML = chartEmptyHTML('还没有足够的累计收益数据', 174);
+    }
+  } else if (list.length > 2) {
     const startPrice = list[0][1] || 1;
     const endPrice = list[list.length - 1][1];
     let peak = -Infinity, maxDd = 0;
@@ -230,13 +252,14 @@ function instrumentChartCard(im) {
     const ret = startPrice > 0 ? endPrice / startPrice - 1 : 0;
     const days = Math.max(1, daysBetween(list[0][0], list[list.length - 1][0]));
     const annualized = Math.pow(Math.max(0.0001, endPrice / startPrice), 365 / days) - 1;
-    const points = list.map(([d, p]) => ({ date: d, value: mode === 'return' ? (p / startPrice - 1) : p }));
+    const points = list.map(([d, p]) => ({ date: d, value: p }));
     chartHTML = lineChartHTML({
-      points, mode: mode === 'return' ? 'percent' : 'price', currency: inst.currency,
-      color: mode === 'return' ? (ret >= 0 ? '#ff5d6c' : '#35d39a') : (inst.color || '#ff9f45'),
-      height: 174, baseline: mode === 'return', aria: '标的价格曲线'
+      points, mode: 'price', currency: inst.currency,
+      color: inst.color || '#ff9f45',
+      height: 174, baseline: false, aria: '标的价格曲线'
     });
     rangeText = dateRangeLabel(list[0][0], list[list.length - 1][0]);
+    lastDate = list[list.length - 1][0];
     metricsHTML = '<div class="metrics">' +
       '<div class="metric"><div class="lab">区间涨跌</div><div class="val ' + pnlClass(ret) + '">' + fmtPct(ret, 2) + '</div><div class="sub">价格</div></div>' +
       '<div class="metric"><div class="lab">最大回撤</div><div class="val loss">' + fmtPct(maxDd, 2) + '</div><div class="sub">区间</div></div>' +
@@ -246,11 +269,13 @@ function instrumentChartCard(im) {
   } else {
     chartHTML = chartEmptyHTML(inst.market ? '正在获取历史行情…' : '还没有足够的价格历史', 174);
   }
+  const ccyLabel = mode === 'profit' ? baseCurrency() + ' 累计收益' : inst.currency + ' 原币计价';
+  const sourceLabel = inst.market ? '行情自动同步' : '按记录生成';
   return '<div class="detail-chart-card">' +
-    '<div class="chart-head"><div><h2>价格走势</h2><div class="sub">' + (rangeText || '暂无数据') + ' · ' + inst.currency + ' 原币计价 · ' + (inst.market ? '行情自动同步' : '按记录生成') + '</div></div>' +
-      '<div class="segmented small chart-toggle"><button class="seg ' + (mode === 'price' ? 'active' : '') + '" data-action="set-instrument-chart-mode" data-value="price">价格</button><button class="seg ' + (mode === 'return' ? 'active' : '') + '" data-action="set-instrument-chart-mode" data-value="return">收益率</button></div></div>' +
+    '<div class="chart-head"><div><h2>' + (mode === 'profit' ? '累计收益' : '价格走势') + '</h2><div class="sub">' + (rangeText || '暂无数据') + ' · ' + ccyLabel + ' · ' + sourceLabel + '</div></div>' +
+      '<div class="segmented small chart-toggle"><button class="seg ' + (mode === 'price' ? 'active' : '') + '" data-action="set-instrument-chart-mode" data-value="price">价格</button><button class="seg ' + (mode === 'profit' ? 'active' : '') + '" data-action="set-instrument-chart-mode" data-value="profit">累计收益</button></div></div>' +
     chartHTML + metricsHTML +
     '<div class="period-row"><div class="segmented small">' + [30, 90, 365, 0].map(d => '<button class="seg ' + (period === d ? 'active' : '') + '" data-action="set-instrument-period" data-value="' + d + '">' + labels[d] + '</button>').join('') + '</div>' +
-      '<span class="tiny">' + (list.length ? shortDate(list[list.length - 1][0]) : '') + '</span></div>' +
+      '<span class="tiny">' + (lastDate ? shortDate(lastDate) : '') + '</span></div>' +
   '</div>';
 }
