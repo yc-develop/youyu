@@ -155,7 +155,7 @@ function accountRowHTML(m) {
     accountIconHTML(a) +
     '<div class="acct-main"><div class="acct-name">' + esc(a.name) + ' <span class="ccy">' + a.currency + '</span></div>' +
       '<div class="acct-meta"><span>已实现 <b class="' + pnlClass(realized) + '">' + pnlText(realized, { compact: true, currency: ccy }) + '</b></span>' +
-      '<span class="sep"></span><span>浮盈 <b class="' + pnlClass(floating) + '">' + pnlText(floating, { compact: true, currency: ccy }) + '</b></span></div>' +
+      '<span class="sep"></span><span>持仓收益 <b class="' + pnlClass(floating) + '">' + pnlText(floating, { compact: true, currency: ccy }) + '</b></span></div>' +
     '</div>' +
     '<div class="acct-value"><div class="v">' + fmtMoney(market, { compact: true, currency: ccy }) + '</div>' +
       '<div class="p ' + pnlClass(pct) + '">' + (pct == null ? '—' : fmtPct(pct, 1)) + '</div>' +

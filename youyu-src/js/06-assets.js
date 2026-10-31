@@ -36,11 +36,11 @@ function renderAssetsPage() {
   }) +
   '<section class="hero">' +
     (sparkVals.length > 2 ? '<div class="spark-layer">' + sparklineHTML(sparkVals, { color: p.profit >= 0 ? '#ff9f45' : '#43d6b0' }) + '</div>' : '') +
-    '<div class="hero-top"><div class="hero-label">总资产 <span class="tag">含浮盈</span></div>' +
+    '<div class="hero-top"><div class="hero-label">总资产 <span class="tag">含持仓收益</span></div>' +
       '<span style="font-size:8.5px;color:rgba(255,255,255,.32);letter-spacing:.03em">更新至 ' + shortDate(todayKey()) + '</span></div>' +
     '<div class="hero-amount"><span class="cur">' + heroMoney.sym + '</span><span>' + heroMoney.main + '</span>' + (heroMoney.dec ? '<span class="dec">.' + heroMoney.dec + '</span>' : '') + '</div>' +
     '<div class="hero-pnl-list">' +
-      '<div class="hero-pnl-line"><span class="k">持仓浮盈</span><span class="v ' + pnlClass(p.unrealized) + '">' + pnlText(p.unrealized) + '</span></div>' +
+      '<div class="hero-pnl-line"><span class="k">持仓收益</span><span class="v ' + pnlClass(p.unrealized) + '">' + pnlText(p.unrealized) + '</span></div>' +
       '<div class="hero-pnl-line"><span class="k">累计收益</span><span class="v ' + pnlClass(p.profit) + '">' + pnlText(p.profit) + '</span><span class="pct ' + pnlClass(p.profit) + '">' + (p.returnPct == null ? '—' : fmtPct(p.returnPct, 1)) + '</span></div>' +
     '</div>' +
     '<div class="hero-stats">' +
@@ -86,7 +86,7 @@ function renderAccountPage(accountId) {
       '<div class="detail-stats account-detail-stats">' +
         '<div><div class="l">可用现金</div><div class="v">' + fmtMoney(am.cashNative, { currency: a.currency }) + '</div></div>' +
         '<div><div class="l">持仓市值</div><div class="v">' + fmtMoney(am.holdingsNative, { currency: a.currency }) + '</div></div>' +
-        '<div><div class="l">持仓浮盈</div><div class="v ' + pnlClass(am.unrealizedNative) + '">' + pnlText(am.unrealizedNative, { currency: a.currency }) + '</div></div>' +
+        '<div><div class="l">持仓收益</div><div class="v ' + pnlClass(am.unrealizedNative) + '">' + pnlText(am.unrealizedNative, { currency: a.currency }) + '</div></div>' +
         '<div><div class="l">累计已实现</div><div class="v ' + pnlClass(am.realizedNativeAccount) + '">' + pnlText(am.realizedNativeAccount, { currency: a.currency }) + '</div></div>' +
       '</div>' +
     '</section>' +
@@ -239,7 +239,7 @@ function instrumentChartCard(im) {
       metricsHTML = '<div class="metrics">' +
         '<div class="metric"><div class="lab">累计收益</div><div class="val ' + pnlClass(finalProfit) + '">' + fmtMoney(finalProfit, { currency: inst.currency }) + '</div><div class="sub">' + inst.currency + '</div></div>' +
         '<div class="metric"><div class="lab">最大回撤</div><div class="val loss">' + fmtMoney(maxDd, { currency: inst.currency }) + '</div><div class="sub">金额</div></div>' +
-        '<div class="metric"><div class="lab">当前浮盈</div><div class="val ' + pnlClass(im.unrealizedNativeInst) + '">' + fmtMoney(im.unrealizedNativeInst, { currency: inst.currency }) + '</div><div class="sub">未实现</div></div>' +
+        '<div class="metric"><div class="lab">持仓收益</div><div class="val ' + pnlClass(im.unrealizedNativeInst) + '">' + fmtMoney(im.unrealizedNativeInst, { currency: inst.currency }) + '</div><div class="sub">未实现</div></div>' +
         '<div class="metric"><div class="lab">累计已实现</div><div class="val ' + pnlClass(im.realized) + '">' + fmtMoney(im.realized, { currency: inst.currency }) + '</div><div class="sub">已落袋</div></div>' +
       '</div>';
     } else {

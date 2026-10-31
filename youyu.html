@@ -4210,7 +4210,7 @@ function accountRowHTML(m) {
     accountIconHTML(a) +
     '<div class="acct-main"><div class="acct-name">' + esc(a.name) + ' <span class="ccy">' + a.currency + '</span></div>' +
       '<div class="acct-meta"><span>已实现 <b class="' + pnlClass(realized) + '">' + pnlText(realized, { compact: true, currency: ccy }) + '</b></span>' +
-      '<span class="sep"></span><span>浮盈 <b class="' + pnlClass(floating) + '">' + pnlText(floating, { compact: true, currency: ccy }) + '</b></span></div>' +
+      '<span class="sep"></span><span>持仓收益 <b class="' + pnlClass(floating) + '">' + pnlText(floating, { compact: true, currency: ccy }) + '</b></span></div>' +
     '</div>' +
     '<div class="acct-value"><div class="v">' + fmtMoney(market, { compact: true, currency: ccy }) + '</div>' +
       '<div class="p ' + pnlClass(pct) + '">' + (pct == null ? '—' : fmtPct(pct, 1)) + '</div>' +
@@ -4460,11 +4460,11 @@ function renderAssetsPage() {
   }) +
   '<section class="hero">' +
     (sparkVals.length > 2 ? '<div class="spark-layer">' + sparklineHTML(sparkVals, { color: p.profit >= 0 ? '#ff9f45' : '#43d6b0' }) + '</div>' : '') +
-    '<div class="hero-top"><div class="hero-label">总资产 <span class="tag">含浮盈</span></div>' +
+    '<div class="hero-top"><div class="hero-label">总资产 <span class="tag">含持仓收益</span></div>' +
       '<span style="font-size:8.5px;color:rgba(255,255,255,.32);letter-spacing:.03em">更新至 ' + shortDate(todayKey()) + '</span></div>' +
     '<div class="hero-amount"><span class="cur">' + heroMoney.sym + '</span><span>' + heroMoney.main + '</span>' + (heroMoney.dec ? '<span class="dec">.' + heroMoney.dec + '</span>' : '') + '</div>' +
     '<div class="hero-pnl-list">' +
-      '<div class="hero-pnl-line"><span class="k">持仓浮盈</span><span class="v ' + pnlClass(p.unrealized) + '">' + pnlText(p.unrealized) + '</span></div>' +
+      '<div class="hero-pnl-line"><span class="k">持仓收益</span><span class="v ' + pnlClass(p.unrealized) + '">' + pnlText(p.unrealized) + '</span></div>' +
       '<div class="hero-pnl-line"><span class="k">累计收益</span><span class="v ' + pnlClass(p.profit) + '">' + pnlText(p.profit) + '</span><span class="pct ' + pnlClass(p.profit) + '">' + (p.returnPct == null ? '—' : fmtPct(p.returnPct, 1)) + '</span></div>' +
     '</div>' +
     '<div class="hero-stats">' +
@@ -4510,7 +4510,7 @@ function renderAccountPage(accountId) {
       '<div class="detail-stats account-detail-stats">' +
         '<div><div class="l">可用现金</div><div class="v">' + fmtMoney(am.cashNative, { currency: a.currency }) + '</div></div>' +
         '<div><div class="l">持仓市值</div><div class="v">' + fmtMoney(am.holdingsNative, { currency: a.currency }) + '</div></div>' +
-        '<div><div class="l">持仓浮盈</div><div class="v ' + pnlClass(am.unrealizedNative) + '">' + pnlText(am.unrealizedNative, { currency: a.currency }) + '</div></div>' +
+        '<div><div class="l">持仓收益</div><div class="v ' + pnlClass(am.unrealizedNative) + '">' + pnlText(am.unrealizedNative, { currency: a.currency }) + '</div></div>' +
         '<div><div class="l">累计已实现</div><div class="v ' + pnlClass(am.realizedNativeAccount) + '">' + pnlText(am.realizedNativeAccount, { currency: a.currency }) + '</div></div>' +
       '</div>' +
     '</section>' +
@@ -4663,7 +4663,7 @@ function instrumentChartCard(im) {
       metricsHTML = '<div class="metrics">' +
         '<div class="metric"><div class="lab">累计收益</div><div class="val ' + pnlClass(finalProfit) + '">' + fmtMoney(finalProfit, { currency: inst.currency }) + '</div><div class="sub">' + inst.currency + '</div></div>' +
         '<div class="metric"><div class="lab">最大回撤</div><div class="val loss">' + fmtMoney(maxDd, { currency: inst.currency }) + '</div><div class="sub">金额</div></div>' +
-        '<div class="metric"><div class="lab">当前浮盈</div><div class="val ' + pnlClass(im.unrealizedNativeInst) + '">' + fmtMoney(im.unrealizedNativeInst, { currency: inst.currency }) + '</div><div class="sub">未实现</div></div>' +
+        '<div class="metric"><div class="lab">持仓收益</div><div class="val ' + pnlClass(im.unrealizedNativeInst) + '">' + fmtMoney(im.unrealizedNativeInst, { currency: inst.currency }) + '</div><div class="sub">未实现</div></div>' +
         '<div class="metric"><div class="lab">累计已实现</div><div class="val ' + pnlClass(im.realized) + '">' + fmtMoney(im.realized, { currency: inst.currency }) + '</div><div class="sub">已落袋</div></div>' +
       '</div>';
     } else {
@@ -4733,7 +4733,7 @@ function renderStatsPage() {
       '<button class="icon-btn" data-action="toggle-hide" aria-label="隐藏金额">' + icon(state.settings.hideAmounts ? 'eyeOff' : 'eye') + '</button>'
   }) +
   schemeChipsHTML(sid, 'select-stats-scheme') +
-  '<div class="stat-hero"><div><div class="eyebrow">组合总资产</div><div class="big">' + fmtMoney(p.totalMarket) + '</div><div class="cap">含浮盈 · ' + p.accounts.length + ' 个账户 · ' + p.positions + ' 个持仓</div></div>' +
+  '<div class="stat-hero"><div><div class="eyebrow">组合总资产</div><div class="big">' + fmtMoney(p.totalMarket) + '</div><div class="cap">含持仓收益 · ' + p.accounts.length + ' 个账户 · ' + p.positions + ' 个持仓</div></div>' +
     '<div class="right">累计收益<b class="' + pnlClass(p.profit) + '">' + pnlText(p.profit) + '</b><span class="' + pnlClass(p.returnPct) + '">' + (p.returnPct == null ? '—' : fmtPct(p.returnPct, 2)) + '</span></div></div>' +
   '<section class="card pad" style="margin-top:12px">' +
     '<div class="card-head" style="padding:0"><div><h2>资产构成</h2><div class="sub">' + esc(scheme ? scheme.name : '') + ' · 按当前市值</div></div><span class="tiny">' + esc(baseCurrency()) + '</span></div>' +
@@ -5647,7 +5647,7 @@ function renderSettingsPage() {
   '<div class="settings-group"><div class="label">关于</div><div class="settings-card">' +
     '<div class="setting-row"><span class="setting-icon accent">' + icon('shield') + '</span><span class="setting-main"><span class="t">本地存储</span><span class="s">所有数据保存在浏览器 localStorage，不上传服务器。清除浏览器数据会丢失账本，请定期导出备份。</span></span></div>' +
     '<div class="setting-row"><span class="setting-icon blue">' + icon('chart') + '</span><span class="setting-main"><span class="t">行情数据</span><span class="s">名称搜索来自新浪财经，最新报价来自腾讯行情；公开接口可能受网络影响，仅供估值参考。</span></span></div>' +
-    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v2.5</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
+    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v2.6</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
   '</div></div>' +
   '<div class="version">' + esc(APP_NAME) + ' · 投资组合<br>不构成投资建议 · 数据仅供参考</div>' +
   '<div style="height:8px"></div>';

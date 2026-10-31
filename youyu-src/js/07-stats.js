@@ -25,7 +25,7 @@ function renderStatsPage() {
       '<button class="icon-btn" data-action="toggle-hide" aria-label="隐藏金额">' + icon(state.settings.hideAmounts ? 'eyeOff' : 'eye') + '</button>'
   }) +
   schemeChipsHTML(sid, 'select-stats-scheme') +
-  '<div class="stat-hero"><div><div class="eyebrow">组合总资产</div><div class="big">' + fmtMoney(p.totalMarket) + '</div><div class="cap">含浮盈 · ' + p.accounts.length + ' 个账户 · ' + p.positions + ' 个持仓</div></div>' +
+  '<div class="stat-hero"><div><div class="eyebrow">组合总资产</div><div class="big">' + fmtMoney(p.totalMarket) + '</div><div class="cap">含持仓收益 · ' + p.accounts.length + ' 个账户 · ' + p.positions + ' 个持仓</div></div>' +
     '<div class="right">累计收益<b class="' + pnlClass(p.profit) + '">' + pnlText(p.profit) + '</b><span class="' + pnlClass(p.returnPct) + '">' + (p.returnPct == null ? '—' : fmtPct(p.returnPct, 2)) + '</span></div></div>' +
   '<section class="card pad" style="margin-top:12px">' +
     '<div class="card-head" style="padding:0"><div><h2>资产构成</h2><div class="sub">' + esc(scheme ? scheme.name : '') + ' · 按当前市值</div></div><span class="tiny">' + esc(baseCurrency()) + '</span></div>' +
