@@ -274,19 +274,26 @@ function fxRateFieldHTML(ccy, full, value) {
   return fieldHTML({ id: 'record-fxrate', label: '成交汇率（可选）', value: value == null ? '' : value, placeholder: '留空则按日期自动取汇率', unit: 'CNY / ' + ccy, inputmode: 'decimal', full: !!full, hint: '用于计算这笔交易的汇兑损益' });
 }
 
-function openRecordForm(accountId, type, instrumentId, editId) {
+function editableRecordTypes(type) {
+  const cash = ['deposit', 'withdraw', 'interest', 'fee', 'cashProfit'];
+  const trade = ['buy', 'sell'];
+  if (cash.indexOf(type) >= 0) return cash;
+  if (trade.indexOf(type) >= 0) return trade;
+  return [type];
+}
+function openRecordForm(accountId, type, instrumentId, editId, draft) {
   const editRec = editId ? state.records.find(r => r.id === editId) : null;
   if (editRec) {
-    type = editRec.type;
-    accountId = editRec.accountId;
-    instrumentId = editRec.instrumentId;
+    accountId = accountId || editRec.accountId;
+    if (instrumentId === undefined) instrumentId = editRec.instrumentId;
+    if (!type) type = editRec.type;
   }
   const account = accountById(accountId);
   if (!account) return;
   const insts = account.instruments || [];
   const chosen = instrumentId ? insts.find(i => i.id === instrumentId) : (insts[0] || null);
   const info = RECORD_TYPE_INFO[type] || RECORD_TYPE_INFO.deposit;
-  const valueOf = (key, fallback) => editRec && editRec[key] != null ? editRec[key] : (fallback == null ? '' : fallback);
+  const valueOf = (key, fallback) => draft && draft[key] != null ? draft[key] : (editRec && editRec[key] != null ? editRec[key] : (fallback == null ? '' : fallback));
   const dateVal = valueOf('date', todayKey());
   const noteVal = valueOf('note', '');
   const fxVal = editRec && editRec.fxRate ? editRec.fxRate : '';
@@ -352,13 +359,37 @@ function openRecordForm(accountId, type, instrumentId, editId) {
       fieldHTML({ id: 'record-note', label: '备注（可选）', value: noteVal, placeholder: '银行换汇' }) + '</div>' +
       '<div class="info-banner" style="margin-top:12px">' + icon('info') + '<div>换汇记录用于保留成交汇率与操作痕迹，不会改变账户总资产。跨币种持仓按最新汇率折算。</div></div>';
   }
-  const body = '<form id="record-form"><div class="record-type-banner"><span class="rec-icon ' + (['deposit','sell','dividend','interest'].indexOf(type) >= 0 ? 'gain' : ['withdraw','buy','fee'].indexOf(type) >= 0 ? 'loss' : 'blue') + '">' + icon(info.icon) + '</span><div><div class="record-type-title">' + (editRec ? '编辑 · ' + info.label : info.label) + '</div><div class="record-type-sub">' + info.desc + ' · ' + esc(account.name) + '</div></div></div>' +
+  const allowedTypes = editRec ? editableRecordTypes(type) : [type];
+  const typeSelectorHTML = editRec && allowedTypes.length > 1
+    ? '<div class="form-grid" style="margin-bottom:12px">' + fieldHTML({
+        id: 'record-type-edit', label: '记录类型', type: 'select', full: true, value: type,
+        options: allowedTypes.map(t => ({ value: t, label: RECORD_TYPE_INFO[t] ? RECORD_TYPE_INFO[t].label : t })),
+        hint: '只允许在字段结构相同的记录类型之间切换'
+      }) + '</div>'
+    : '';
+  const body = '<form id="record-form">' + typeSelectorHTML + '<div class="record-type-banner"><span class="rec-icon ' + (['deposit','sell','dividend','interest','cashProfit'].indexOf(type) >= 0 ? 'gain' : ['withdraw','buy','fee'].indexOf(type) >= 0 ? 'loss' : 'blue') + '">' + icon(info.icon) + '</span><div><div class="record-type-title">' + (editRec ? '编辑 · ' + info.label : info.label) + '</div><div class="record-type-sub">' + info.desc + ' · ' + esc(account.name) + '</div></div></div>' +
     fields + '</form>';
   const wrap = openSheet({
     title: editRec ? '编辑记录' : info.label, sub: account.name + ' · ' + account.currency,
     body, footer: '<button class="btn ghost" data-sheet-close>取消</button><button class="btn primary" data-record-save>' + (editRec ? '保存修改' : (type === 'price' ? '更新价格' : '保存记录')) + '</button>'
   });
   const form = wrap.querySelector('#record-form');
+  const typeSelect = form.querySelector('#record-type-edit');
+  if (typeSelect) typeSelect.addEventListener('change', () => {
+    const nextType = typeSelect.value;
+    const draftValues = {
+      date: (form.querySelector('#record-date') || {}).value || dateVal,
+      note: (form.querySelector('#record-note') || {}).value || '',
+      amount: (form.querySelector('#record-amount') || {}).value || '',
+      qty: (form.querySelector('#record-qty') || {}).value || '',
+      price: (form.querySelector('#record-price') || {}).value || '',
+      fee: (form.querySelector('#record-fee') || {}).value || '',
+      instrumentId: (form.querySelector('#record-instrument') || {}).value || instrumentId || '',
+      fxRate: (form.querySelector('#record-fxrate') || {}).value || fxVal
+    };
+    closeSheet(wrap);
+    setTimeout(() => openRecordForm(accountId, nextType, draftValues.instrumentId || null, editId, draftValues), 60);
+  });
   const instSel = form.querySelector('#record-instrument');
   const priceInput = form.querySelector('#record-price');
   const preview = form.querySelector('#record-preview');
@@ -472,7 +503,11 @@ function openRecordForm(accountId, type, instrumentId, editId) {
       if (type === 'sell') {
         const im = computeInstrumentMetrics(inst.id);
         let available = im.qty;
-        if (editRec && editRec.type === 'sell' && editRec.instrumentId === inst.id) available += Number(editRec.qty) || 0;
+        if (editRec && editRec.instrumentId === inst.id) {
+          if (editRec.type === 'sell') available += Number(editRec.qty) || 0;
+          if (editRec.type === 'buy') available -= Number(editRec.qty) || 0;
+        }
+        available = Math.max(0, available);
         if (qty > available + 0.000001) { toast('卖出数量超过当前持仓（' + fmtQty(available) + '）', 'error'); return; }
       }
       baseRec.type = type; baseRec.instrumentId = inst.id; baseRec.qty = qty; baseRec.price = price;
