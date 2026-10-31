@@ -8,6 +8,7 @@ const RECORD_TYPE_INFO = {
   sell:     { label: '卖出', desc: '卖出部分或全部持仓', icon: 'minus' },
   dividend: { label: '分红', desc: '现金分红或派息', icon: 'coins' },
   interest: { label: '利息', desc: '存款或现金利息', icon: 'percent' },
+  cashProfit: { label: '更新收益', desc: '现金本身的浮盈浮亏', icon: 'trendUp' },
   price:    { label: '更新价格', desc: '更新最新净值 / 股价', icon: 'refresh' },
   fee:      { label: '费用', desc: '管理费或其他支出', icon: 'minus' },
   fx:       { label: '换汇', desc: '记录一笔换汇操作', icon: 'swap' }
@@ -259,7 +260,7 @@ function openRecordChooser(accountId, instrumentId) {
   else {
     types = ['deposit', 'withdraw'];
     if (account.instruments.length) types = types.concat(['buy', 'sell', 'dividend', 'price']);
-    types = types.concat(['interest', 'fee', 'fx']);
+    types = types.concat(['interest', 'fee', 'cashProfit', 'fx']);
   }
   const body = '<div class="type-grid">' + types.map(t => {
     const info = RECORD_TYPE_INFO[t];
@@ -300,27 +301,30 @@ function openRecordForm(accountId, type, instrumentId, editId) {
     options: insts.map(i => ({ value: i.id, label: i.name + ' · ' + i.symbol }))
   });
   let fields = '';
-  if (type === 'deposit' || type === 'withdraw') {
+  if (type === 'deposit' || type === 'withdraw' || type === 'interest' || type === 'fee' || type === 'cashProfit') {
     const before = accountCashBefore(account.id, dateVal, editRec && editRec.id);
     const oldAmount = Number(valueOf('amount', 0)) || 0;
-    const targetVal = round(before + (type === 'deposit' ? oldAmount : -oldAmount), 2);
+    const signedOld = (type === 'withdraw' || type === 'fee') ? -oldAmount : oldAmount;
+    const targetVal = round(before + signedOld, 2);
     const amountMode = ui.recordAmountMode === 'target' ? 'target' : 'delta';
+    const amountLabel = type === 'interest' ? '利息金额' : type === 'fee' ? '费用金额' : type === 'cashProfit' ? '收益金额（可负）' : '变化金额';
+    const amountHint = type === 'interest' ? '利息会增加账户现金' : type === 'fee' ? '费用会减少账户现金' : type === 'cashProfit' ? '正数表示浮盈，负数表示浮亏' : '填写本次增加或减少的金额';
     fields = '<div class="form-grid">' +
       '<div class="field full"><label>输入方式</label><div class="segmented field-seg" id="record-amount-mode">' +
         '<button type="button" class="seg ' + (amountMode === 'delta' ? 'active' : '') + '" data-amount-mode="delta">变化金额</button>' +
         '<button type="button" class="seg ' + (amountMode === 'target' ? 'active' : '') + '" data-amount-mode="target">变化后余额</button>' +
       '</div></div>' +
-      '<div class="field full' + (amountMode === 'target' ? ' hidden' : '') + '" id="record-delta-field"><label>变化金额</label><div class="amount-input">' +
+      '<div class="field full' + (amountMode === 'target' ? ' hidden' : '') + '" id="record-delta-field"><label>' + amountLabel + '</label><div class="amount-input">' +
         '<input class="input" id="record-amount" inputmode="decimal" placeholder="0.00" value="' + (valueOf('amount', '') || '') + '">' +
-        '<span class="unit">' + account.currency + '</span></div><div class="hint">填写本次增加或减少的金额</div></div>' +
+        '<span class="unit">' + account.currency + '</span></div><div class="hint">' + amountHint + '</div></div>' +
       '<div class="field full' + (amountMode === 'target' ? '' : ' hidden') + '" id="record-target-field"><label>变化后余额</label><div class="amount-input">' +
         '<input class="input" id="record-target" inputmode="decimal" placeholder="0.00" value="' + targetVal + '">' +
         '<span class="unit">' + account.currency + '</span></div><div class="hint">直接填写操作完成后的账户余额</div></div>' +
       fieldHTML({ id: 'record-date', label: '日期', type: 'date', value: dateVal, attrs: 'max="' + todayKey() + '"' }) +
-      fieldHTML({ id: 'record-note', label: '备注（可选）', value: noteVal, placeholder: '例如：工资 / 家庭支出' }) +
+      fieldHTML({ id: 'record-note', label: '备注（可选）', value: noteVal, placeholder: type === 'cashProfit' ? '例如：现金收益调整' : '例如：工资 / 家庭支出' }) +
     '</div>' +
     '<div class="record-preview" id="record-balance-preview">操作前余额 —</div>' +
-    fxRateFieldHTML(account.currency, true, fxVal);
+    ((type === 'deposit' || type === 'withdraw') ? fxRateFieldHTML(account.currency, true, fxVal) : '');
   } else if (type === 'buy' || type === 'sell') {
     fields = '<div class="form-grid">' + instSelect() +
       fieldHTML({ id: 'record-qty', label: '数量', value: valueOf('qty', ''), placeholder: '0', inputmode: 'decimal' }) +
@@ -385,6 +389,7 @@ function openRecordForm(accountId, type, instrumentId, editId) {
     let balanceMode = ui.recordAmountMode === 'target' ? 'target' : 'delta';
     const beforeAtDate = () => accountCashBefore(account.id, (dateInput && dateInput.value) || dateVal, editRec && editRec.id);
     const money = v => fmtMoney(v, { currency: account.currency });
+    const signedOf = amount => (type === 'withdraw' || type === 'fee') ? -amount : amount;
     const renderBalance = () => {
       const before = beforeAtDate();
       let signed = 0, target = null;
@@ -395,13 +400,13 @@ function openRecordForm(accountId, type, instrumentId, editId) {
         }
       } else {
         const amount = parseNumber(amountInput.value);
-        signed = type === 'deposit' ? amount : -amount;
+        signed = signedOf(amount);
         target = before + signed;
       }
       let hint = '';
       if (balanceMode === 'target' && target !== null) {
-        if (type === 'deposit' && signed < -0.005) hint = '低于操作前余额，请改用「取出」';
-        if (type === 'withdraw' && signed > 0.005) hint = '高于操作前余额，请改用「存入」';
+        if ((type === 'deposit' || type === 'interest') && signed < -0.005) hint = type === 'interest' ? '低于操作前余额，请改用费用或更新收益' : '低于操作前余额，请改用「取出」';
+        if ((type === 'withdraw' || type === 'fee') && signed > 0.005) hint = type === 'fee' ? '高于操作前余额，请改用利息或更新收益' : '高于操作前余额，请改用「存入」';
       }
       balancePreview.innerHTML = '操作前余额 <b>' + money(before) + '</b>' +
         '<span>变化 <b class="' + (signed >= 0 ? 'gain' : 'loss') + '">' + (signed > 0 ? '+' : '') + money(signed) + '</b>' +
@@ -413,7 +418,7 @@ function openRecordForm(accountId, type, instrumentId, editId) {
       const before = beforeAtDate();
       if (next === 'target') {
         const amount = parseNumber(amountInput.value);
-        targetInput.value = round(before + (type === 'deposit' ? amount : -amount), 2);
+        targetInput.value = round(before + signedOf(amount), 2);
       } else {
         if (targetInput.value.trim() !== '') {
           const target = parseNumber(targetInput.value);
@@ -438,7 +443,7 @@ function openRecordForm(accountId, type, instrumentId, editId) {
     const note = cleanText((form.querySelector('#record-note') || {}).value || '', 50);
     const baseRec = { date, note, accountId: account.id, instrumentId: null, amount: 0, qty: 0, price: 0, fee: 0, fxRate: 1, createdAt: nowISO() };
     const fxInput = form.querySelector('#record-fxrate') ? parseNumber(form.querySelector('#record-fxrate').value) : 0;
-    if (type === 'deposit' || type === 'withdraw' || type === 'interest' || type === 'fee') {
+    if (type === 'deposit' || type === 'withdraw' || type === 'interest' || type === 'fee' || type === 'cashProfit') {
       const targetField = form.querySelector('#record-target-field');
       const useTarget = targetField && !targetField.classList.contains('hidden');
       let amount = 0;
@@ -451,11 +456,15 @@ function openRecordForm(accountId, type, instrumentId, editId) {
         if (Math.abs(signed) < 0.005) { toast('余额没有变化', 'error'); return; }
         if (type === 'deposit' && signed < 0) { toast('变化后余额低于操作前余额，请改用取出', 'error'); return; }
         if (type === 'withdraw' && signed > 0) { toast('变化后余额高于操作前余额，请改用存入', 'error'); return; }
-        amount = Math.abs(signed);
+        if (type === 'interest' && signed < 0) { toast('利息会使余额增加，请改用费用或更新收益', 'error'); return; }
+        if (type === 'fee' && signed > 0) { toast('费用会使余额减少，请改用利息或更新收益', 'error'); return; }
+        amount = type === 'cashProfit' ? signed : Math.abs(signed);
       } else {
         amount = parseNumber(form.querySelector('#record-amount') ? form.querySelector('#record-amount').value : 0);
       }
-      if (!(amount > 0)) { toast('请输入金额', 'error'); return; }
+      if (type === 'cashProfit') {
+        if (Math.abs(amount) < 0.005) { toast('请输入收益金额', 'error'); return; }
+      } else if (!(amount > 0)) { toast('请输入金额', 'error'); return; }
       baseRec.type = type; baseRec.amount = amount; baseRec.fxRate = fxInput > 0 ? fxInput : fxAt(account.currency, date);
     } else if (type === 'buy' || type === 'sell') {
       if (!instSel || !instSel.value) { toast('请选择标的', 'error'); return; }

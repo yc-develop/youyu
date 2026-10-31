@@ -1373,3 +1373,6 @@ html[data-theme="light"] .actionbar{background:linear-gradient(180deg,rgba(248,2
 .record-preview{flex-wrap:wrap;gap:4px}
 .record-preview b,.record-preview span{white-space:nowrap}
 html[data-theme="light"] .input[type="date"]{color-scheme:light}
+html[data-theme="light"] .flow-svg path{stroke:rgba(16,24,40,.2)!important}
+html[data-theme="light"] .flow-svg circle{fill:rgba(16,24,40,.38)!important}
+html[data-theme="light"] .sankey-link{mix-blend-mode:multiply;opacity:.92}

@@ -11,6 +11,7 @@ const RECORD_META = {
   sell:     { label: '卖出',     icon: 'arrowUpRight',  tone: 'loss' },
   dividend: { label: '分红',     icon: 'coins',         tone: 'gain' },
   interest: { label: '利息',     icon: 'percent',       tone: 'gain' },
+  cashProfit: { label: '更新收益', icon: 'trendUp',      tone: 'gain' },
   fee:      { label: '费用',     icon: 'minus',         tone: 'loss' },
   price:    { label: '更新估值', icon: 'refresh',       tone: 'blue' },
   fx:       { label: '换汇',     icon: 'swap',          tone: 'blue' },
@@ -429,6 +430,7 @@ function recordCashDelta(rec, account) {
     case 'sell': return ((Number(rec.amount) || 0) - (Number(rec.fee) || 0)) * rate;
     case 'dividend':
     case 'interest': return (Number(rec.amount) || 0) * rate;
+    case 'cashProfit': return (Number(rec.amount) || 0) * rate;
     case 'fee': return -(Number(rec.amount) || 0);
     case 'flow': return rec.ledgerAdjust ? (Number(rec.cashNative) || 0) : 0;
     default: return 0;
@@ -613,7 +615,7 @@ function accountIncome(account) {
     const inst = r.instrumentId ? instrumentById(r.instrumentId) : null;
     const ccy = inst ? inst.currency : account.currency;
     const rate = (recordFx(r, ccy) / rateCNY(baseCurrency()));
-    if (r.type === 'dividend' || r.type === 'interest') income += (Number(r.amount) || 0) * rate;
+    if (r.type === 'dividend' || r.type === 'interest' || r.type === 'cashProfit') income += (Number(r.amount) || 0) * rate;
     if (r.type === 'fee') fees += (Number(r.amount) || 0) * rate;
     if (r.type === 'buy' || r.type === 'sell') fees += (Number(r.fee) || 0) * rate * (inst && inst.currency !== account.currency ? crossRate(inst.currency, account.currency, r.date) : 1);
   });
@@ -800,7 +802,7 @@ function buildDailyAnalytics() {
         const inst = r.instrumentId ? instrumentById(r.instrumentId) : null;
         const ccy = inst ? inst.currency : account.currency;
         const toAcc = inst ? crossRate(inst.currency, account.currency, d) : 1;
-        if (r.type === 'dividend' || r.type === 'interest') income += (Number(r.amount) || 0) * toAcc;
+        if (r.type === 'dividend' || r.type === 'interest' || r.type === 'cashProfit') income += (Number(r.amount) || 0) * toAcc;
         if (r.type === 'fee') fees += (Number(r.amount) || 0);
         if (r.type === 'buy' || r.type === 'sell') fees += (Number(r.fee) || 0) * toAcc;
         if (r.type === 'flow' && r.ledgerAdjust && (r.flowField === 'ending' || r.flowField === 'profit')) valuation += (Number(r.cashNative) || 0) * fxToBaseAt(account.currency, d);
@@ -1239,6 +1241,10 @@ function recordAmountHTML(rec) {
     return '<span class="' + cls + '">' + body + '</span>';
   }
   if (rec.type === 'fx') return '<span class="mono">' + fmtMoney(rec.fromAmount || 0, { currency: rec.fromCcy }) + ' → ' + fmtMoney(rec.toAmount || 0, { currency: rec.toCcy }) + '</span>';
+  if (rec.type === 'cashProfit') {
+    const v = Number(rec.amount) || 0;
+    return '<span class="' + (v >= 0 ? 'gain' : 'loss') + '">' + (v >= 0 ? '+' : '-') + fmtMoney(Math.abs(v), { currency: ccy }) + '</span>';
+  }
   const positive = rec.type === 'deposit' || rec.type === 'sell' || rec.type === 'dividend' || rec.type === 'interest';
   const cls = positive ? 'gain' : (rec.type === 'withdraw' || rec.type === 'buy' || rec.type === 'fee' ? 'loss' : '');
   const sign = positive ? '+' : '-';
@@ -1260,6 +1266,7 @@ function recordSubHTML(rec) {
   return parts.map(esc).join(' · ');
 }
 function recordTone(rec) {
+  if (rec.type === 'cashProfit') return (Number(rec.amount) || 0) >= 0 ? 'gain' : 'loss';
   if (rec.type === 'deposit' || rec.type === 'sell' || rec.type === 'dividend' || rec.type === 'interest') return 'gain';
   if (rec.type === 'withdraw' || rec.type === 'buy' || rec.type === 'fee') return 'loss';
   if (rec.type === 'price' || rec.type === 'flow') return 'blue';
