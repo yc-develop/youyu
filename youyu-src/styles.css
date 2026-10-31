@@ -1382,3 +1382,5 @@ html[data-theme="light"] .sankey-link{mix-blend-mode:multiply;opacity:.92}
 .hero-pnl-line .v{font-weight:650;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hero-pnl-line .pct{font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
 html[data-theme="light"] .hero-note{background:rgba(16,24,40,.035);border-color:rgba(16,24,40,.07)}
+.reb-meta{flex-wrap:wrap;gap:3px 8px}
+.reb-meta > span:first-child{min-width:0}

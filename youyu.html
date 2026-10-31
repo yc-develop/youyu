@@ -1400,6 +1400,8 @@ html[data-theme="light"] .sankey-link{mix-blend-mode:multiply;opacity:.92}
 .hero-pnl-line .v{font-weight:650;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hero-pnl-line .pct{font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
 html[data-theme="light"] .hero-note{background:rgba(16,24,40,.035);border-color:rgba(16,24,40,.07)}
+.reb-meta{flex-wrap:wrap;gap:3px 8px}
+.reb-meta > span:first-child{min-width:0}
 
 </style>
 </head>
@@ -4736,8 +4738,8 @@ function renderStatsPage() {
     eyebrow: 'ALLOCATION & FLOW',
     title: '统计',
     sub: '从整体到细项，看清资产的结构。',
-    actions: (manageSid ? '<a class="icon-btn" href="#/groups/' + encodeURIComponent(manageSid) + '" aria-label="管理自定义分组">' + icon('sliders') + '</a>' : '') +
-      '<button class="icon-btn" data-action="toggle-hide" aria-label="隐藏金额">' + icon(state.settings.hideAmounts ? 'eyeOff' : 'eye') + '</button>'
+    actions: '<button class="icon-btn" data-action="toggle-hide" aria-label="隐藏金额">' + icon(state.settings.hideAmounts ? 'eyeOff' : 'eye') + '</button>' +
+      (manageSid ? '<a class="icon-btn" href="#/groups/' + encodeURIComponent(manageSid) + '" aria-label="管理分组">' + icon('grid') + '</a>' : '')
   }) +
   schemeChipsHTML(sid, 'select-stats-scheme') +
   '<div class="stat-hero"><div><div class="eyebrow">组合总资产</div><div class="big">' + fmtMoney(p.totalMarket) + '</div><div class="cap">含持仓收益 · ' + p.accounts.length + ' 个账户 · ' + p.positions + ' 个持仓</div></div>' +
@@ -4935,8 +4937,7 @@ function renderCalendarPage() {
     eyebrow: 'GAIN CALENDAR',
     title: '收益日历',
     sub: '每天的涨跌，都是长期的一部分。',
-    actions: '<button class="icon-btn" data-action="calendar-today" aria-label="回到本月">' + icon('target') + '</button>' +
-      '<a class="icon-btn" href="#/settings" aria-label="设置">' + icon('sliders') + '</a>'
+    actions: '<button class="icon-btn" data-action="calendar-today" aria-label="回到本月">' + icon('target') + '</button>'
   });
 
   const controls = schemeChipsHTML(sid, 'select-calendar-scheme') + groupChips +
@@ -5207,7 +5208,7 @@ function renderRebalancePage() {
       '<div class="donut-mini-wrap">' + donutCurrent + '<div class="cap"><b>当前配置</b>' + fmtMoney(gb.total, { compact: true }) + '</div></div>' +
       '<div class="donut-mini-wrap">' + donutTarget + '<div class="cap"><b>目标配置</b>' + (schemeTargetTotal(scheme) || 0).toFixed(0) + '%</div></div>' +
     '</div>' +
-    '<div class="reb-summary"><div class="l">' + icon(offenders.length ? 'alert' : 'check') + (offenders.length ? offenders.length + ' 个分组超出目标范围' : '当前配置在目标范围内') + '</div><div class="r">' + (offenders.length ? '有可优化空间' : '保持即可') + '</div></div>' +
+    '<div class="reb-summary"><div class="l">' + icon(offenders.length ? 'alert' : 'check') + (offenders.length ? offenders.length + ' 个分组偏离目标范围' : '当前配置在目标范围内') + '</div><div class="r">' + (offenders.length ? '有可优化空间' : '保持即可') + '</div></div>' +
     (Math.abs(schemeTargetTotal(scheme) - 100) > 0.01 ? '<div class="info-banner warn" style="margin-top:10px">' + icon('alert') + '<div>目标比例合计为 <b>' + schemeTargetTotal(scheme).toFixed(1) + '%</b>，当前页按归一化比例计算。</div></div>' : '') +
     (ungrouped ? '<div class="info-banner warn" style="margin-top:10px">' + icon('alert') + '<div>' + fmtMoney(ungrouped.value, { compact: true }) + ' 资产未分组，无法参与再平衡。' +
       '<button class="text-btn" style="font-size:9px;margin-left:4px" data-action="go" data-href="#/groups/' + encodeURIComponent(sid) + '">去分组 ' + icon('chevronRight') + '</button></div></div>' : '') +
@@ -5234,11 +5235,11 @@ function rebalanceRows(items, tolerance) {
     const diff = it.drift;
     return '<div class="reb-row">' +
       '<div class="reb-top"><span class="dot" style="background:' + it.color + '"></span><span class="name">' + esc(it.name) + '</span>' +
-        '<span class="st ' + statusCls + '">' + statusText + '</span><span class="val">' + current.toFixed(1) + '%</span></div>' +
+        '<span class="st ' + statusCls + '">' + statusText + '</span></div>' +
       '<div class="reb-track"><span class="reb-zone" style="left:' + left.toFixed(1) + '%;width:' + width.toFixed(1) + '%"></span>' +
         '<span class="reb-fill" style="width:' + current.toFixed(1) + '%;background:' + it.color + '"></span>' +
         '<span class="reb-target" style="left:calc(' + target.toFixed(1) + '% - 1px)"></span></div>' +
-      '<div class="reb-meta"><span>目标 <b>' + target.toFixed(1) + '%</b> · ' + (it.status === 'high' ? '超出' : it.status === 'low' ? '低于' : '接近') + ' <b class="diff ' + statusCls + '">' + (diff >= 0 ? '+' : '') + diff.toFixed(1) + '%</b></span>' +
+      '<div class="reb-meta"><span>目标 <b>' + target.toFixed(1) + '%</b> · 当前 <b>' + current.toFixed(1) + '%</b> · ' + (it.status === 'high' ? '超出' : it.status === 'low' ? '低于' : '接近') + ' <b class="diff ' + statusCls + '">' + (diff >= 0 ? '+' : '') + diff.toFixed(1) + '%</b></span>' +
         '<span>' + (it.status === 'ok' ? '在目标区间内' : Math.abs(it.delta) < 0.5 ? '无需操作' : (it.delta > 0 ? '需买入 ' : '需卖出 ') + fmtMoney(Math.abs(it.delta), { compact: true })) + '</span></div>' +
     '</div>';
   }).join('');
@@ -5654,7 +5655,7 @@ function renderSettingsPage() {
   '<div class="settings-group"><div class="label">关于</div><div class="settings-card">' +
     '<div class="setting-row"><span class="setting-icon accent">' + icon('shield') + '</span><span class="setting-main"><span class="t">本地存储</span><span class="s">所有数据保存在浏览器 localStorage，不上传服务器。清除浏览器数据会丢失账本，请定期导出备份。</span></span></div>' +
     '<div class="setting-row"><span class="setting-icon blue">' + icon('chart') + '</span><span class="setting-main"><span class="t">行情数据</span><span class="s">名称搜索来自新浪财经，最新报价来自腾讯行情；公开接口可能受网络影响，仅供估值参考。</span></span></div>' +
-    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v2.8</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
+    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v2.9</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
   '</div></div>' +
   '<div class="version">' + esc(APP_NAME) + ' · 投资组合<br>不构成投资建议 · 数据仅供参考</div>' +
   '<div style="height:8px"></div>';

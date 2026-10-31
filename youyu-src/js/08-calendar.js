@@ -65,8 +65,7 @@ function renderCalendarPage() {
     eyebrow: 'GAIN CALENDAR',
     title: '收益日历',
     sub: '每天的涨跌，都是长期的一部分。',
-    actions: '<button class="icon-btn" data-action="calendar-today" aria-label="回到本月">' + icon('target') + '</button>' +
-      '<a class="icon-btn" href="#/settings" aria-label="设置">' + icon('sliders') + '</a>'
+    actions: '<button class="icon-btn" data-action="calendar-today" aria-label="回到本月">' + icon('target') + '</button>'
   });
 
   const controls = schemeChipsHTML(sid, 'select-calendar-scheme') + groupChips +

@@ -21,8 +21,8 @@ function renderStatsPage() {
     eyebrow: 'ALLOCATION & FLOW',
     title: '统计',
     sub: '从整体到细项，看清资产的结构。',
-    actions: (manageSid ? '<a class="icon-btn" href="#/groups/' + encodeURIComponent(manageSid) + '" aria-label="管理自定义分组">' + icon('sliders') + '</a>' : '') +
-      '<button class="icon-btn" data-action="toggle-hide" aria-label="隐藏金额">' + icon(state.settings.hideAmounts ? 'eyeOff' : 'eye') + '</button>'
+    actions: '<button class="icon-btn" data-action="toggle-hide" aria-label="隐藏金额">' + icon(state.settings.hideAmounts ? 'eyeOff' : 'eye') + '</button>' +
+      (manageSid ? '<a class="icon-btn" href="#/groups/' + encodeURIComponent(manageSid) + '" aria-label="管理分组">' + icon('grid') + '</a>' : '')
   }) +
   schemeChipsHTML(sid, 'select-stats-scheme') +
   '<div class="stat-hero"><div><div class="eyebrow">组合总资产</div><div class="big">' + fmtMoney(p.totalMarket) + '</div><div class="cap">含持仓收益 · ' + p.accounts.length + ' 个账户 · ' + p.positions + ' 个持仓</div></div>' +
