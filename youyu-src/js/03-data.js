@@ -439,6 +439,16 @@ function accountCashNative(account) {
   recordsForAccount(account.id).forEach(r => { cash += recordCashDelta(r, account); });
   return cash;
 }
+function accountCashBefore(accountId, date, excludeId) {
+  const account = accountById(accountId);
+  if (!account) return 0;
+  let cash = 0;
+  recordsForAccount(accountId).forEach(r => {
+    if (r.id === excludeId || (date && r.date > date)) return;
+    cash += recordCashDelta(r, account);
+  });
+  return round(cash, 2);
+}
 
 /* ---------- instrument metrics ---------- */
 function computeInstrumentMetrics(instId) {

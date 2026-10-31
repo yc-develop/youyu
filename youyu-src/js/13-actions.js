@@ -10,6 +10,7 @@ function defaultUi() {
     accountChartMode: 'value',
     instrumentPeriod: 365,
     instrumentChartMode: 'price',
+    recordAmountMode: 'delta',
     trendPeriod: 365,
     trendMetric: 'amount',
     flowAccountPeriod: {},

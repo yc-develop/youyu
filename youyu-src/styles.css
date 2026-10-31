@@ -1370,3 +1370,6 @@ html[data-theme="light"] .switch.on{background:var(--accent)}
 html[data-theme="light"] .switch.on::after{background:#fff}
 html[data-theme="light"] .tabbar{background:rgba(255,255,255,.97)}
 html[data-theme="light"] .actionbar{background:linear-gradient(180deg,rgba(248,249,251,.82),rgba(255,255,255,.98) 28%,#fff)}
+.record-preview{flex-wrap:wrap;gap:4px}
+.record-preview b,.record-preview span{white-space:nowrap}
+html[data-theme="light"] .input[type="date"]{color-scheme:light}
