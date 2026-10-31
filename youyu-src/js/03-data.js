@@ -48,7 +48,8 @@ function normalizeState(obj) {
   if (!obj || !Array.isArray(obj.accounts) || !Array.isArray(obj.records)) return false;
   obj.settings = obj.settings || {};
   obj.settings.base = CURRENCY_META[obj.settings.base] ? obj.settings.base : 'CNY';
-  obj.settings.considerFx = obj.settings.considerFx !== false;
+  // 阶段一：统一排除汇兑损益，汇率只用于金额折算。
+  obj.settings.considerFx = false;
   obj.settings.tolerance = Number.isFinite(Number(obj.settings.tolerance)) ? Number(obj.settings.tolerance) : 3;
   obj.settings.hideAmounts = !!obj.settings.hideAmounts;
   obj.settings.theme = obj.settings.theme === 'light' ? 'light' : 'dark';
@@ -521,9 +522,14 @@ function computeInstrumentMetrics(instId) {
   const displayProfit = consider ? fullProfit : baseProfit;
   const totalInvestedBase = totalBuyCNY / rateCNY(baseCurrency());
   const returnPct = totalInvestedBase > 0 ? displayProfit / totalInvestedBase : 0;
+  const instFx = fxToBase(inst.currency);
+  const profitNativeInst = instFx > 0 ? displayProfit / instFx : displayProfit;
+  const returnPctNative = totalBuyNative > 0 ? profitNativeInst / totalBuyNative : 0;
+  const unrealizedNativeInst = instFx > 0 ? (pricePnlBase + (consider ? fxPnlBase : 0)) / instFx : pricePnlBase;
   const totalPnlNative = realizedNative + (marketNative - costNative) + dividendsNative;
   const prevFxBase = fxToBaseAt(inst.currency, addDays(todayKey(), -1));
   const dayPnl = consider ? qty * (price * curFx - prev * prevFxBase) : (price - prev) * qty * curFx;
+  const dayPnlNative = instFx > 0 ? dayPnl / instFx : dayPnl;
   const dayPct = prev ? (price - prev) / prev : 0;
   const out = {
     inst, account: found.account, accountId: found.accountId,
@@ -535,7 +541,7 @@ function computeInstrumentMetrics(instId) {
     pricePnl: pricePnlBase, fxPnl: fxPnlBase,
     baseProfit, fullProfit, profit: displayProfit, displayProfit,
     unrealized: pricePnlBase + (consider ? fxPnlBase : 0),
-    totalPnlNative, returnPct,
+    totalPnlNative, returnPct, profitNativeInst, returnPctNative, unrealizedNativeInst, dayPnlNative, instFx,
     totalBuyNative, totalBuyBase: totalInvestedBase, totalSellNative,
     totalFeesNative,
     dayPnl, dayPct,
@@ -560,62 +566,42 @@ function instrumentProfitSeries(im) {
     .filter(r => r.type === 'buy' || r.type === 'sell' || r.type === 'dividend')
     .slice()
     .sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
-  let ri = 0, qty = 0, costNative = 0, costCNY = 0, realizedNative = 0, dividendsNative = 0;
+  let ri = 0, qty = 0, costNative = 0, realizedNative = 0, dividendsNative = 0;
   const applyTo = date => {
     while (ri < recs.length && recs[ri].date <= date) {
       const rec = recs[ri++];
-      const rate = recordFx(rec, inst.currency);
       const amount = Number(rec.amount) || (Number(rec.qty) * Number(rec.price)) || 0;
       const fee = Number(rec.fee) || 0;
       if (rec.type === 'buy') {
-        const value = amount + fee;
         qty += Number(rec.qty) || 0;
-        costNative += value;
-        costCNY += value * rate;
+        costNative += amount + fee;
       } else if (rec.type === 'sell') {
         const sellQty = Math.min(Number(rec.qty) || 0, qty);
         const avgCost = qty > 0 ? costNative / qty : 0;
-        const avgRate = costNative > 0 ? costCNY / costNative : rate;
         const soldCost = avgCost * sellQty;
         realizedNative += (Number(rec.price) || 0) * sellQty - soldCost - fee;
         qty -= sellQty;
         costNative = Math.max(0, costNative - soldCost);
-        costCNY = Math.max(0, costCNY - soldCost * avgRate);
       } else if (rec.type === 'dividend') {
         dividendsNative += amount;
       }
     }
   };
-  const base = baseCurrency();
-  const rateBase = rateCNY(base);
   const out = [];
   list.forEach(([date, price]) => {
     applyTo(date);
     const marketNative = qty * Number(price);
-    const curFx = fxToBaseAt(inst.currency, date);
-    const avgFx = costNative > 0 && costCNY > 0 ? (costCNY / rateBase) / costNative : curFx;
-    const realizedBase = realizedNative * curFx;
-    const dividendBase = dividendsNative * curFx;
-    const pricePnlBase = (marketNative - costNative) * curFx;
-    const fxPnlBase = state.settings.considerFx ? costNative * (curFx - avgFx) : 0;
-    out.push({ date, value: realizedBase + pricePnlBase + dividendBase + fxPnlBase });
+    out.push({ date, value: realizedNative + (marketNative - costNative) + dividendsNative });
   });
-  const today = todayKey();
-  if (inst.market && out.length && out[out.length - 1].date < today && (!period || today >= addDays(today, -period))) {
-    applyTo(today);
-    const price = priceNow(inst.id);
-    const marketNative = qty * price;
-    const curFx = fxToBase(inst.currency);
-    const avgFx = costNative > 0 && costCNY > 0 ? (costCNY / rateBase) / costNative : curFx;
-    const realizedBase = realizedNative * curFx;
-    const dividendBase = dividendsNative * curFx;
-    const pricePnlBase = (marketNative - costNative) * curFx;
-    const fxPnlBase = state.settings.considerFx ? costNative * (curFx - avgFx) : 0;
-    out.push({ date: today, value: realizedBase + pricePnlBase + dividendBase + fxPnlBase });
+  if (inst.market && out.length && out[out.length - 1].date < todayKey() && (!period || todayKey() >= addDays(todayKey(), -period))) {
+    applyTo(todayKey());
+    const marketNative = qty * priceNow(inst.id);
+    out.push({ date: todayKey(), value: realizedNative + (marketNative - costNative) + dividendsNative });
   }
-  if (out.length) out[out.length - 1].value = im.profit;
+  if (out.length) out[out.length - 1].value = im.profitNativeInst;
   return out;
 }
+
 
 /* ---------- cash income ---------- */
 function accountIncome(account) {
@@ -907,7 +893,7 @@ function buildDailyAnalytics() {
       };
       components.push(comp);
       instComps.push(comp);
-      byInstrument.set(inst.id, { inst, account, values: vals, pnls: pnls, dates });
+      byInstrument.set(inst.id, { inst, account, values: vals, pnls: pnls, nativeValues: nativeVals, nativePnls: nativePnls, dates });
     });
 
     const accVals = new Array(N).fill(0);
@@ -1214,20 +1200,25 @@ function instrumentFlow(instrumentId, periodKey) {
   const key = periodKey || 'all';
   const bounds = flowPeriodBounds(key);
   const daily = buildDailyAnalytics();
-  const series = daily.byInstrument.get(instrumentId);
+  const raw = daily.byInstrument.get(instrumentId);
+  const series = raw ? Object.assign({}, raw, {
+    values: raw.nativeValues || raw.values,
+    pnls: raw.nativePnls || raw.pnls
+  }) : null;
   const beginning = bounds.start ? flowValueAt(series, addDays(bounds.start, -1)) : 0;
   const ending = flowValueAt(series, bounds.end);
   let inAmt = 0, outAmt = 0;
   recordsForInstrument(instrumentId).forEach(r => {
     if (!flowInPeriod(r, bounds)) return;
-    if (r.type === 'buy') inAmt += flowRecordBase(r, inst.currency, 'buy');
-    else if (r.type === 'sell') outAmt += flowRecordBase(r, inst.currency, 'sell');
-    else if (r.type === 'dividend') outAmt += flowRecordBase(r, inst.currency, 'income');
+    const fee = Number(r.fee) || 0;
+    if (r.type === 'buy') inAmt += (Number(r.amount) || 0) + fee;
+    else if (r.type === 'sell') outAmt += (Number(r.amount) || 0) - fee;
+    else if (r.type === 'dividend') outAmt += Number(r.amount) || 0;
   });
   const net = inAmt - outAmt;
   const profit = ending - beginning - net;
   return {
-    scope: 'instrument', periodKey: key, periodLabel: bounds.label,
+    scope: 'instrument', periodKey: key, periodLabel: bounds.label, currency: inst.currency,
     beginning, in: inAmt, out: outAmt, net, profit, ending,
     label: bounds.label
   };

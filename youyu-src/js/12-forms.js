@@ -96,7 +96,7 @@ function openInstrumentForm(accountId, instrumentId) {
     fieldHTML({ id: 'inst-name', label: '标的名称', value: editing ? editing.name : '', placeholder: '例如：苹果 / 沪深300ETF', full: true }) +
     fieldHTML({ id: 'inst-symbol', label: '代码 / 简称', value: editing ? editing.symbol : '', placeholder: 'AAPL / 000051' }) +
     fieldHTML({ id: 'inst-class', label: '标的类型', type: 'select', value: editing ? editing.cls : (instrumentTypes().find(t => t.id === 'stock') ? 'stock' : (instrumentTypes()[0] || {}).id), options: classes, hint: '用于资产归类、默认分组和统计口径；可在「我的 → 类型管理」中新增或改名。' }) +
-    fieldHTML({ id: 'inst-currency', label: '计价币种', type: 'select', value: editing ? editing.currency : account.currency, options: currencyOptions(), attrs: editing ? 'disabled' : '' }) +
+    fieldHTML({ id: 'inst-currency', label: '计价币种', type: 'select', value: account.currency, options: currencyOptions(), attrs: 'disabled', hint: '跟随账户币种，一个账户只使用一种币种' }) +
     fieldHTML({ id: 'inst-price', label: editing ? '当前价格' : '当前价格 / 净值', value: editing ? fmtNumber(priceNow(editing.id), { decimals: 4 }) : '', placeholder: '0.00', inputmode: 'decimal' }) +
     (editing ? '' : fieldHTML({ id: 'inst-qty', label: '初始持有数量', value: '', placeholder: '可不填', inputmode: 'decimal' })) +
     (editing ? '' : '<div class="field"><label>初始成本价</label><div class="amount-input"><input class="input" id="inst-cost" inputmode="decimal" placeholder="默认等于当前价"><span class="unit" id="inst-cost-unit">' + (editing ? editing.currency : account.currency) + '</span></div><div class="hint">仅填写数量时，按当前价建仓</div></div>') +
@@ -133,8 +133,6 @@ function openInstrumentForm(accountId, instrumentId) {
     form.querySelector('#inst-symbol').value = meta.symbol || meta.code || '';
     const clsSel = form.querySelector('#inst-class');
     if (clsSel && meta.cls) clsSel.value = meta.cls;
-    const ccySel2 = form.querySelector('#inst-currency');
-    if (ccySel2 && !editing && meta.currency) ccySel2.value = meta.currency;
     const priceInput = form.querySelector('#inst-price');
     if (priceInput && quote && quote.price > 0) priceInput.value = String(quote.price);
     const unit = form.querySelector('#inst-cost-unit');
@@ -143,8 +141,8 @@ function openInstrumentForm(accountId, instrumentId) {
     showMarketStatus();
   };
   const pickMarketResult = async (meta) => {
-    if (editing && meta.currency && editing.currency && meta.currency !== editing.currency) {
-      setMarketStatus('该行情币种为 ' + esc(meta.currency) + '，与当前标的币种 ' + esc(editing.currency) + ' 不一致，请新建对应币种的标的。', 'warn');
+    if (meta.currency && meta.currency !== account.currency) {
+      setMarketStatus('该行情币种为 ' + esc(meta.currency) + '，与当前账户币种 ' + esc(account.currency) + ' 不一致。请先创建对应币种的账户，再添加该标的。', 'warn');
       return;
     }
     marketResults.innerHTML = '';
@@ -194,23 +192,20 @@ function openInstrumentForm(accountId, instrumentId) {
     btn.classList.add('active');
     form.querySelector('#inst-color').value = btn.getAttribute('data-color');
   }));
-  const ccySel = form.querySelector('#inst-currency');
-  if (ccySel && !editing) {
-    ccySel.addEventListener('change', () => {
-      const unit = form.querySelector('#inst-cost-unit');
-      if (unit) unit.textContent = ccySel.value;
-    });
-  }
   wrap.querySelector('[data-inst-save]').addEventListener('click', () => {
     const name = cleanText(form.querySelector('#inst-name').value, 30);
     if (!name) { toast('请填写标的名称', 'error'); return; }
     const symbol = cleanText(form.querySelector('#inst-symbol').value, 16) || name.slice(0, 6);
     const cls = form.querySelector('#inst-class').value || 'other';
-    const currency = ccySel ? ccySel.value : account.currency;
+    const currency = account.currency;
     const color = form.querySelector('#inst-color').value || '#ff9f45';
     const note = cleanText(form.querySelector('#inst-note').value, 40);
     const price = Math.max(0, parseNumber(form.querySelector('#inst-price').value));
     if (!editing && !(price > 0)) { toast('请输入当前价格或净值', 'error'); return; }
+    if (editing && editing.currency && editing.currency !== account.currency) {
+      toast('该标的币种与账户币种不一致，请将该标的拆分到对应币种账户', 'error');
+      return;
+    }
     state.isDemo = false;
     if (editing) {
       editing.name = name; editing.symbol = symbol; editing.cls = cls; editing.color = color;

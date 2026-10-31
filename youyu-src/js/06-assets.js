@@ -172,7 +172,7 @@ function renderInstrumentPage(instrumentId) {
   if (!im) return backHead('标的') + '<div class="detail-body">' + emptyBlock('标的不存在', '它可能已经被删除。', '<a class="btn primary sm" href="#/assets">返回资产</a>', 'alert') + '</div>';
   const inst = im.inst;
   const a = im.account;
-  const money = moneyParts(im.marketBase);
+  const money = moneyParts(im.marketNative, inst.currency);
   const records = recordsForInstrument(instrumentId).slice().reverse();
   const isForeign = inst.currency !== baseCurrency();
   const flowPeriod = flowPeriodKey('instrument', instrumentId);
@@ -183,26 +183,26 @@ function renderInstrumentPage(instrumentId) {
         '<div class="dh-main"><div class="dh-name">' + esc(inst.name) + '</div><div class="dh-sub"><span class="instrument-symbol">' + esc(inst.symbol) + '</span><span class="dot"></span><span>' + esc(assetClassName(inst.cls)) + '</span><span class="dot"></span><span>' + esc(a.name) + '</span>' + (inst.market ? '<span class="market-connected">' + (inst.demo ? '示例' : '行情') + '</span>' : '') + '</div></div>' +
         '<span class="ccy" style="font-size:9px;border:1px solid var(--line);border-radius:5px;padding:3px 5px;color:var(--faint)">' + inst.currency + '</span></div>' +
       '<div class="detail-total"><span class="cur">' + money.sym + '</span><span>' + money.main + '</span>' + (money.dec ? '<span class="cur" style="font-size:15px">.' + money.dec + '</span>' : '') + '</div>' +
-      '<div class="detail-pnl"><b class="' + pnlClass(im.profit) + '">' + (im.profit >= 0 ? '+' : '') + fmtMoney(im.profit) + '</b><span class="' + pnlClass(im.returnPct) + '">' + fmtPct(im.returnPct, 2) + '</span><span class="muted">累计收益</span>' +
-        '<span class="' + pnlClass(im.dayPnl) + '" style="margin-left:auto;font-size:9.5px">今日 ' + pnlText(im.dayPnl) + ' · ' + fmtPct(im.dayPct, 2) + '</span></div>' +
+      '<div class="detail-pnl"><b class="' + pnlClass(im.profitNativeInst) + '">' + (im.profitNativeInst >= 0 ? '+' : '') + fmtMoney(im.profitNativeInst, { currency: inst.currency }) + '</b><span class="' + pnlClass(im.returnPctNative) + '">' + fmtPct(im.returnPctNative, 2) + '</span><span class="muted">累计收益</span>' +
+        '<span class="' + pnlClass(im.dayPnlNative) + '" style="margin-left:auto;font-size:9.5px">今日 ' + pnlText(im.dayPnlNative, { currency: inst.currency }) + ' · ' + fmtPct(im.dayPct, 2) + '</span></div>' +
       '<div class="detail-stats">' +
         '<div><div class="l">最新价</div><div class="v">' + fmtPrice(im.price, inst.currency) + '</div></div>' +
         '<div><div class="l">持仓数量</div><div class="v">' + fmtQty(im.qty) + '<small>' + qtyUnit(inst.cls) + '</small></div></div>' +
-        '<div><div class="l">持仓成本</div><div class="v">' + fmtMoney(im.costBase, { compact: true }) + '</div></div>' +
+        '<div><div class="l">持仓成本</div><div class="v">' + fmtMoney(im.costNative, { compact: true, currency: inst.currency }) + '</div></div>' +
       '</div>' +
     '</section>' +
     instrumentChartCard(im) +
     '<div class="detail-section"><div class="section-head"><div><h2>持仓概览</h2><div class="sub">当前持仓与收益拆解</div></div><span class="tiny">' + inst.currency + '</span></div>' +
       '<div class="list-card card-pad-sm" style="padding:4px 14px">' +
-        positionRow('持仓市值', fmtMoney(im.marketBase), '按当前汇率折算') +
-        positionRow('平均成本', fmtPrice(im.avgCost, inst.currency) + ' × ' + fmtQty(im.qty) + qtyUnit(inst.cls), '成本金额 ' + fmtMoney(im.costBase, { currency: inst.currency })) +
-        positionRow('浮动盈亏', '<span class="' + pnlClass(im.unrealized) + '">' + pnlText(im.unrealized) + '</span>', '含价格' + (state.settings.considerFx && isForeign ? '与汇率' : '') + '变化') +
-        positionRow('累计已实现', '<span class="' + pnlClass(im.realized) + '">' + pnlText(im.realized) + '</span>', '已卖出部分') +
-        (im.dividendBase > 0 ? positionRow('累计分红', '<span class="gain">' + pnlText(im.dividendBase) + '</span>', '已计入收益') : '') +
+        positionRow('持仓市值', fmtMoney(im.marketNative, { currency: inst.currency }), '账户币种计价') +
+        positionRow('平均成本', fmtPrice(im.avgCost, inst.currency) + ' × ' + fmtQty(im.qty) + qtyUnit(inst.cls), '成本金额 ' + fmtMoney(im.costNative, { currency: inst.currency })) +
+        positionRow('浮动盈亏', '<span class="' + pnlClass(im.unrealizedNativeInst) + '">' + pnlText(im.unrealizedNativeInst, { currency: inst.currency }) + '</span>', '价格变化') +
+        positionRow('累计已实现', '<span class="' + pnlClass(im.realized) + '">' + pnlText(im.realized, { currency: inst.currency }) + '</span>', '已卖出部分') +
+        (im.dividendNative > 0 ? positionRow('累计分红', '<span class="gain">' + pnlText(im.dividendNative, { currency: inst.currency }) + '</span>', '已计入收益') : '') +
         positionRow('持有天数', im.firstDate ? im.holdingDays + ' 天' : '—', im.firstDate ? '首次买入 ' + im.firstDate : '暂无交易') +
         (inst.market ? positionRow('行情来源', esc('腾讯行情 · ' + (inst.market.label || '') + ' ' + (inst.market.symbol || '')), inst.market.lastUpdated ? '最近同步 ' + inst.market.lastUpdated : '尚未同步，可点击刷新行情') : '') +
       '</div></div>' +
-    '<div class="detail-section" style="margin-top:14px">' + flowDiagramHTML(instrumentFlow(instrumentId, flowPeriod), { isInstrument: true, scope: 'instrument', id: instrumentId, periodKey: flowPeriod, periods: flowPeriods('instrument', instrumentId), editable: false }) + '</div>' +
+    '<div class="detail-section" style="margin-top:14px">' + flowDiagramHTML(instrumentFlow(instrumentId, flowPeriod), { isInstrument: true, scope: 'instrument', id: instrumentId, periodKey: flowPeriod, periods: flowPeriods('instrument', instrumentId), editable: false, currency: inst.currency }) + '</div>' +
     (isForeign ? '<div class="info-banner">' + icon('swap') + '<div>以 ' + inst.currency + ' 计价，按当前汇率 <b>1 ' + inst.currency + ' = ' + fmtPrice(fxToBase(inst.currency), baseCurrency()) + '</b> 折算。汇兑损益 <b class="' + pnlClass(im.fxPnl) + '">' + pnlText(im.fxPnl) + '</b> ' + (state.settings.considerFx ? '已计入' : '未计入') + '累计收益。</div></div>' : '') +
     '<div class="detail-section"><div class="section-head"><div><h2>更新记录</h2><div class="sub">买入、卖出、分红与估值更新</div></div><button class="text-btn" data-action="open-records" data-scope="instrument" data-id="' + esc(inst.id) + '">全部 ' + records.length + '</button></div>' +
       recordsCardHTML(records, { limit: 7 }) + '</div>' +
@@ -228,19 +228,19 @@ function instrumentChartCard(im) {
     if (series.length > 1) {
       let peak = -Infinity, maxDd = 0;
       series.forEach(p => { if (p.value > peak) peak = p.value; if (Number.isFinite(peak)) maxDd = Math.min(maxDd, p.value - peak); });
-      const finalProfit = im.profit;
+      const finalProfit = im.profitNativeInst;
       const color = finalProfit >= 0 ? '#ff5d6c' : '#35d39a';
       chartHTML = lineChartHTML({
-        points: series, mode: 'amount', currency: baseCurrency(),
+        points: series, mode: 'amount', currency: inst.currency,
         color, height: 174, baseline: true, aria: '标的累计收益曲线'
       });
       rangeText = dateRangeLabel(series[0].date, series[series.length - 1].date);
       lastDate = series[series.length - 1].date;
       metricsHTML = '<div class="metrics">' +
-        '<div class="metric"><div class="lab">累计收益</div><div class="val ' + pnlClass(finalProfit) + '">' + fmtMoney(finalProfit) + '</div><div class="sub">' + baseCurrency() + '</div></div>' +
-        '<div class="metric"><div class="lab">最大回撤</div><div class="val loss">' + fmtMoney(maxDd) + '</div><div class="sub">金额</div></div>' +
-        '<div class="metric"><div class="lab">当前浮盈</div><div class="val ' + pnlClass(im.unrealized) + '">' + fmtMoney(im.unrealized) + '</div><div class="sub">未实现</div></div>' +
-        '<div class="metric"><div class="lab">累计已实现</div><div class="val ' + pnlClass(im.realized) + '">' + fmtMoney(im.realized) + '</div><div class="sub">已落袋</div></div>' +
+        '<div class="metric"><div class="lab">累计收益</div><div class="val ' + pnlClass(finalProfit) + '">' + fmtMoney(finalProfit, { currency: inst.currency }) + '</div><div class="sub">' + inst.currency + '</div></div>' +
+        '<div class="metric"><div class="lab">最大回撤</div><div class="val loss">' + fmtMoney(maxDd, { currency: inst.currency }) + '</div><div class="sub">金额</div></div>' +
+        '<div class="metric"><div class="lab">当前浮盈</div><div class="val ' + pnlClass(im.unrealizedNativeInst) + '">' + fmtMoney(im.unrealizedNativeInst, { currency: inst.currency }) + '</div><div class="sub">未实现</div></div>' +
+        '<div class="metric"><div class="lab">累计已实现</div><div class="val ' + pnlClass(im.realized) + '">' + fmtMoney(im.realized, { currency: inst.currency }) + '</div><div class="sub">已落袋</div></div>' +
       '</div>';
     } else {
       chartHTML = chartEmptyHTML('还没有足够的累计收益数据', 174);
@@ -270,7 +270,7 @@ function instrumentChartCard(im) {
   } else {
     chartHTML = chartEmptyHTML(inst.market ? '正在获取历史行情…' : '还没有足够的价格历史', 174);
   }
-  const ccyLabel = mode === 'profit' ? baseCurrency() + ' 累计收益' : inst.currency + ' 原币计价';
+  const ccyLabel = mode === 'profit' ? inst.currency + ' 累计收益' : inst.currency + ' 原币计价';
   const sourceLabel = inst.market ? '行情自动同步' : '按记录生成';
   return '<div class="detail-chart-card">' +
     '<div class="chart-head"><div><h2>' + (mode === 'profit' ? '累计收益' : '价格走势') + '</h2><div class="sub">' + (rangeText || '暂无数据') + ' · ' + ccyLabel + ' · ' + sourceLabel + '</div></div>' +
