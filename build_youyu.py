@@ -11,4 +11,8 @@ if '</script' in app:
 html = template.replace('/*__STYLE__*/', style).replace('/*__APP__*/', app)
 out = root / 'youyu.html'
 out.write_text(html)
+# GitHub Pages 直接使用仓库根目录，保持 index.html 同步
+index = root / 'index.html'
+index.write_text(html)
 print('built', out, f'{out.stat().st_size / 1024:.1f} KB', 'js parts', len(parts))
+print('built', index)
