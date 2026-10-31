@@ -691,7 +691,7 @@ function computeAccountMetrics(accountId) {
   const unrealizedNative = profitNative - realizedNativeAccount;
   const out = {
     account, accountId,
-    cashNative, cashBase, holdingsNative, marketNative, marketBase, value: marketBase,
+    cashNative, cashBase, holdingsBase, holdingsNative, marketNative, marketBase, value: marketBase,
     netDeposits: deposits.net, deposits: deposits.deposits, withdrawals: deposits.withdrawals,
     netDepositsNative: depositsNative.net, depositsNative: depositsNative.deposits, withdrawalsNative: depositsNative.withdrawals,
     profitNative, returnPctNative: depositsNative.net > 0 ? profitNative / depositsNative.net : null,

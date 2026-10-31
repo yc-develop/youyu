@@ -1394,6 +1394,12 @@ html[data-theme="light"] .input[type="date"]{color-scheme:light}
 html[data-theme="light"] .flow-svg path{stroke:rgba(16,24,40,.2)!important}
 html[data-theme="light"] .flow-svg circle{fill:rgba(16,24,40,.38)!important}
 html[data-theme="light"] .sankey-link{mix-blend-mode:multiply;opacity:.92}
+.hero-pnl-list{margin-top:9px;display:flex;flex-direction:column;gap:3px;max-width:100%}
+.hero-pnl-line{display:flex;align-items:baseline;gap:8px;min-width:0;font-size:11.5px}
+.hero-pnl-line .k{font-size:9.5px;color:var(--muted);min-width:48px;flex:0 0 48px}
+.hero-pnl-line .v{font-weight:650;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hero-pnl-line .pct{font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+html[data-theme="light"] .hero-note{background:rgba(16,24,40,.035);border-color:rgba(16,24,40,.07)}
 
 </style>
 </head>
@@ -2867,7 +2873,7 @@ function computeAccountMetrics(accountId) {
   const unrealizedNative = profitNative - realizedNativeAccount;
   const out = {
     account, accountId,
-    cashNative, cashBase, holdingsNative, marketNative, marketBase, value: marketBase,
+    cashNative, cashBase, holdingsBase, holdingsNative, marketNative, marketBase, value: marketBase,
     netDeposits: deposits.net, deposits: deposits.deposits, withdrawals: deposits.withdrawals,
     netDepositsNative: depositsNative.net, depositsNative: depositsNative.deposits, withdrawalsNative: depositsNative.withdrawals,
     profitNative, returnPctNative: depositsNative.net > 0 ? profitNative / depositsNative.net : null,
@@ -4457,16 +4463,16 @@ function renderAssetsPage() {
     '<div class="hero-top"><div class="hero-label">总资产 <span class="tag">含浮盈</span></div>' +
       '<span style="font-size:8.5px;color:rgba(255,255,255,.32);letter-spacing:.03em">更新至 ' + shortDate(todayKey()) + '</span></div>' +
     '<div class="hero-amount"><span class="cur">' + heroMoney.sym + '</span><span>' + heroMoney.main + '</span>' + (heroMoney.dec ? '<span class="dec">.' + heroMoney.dec + '</span>' : '') + '</div>' +
-    '<div class="hero-pnl"><span class="chip ' + (p.unrealized < 0 ? 'loss' : '') + '">' + (p.unrealized > 0 ? '↑ ' : p.unrealized < 0 ? '↓ ' : '') + pnlText(p.unrealized) + '</span>' +
-      '<span class="muted">持仓浮盈 · 累计 ' + (p.returnPct == null ? '—' : fmtPct(p.returnPct, 1)) + '</span></div>' +
+    '<div class="hero-pnl-list">' +
+      '<div class="hero-pnl-line"><span class="k">持仓浮盈</span><span class="v ' + pnlClass(p.unrealized) + '">' + pnlText(p.unrealized) + '</span></div>' +
+      '<div class="hero-pnl-line"><span class="k">累计收益</span><span class="v ' + pnlClass(p.profit) + '">' + pnlText(p.profit) + '</span><span class="pct ' + pnlClass(p.profit) + '">' + (p.returnPct == null ? '—' : fmtPct(p.returnPct, 1)) + '</span></div>' +
+    '</div>' +
     '<div class="hero-stats">' +
       '<div class="hero-stat"><div class="lab">投入本金</div><div class="val">' + fmtMoney(p.netDeposits, { compact: true }) + '</div></div>' +
       '<div class="hero-stat"><div class="lab">可用现金</div><div class="val">' + fmtMoney(p.cash, { compact: true }) + '</div></div>' +
       '<div class="hero-stat"><div class="lab">持仓市值</div><div class="val">' + fmtMoney(p.holdings, { compact: true }) + '</div></div>' +
     '</div>' +
-    '<button class="hero-note" data-action="toggle-fx">' + icon('swap') +
-      '<span>汇率影响 <b>' + (state.settings.considerFx ? '已计入' : '未计入') + '</b> · ' + (state.settings.considerFx ? '汇兑 <b class="' + pnlClass(p.fxPnl) + '">' + pnlText(p.fxPnl) + '</b>' : '仅按本币价格计算') + '</span>' +
-      '<span class="faint">' + baseCurrency() + '</span></button>' +
+    '<div class="hero-note">' + icon('swap') + '<span>汇率仅用于组合折算，不计入收益</span><span class="faint">' + baseCurrency() + '</span></div>' +
   '</section>' +
   '<div class="quick-grid">' +
     '<button class="quick-item" data-action="open-record-picker">' + icon('plus') + '记一笔</button>' +
@@ -5641,7 +5647,7 @@ function renderSettingsPage() {
   '<div class="settings-group"><div class="label">关于</div><div class="settings-card">' +
     '<div class="setting-row"><span class="setting-icon accent">' + icon('shield') + '</span><span class="setting-main"><span class="t">本地存储</span><span class="s">所有数据保存在浏览器 localStorage，不上传服务器。清除浏览器数据会丢失账本，请定期导出备份。</span></span></div>' +
     '<div class="setting-row"><span class="setting-icon blue">' + icon('chart') + '</span><span class="setting-main"><span class="t">行情数据</span><span class="s">名称搜索来自新浪财经，最新报价来自腾讯行情；公开接口可能受网络影响，仅供估值参考。</span></span></div>' +
-    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v2.4</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
+    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v2.5</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
   '</div></div>' +
   '<div class="version">' + esc(APP_NAME) + ' · 投资组合<br>不构成投资建议 · 数据仅供参考</div>' +
   '<div style="height:8px"></div>';
