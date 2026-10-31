@@ -41,7 +41,7 @@ function renderAssetsPage() {
     '<div class="hero-amount"><span class="cur">' + heroMoney.sym + '</span><span>' + heroMoney.main + '</span>' + (heroMoney.dec ? '<span class="dec">.' + heroMoney.dec + '</span>' : '') + '</div>' +
     '<div class="hero-pnl-list">' +
       '<div class="hero-pnl-line"><span class="k">持仓收益</span><span class="v ' + pnlClass(p.unrealized) + '">' + pnlText(p.unrealized) + '</span></div>' +
-      '<div class="hero-pnl-line"><span class="k">累计收益</span><span class="v ' + pnlClass(p.profit) + '">' + pnlText(p.profit) + '</span><span class="pct ' + pnlClass(p.profit) + '">' + (p.returnPct == null ? '—' : fmtPct(p.returnPct, 1)) + '</span></div>' +
+      '<div class="hero-pnl-line"><span class="k">累计收益</span><span class="v ' + pnlClass(p.profit) + '">' + pnlText(p.profit) + '</span><span class="pct ' + pnlClass(p.profit) + '">' + (p.returnPct == null ? '—' : fmtPct(p.returnPct, 2)) + '</span></div>' +
     '</div>' +
     '<div class="hero-stats">' +
       '<div class="hero-stat"><div class="lab">投入本金</div><div class="val">' + fmtMoney(p.netDeposits, { compact: true }) + '</div></div>' +
