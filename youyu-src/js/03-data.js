@@ -437,9 +437,9 @@ function recordCashDelta(rec, account) {
     case 'withdraw': return -(Number(rec.amount) || 0);
     case 'buy': return -((Number(rec.amount) || 0) + (Number(rec.fee) || 0)) * rate;
     case 'sell': return ((Number(rec.amount) || 0) - (Number(rec.fee) || 0)) * rate;
-    case 'dividend':
-    case 'interest': return (Number(rec.amount) || 0) * rate;
-    case 'cashProfit': return (Number(rec.amount) || 0) * rate;
+    case 'dividend': return (Number(rec.amount) || 0) * (inst ? crossRate(inst.currency, account.currency, rec.date) : 1);
+    case 'interest': return Number(rec.amount) || 0;
+    case 'cashProfit': return Number(rec.amount) || 0;
     case 'fee': return -(Number(rec.amount) || 0);
     case 'flow': return rec.ledgerAdjust ? (Number(rec.cashNative) || 0) : 0;
     default: return 0;
@@ -829,6 +829,8 @@ function buildDailyAnalytics() {
     const accRecs = recordsForAccount(account.id);
     const cashValues = new Array(N).fill(0);
     const cashPnls = new Array(N).fill(0);
+    const cashNativeValues = new Array(N).fill(0);
+    const cashNativePnls = new Array(N).fill(0);
     const cashFxSeries = new Array(N).fill(0);
     let cash = 0;
     for (let i = 0; i < N; i++) {
@@ -836,27 +838,33 @@ function buildDailyAnalytics() {
       const prevD = addDays(d, -1);
       const cashStart = cash;
       let income = 0, fees = 0, valuation = 0;
+      let nativeIncome = 0, nativeFees = 0, nativeValuation = 0;
       (recordsByDate[d] || []).forEach(r => {
         if (r.accountId !== account.id) return;
         cash += recordCashDelta(r, account);
         const inst = r.instrumentId ? instrumentById(r.instrumentId) : null;
         const ccy = inst ? inst.currency : account.currency;
         const toAcc = inst ? crossRate(inst.currency, account.currency, d) : 1;
-        if (r.type === 'dividend' || r.type === 'interest' || r.type === 'cashProfit') income += (Number(r.amount) || 0) * toAcc;
-        if (r.type === 'fee') fees += (Number(r.amount) || 0);
-        if (r.type === 'buy' || r.type === 'sell') fees += (Number(r.fee) || 0) * toAcc;
-        if (r.type === 'flow' && r.ledgerAdjust && (r.flowField === 'ending' || r.flowField === 'profit')) valuation += (Number(r.cashNative) || 0) * fxToBaseAt(account.currency, d);
+        if (r.type === 'dividend' || r.type === 'interest' || r.type === 'cashProfit') { income += (Number(r.amount) || 0) * toAcc; nativeIncome += (Number(r.amount) || 0) * toAcc; }
+        if (r.type === 'fee') { fees += (Number(r.amount) || 0); nativeFees += Number(r.amount) || 0; }
+        if (r.type === 'buy' || r.type === 'sell') { fees += (Number(r.fee) || 0) * toAcc; nativeFees += (Number(r.fee) || 0) * toAcc; }
+        if (r.type === 'flow' && r.ledgerAdjust && (r.flowField === 'ending' || r.flowField === 'profit')) {
+          valuation += (Number(r.cashNative) || 0) * fxToBaseAt(account.currency, d);
+          nativeValuation += Number(r.cashNative) || 0;
+        }
       });
       const baseNow = fxAt(account.currency, d) / baseRate;
       const basePrev = fxAt(account.currency, prevD) / baseRate;
       const cashFx = consider ? cashStart * (baseNow - basePrev) : 0;
       cashValues[i] = cash * baseNow;
       cashPnls[i] = (income - fees) * baseNow + valuation + cashFx;
+      cashNativeValues[i] = cash;
+      cashNativePnls[i] = nativeIncome - nativeFees + nativeValuation;
       cashFxSeries[i] = cashFx;
     }
     const cashComp = {
       accountId: account.id, instrumentId: null, kind: 'cash', account,
-      values: cashValues, pnls: cashPnls, cashFx: cashFxSeries
+      values: cashValues, pnls: cashPnls, nativeValues: cashNativeValues, nativePnls: cashNativePnls, cashFx: cashFxSeries
     };
     components.push(cashComp);
 
@@ -871,6 +879,8 @@ function buildDailyAnalytics() {
       let qty = 0;
       const vals = new Array(N).fill(0);
       const pnls = new Array(N).fill(0);
+      const nativeVals = new Array(N).fill(0);
+      const nativePnls = new Array(N).fill(0);
       for (let i = 0; i < N; i++) {
         const d = dates[i];
         const prevD = addDays(d, -1);
@@ -884,12 +894,16 @@ function buildDailyAnalytics() {
         const fx = fxAt(inst.currency, d) / baseRate;
         const pfx = fxAt(inst.currency, prevD) / baseRate;
         const pnl = consider ? qtyStart * (p * fx - pp * pfx) : qtyStart * (p - pp) * fx;
+        const cross = crossRate(inst.currency, account.currency, d);
+        const crossPrev = crossRate(inst.currency, account.currency, prevD);
         vals[i] = qty * p * fx;
         pnls[i] = pnl;
+        nativeVals[i] = qty * p * cross;
+        nativePnls[i] = consider ? qtyStart * (p * cross - pp * crossPrev) : qtyStart * (p - pp) * cross;
       }
       const comp = {
         accountId: account.id, instrumentId: inst.id, kind: 'instrument', inst, account,
-        values: vals, pnls
+        values: vals, pnls, nativeValues: nativeVals, nativePnls: nativePnls
       };
       components.push(comp);
       instComps.push(comp);
@@ -907,9 +921,12 @@ function buildDailyAnalytics() {
       accPnls[i] = p;
       totalValues[i] += v;
       totalPnls[i] += p;
-      const accFx = fxAt(account.currency, dates[i]) / baseRate;
-      nativeValues[i] = accFx > 0 ? v / accFx : v;
-      nativePnls[i] = accFx > 0 ? p / accFx : p;
+      nativeValues[i] = cashNativeValues[i];
+      nativePnls[i] = cashNativePnls[i];
+      instComps.forEach(c => {
+        nativeValues[i] += c.nativeValues[i];
+        nativePnls[i] += c.nativePnls[i];
+      });
     }
     byAccount.set(account.id, { account, values: accVals, pnls: accPnls, nativeValues, nativePnls, cashValues, cashPnls, instruments: instComps, dates });
   });
