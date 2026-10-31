@@ -15,9 +15,16 @@ function renderAssetsPage() {
     { key: 'fund', title: '基金账户', types: ['fund'] },
     { key: 'broker', title: '证券账户', types: ['broker'] }
   ];
+  const coveredTypes = new Set(groups.reduce((all, g) => all.concat(g.types), []));
+  accountTypes().forEach(t => {
+    if (!coveredTypes.has(t.id)) groups.push({ key: 'type_' + t.id, title: t.name, types: [t.id] });
+  });
+  const knownTypes = new Set(accountTypes().map(t => t.id));
+  const unknown = p.accounts.filter(m => !knownTypes.has(m.account.type));
+  if (unknown.length) groups.push({ key: 'other', title: '其他账户', types: [] });
   let accountList = '';
   groups.forEach(g => {
-    const ms = p.accounts.filter(m => g.types.indexOf(m.account.type) >= 0);
+    const ms = g.key === 'other' ? p.accounts.filter(m => !knownTypes.has(m.account.type)) : p.accounts.filter(m => g.types.indexOf(m.account.type) >= 0);
     if (!ms.length) return;
     const total = sum(ms, m => m.marketBase);
     accountList += '<div class="list-card">' +
