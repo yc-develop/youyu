@@ -645,10 +645,10 @@ function openFlowFieldEditor(scope, id, periodKey, field) {
   const body = '<form id="flow-edit-form">' +
     '<div class="info-banner" style="margin-top:0">' + icon('pen') + '<div>' + esc(descriptions[field] || '') + '<br><span class="faint">保存后会写入一条「' + esc(meta.title) + '」账本调整记录，并立即更新资产统计。</span></div></div>' +
     '<div class="form-section">' + esc(meta.label) + '</div>' +
-    fieldHTML({ id: 'flow-edit-value', label: meta.label, value: Number(current).toFixed(2), inputmode: 'decimal', unit: baseCurrency(), full: true }) +
+    fieldHTML({ id: 'flow-edit-value', label: meta.label, value: Number(current).toFixed(2), inputmode: 'decimal', unit: account.currency, full: true }) +
     '<div class="flow-edit-current"><span>当前周期</span><b>' + esc(flow.periodLabel || flowPeriodLabel(periodKey)) + '</b></div>' +
-    '<div class="flow-edit-current"><span>当前净投入</span><b>' + fmtMoney(flow.net) + '</b></div>' +
-    '<div class="flow-edit-current"><span>当前期末</span><b>' + fmtMoney(flow.ending) + '</b></div>' +
+    '<div class="flow-edit-current"><span>当前净投入</span><b>' + fmtMoney(flow.net, { currency: account.currency }) + '</b></div>' +
+    '<div class="flow-edit-current"><span>当前期末</span><b>' + fmtMoney(flow.ending, { currency: account.currency }) + '</b></div>' +
   '</form>';
   const wrap = openSheet({
     title: '调整' + meta.label, sub: account.name + ' · ' + (flow.periodLabel || flowPeriodLabel(periodKey)),
@@ -665,9 +665,9 @@ function openFlowFieldEditor(scope, id, periodKey, field) {
     const date = field === 'opening' ? bounds.start : bounds.end;
     if (!date) return;
     const fx = fxToBaseAt(account.currency, date) || 1;
-    const cashNative = (field === 'out' ? -delta : delta) / fx;
-    const flowDeltaNative = (field === 'in' || field === 'out') ? delta / fx : 0;
-    const netDeltaNative = field === 'out' ? -delta / fx : (field === 'in' || field === 'opening') ? delta / fx : 0;
+    const cashNative = field === 'out' ? -delta : delta;
+    const flowDeltaNative = (field === 'in' || field === 'out') ? delta : 0;
+    const netDeltaNative = field === 'out' ? -delta : (field === 'in' || field === 'opening') ? delta : 0;
     state.records.push({
       id: uid('rec'),
       date,
@@ -679,7 +679,7 @@ function openFlowFieldEditor(scope, id, periodKey, field) {
       cashNative,
       flowDeltaNative,
       netDeltaNative,
-      flowValueNative: value / fx,
+      flowValueNative: value,
       flowField: field,
       periodKey,
       qty: 0, price: 0, fee: 0, fxRate: fxAt(account.currency, date),

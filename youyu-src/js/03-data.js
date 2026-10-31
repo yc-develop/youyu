@@ -337,16 +337,25 @@ function recordsForInstrument(instrumentId) {
   return recordsSorted().filter(r => r.instrumentId === instrumentId);
 }
 function priceList(id) { return state.prices[id] || []; }
+function valuationPriceList(id) {
+  const list = priceList(id);
+  const inst = instrumentById(id);
+  if (inst && inst.market && inst.market.historyLoaded) {
+    const market = list.filter(p => p[2] === 'market');
+    if (market.length > 2) return market;
+  }
+  return list;
+}
 function priceMap(id) {
   if (!dataCache.priceMaps) dataCache.priceMaps = {};
   if (dataCache.priceMaps[id]) return dataCache.priceMaps[id];
   const map = new Map();
-  priceList(id).forEach(([d, p]) => map.set(d, p));
+  valuationPriceList(id).forEach(([d, p]) => map.set(d, p));
   dataCache.priceMaps[id] = map;
   return map;
 }
 function priceAt(id, date) {
-  const list = priceList(id);
+  const list = valuationPriceList(id);
   if (!list.length) return 0;
   const map = priceMap(id);
   let d = date || todayKey();
@@ -643,6 +652,27 @@ function accountNetDeposits(account) {
   return { net, deposits, withdrawals };
 }
 
+function accountNetDepositsNative(account) {
+  let net = 0, deposits = 0, withdrawals = 0;
+  recordsForAccount(account.id).forEach(r => {
+    if (r.type === 'deposit' || r.type === 'withdraw') {
+      const v = Number(r.amount) || 0;
+      if (r.type === 'deposit') { deposits += v; net += v; }
+      else { withdrawals += v; net -= v; }
+      return;
+    }
+    if (r.type !== 'flow' || !r.ledgerAdjust) return;
+    if (r.flowField === 'in' || r.flowField === 'out') {
+      const d = Number(r.flowDeltaNative) || 0;
+      if (r.flowField === 'in') { deposits += d; net += d; }
+      else { withdrawals += d; net -= d; }
+    } else if (r.flowField === 'opening') {
+      net += Number(r.netDeltaNative) || 0;
+    }
+  });
+  return { net, deposits, withdrawals };
+}
+
 /* ---------- account metrics ---------- */
 function computeAccountMetrics(accountId) {
   if (!dataCache.accounts) dataCache.accounts = {};
@@ -666,10 +696,20 @@ function computeAccountMetrics(accountId) {
   const profit = consider ? fullProfit : baseProfit;
   const unrealized = profit - realizedBase;
   const costBasis = sum(insts, x => x.costBaseHist) + cashBase * 0; // 成本口径仅用于展示
+  const accountFx = fxToBase(account.currency);
+  const marketNative = accountFx > 0 ? marketBase / accountFx : marketBase;
+  const holdingsNative = accountFx > 0 ? holdingsBase / accountFx : holdingsBase;
+  const depositsNative = accountNetDepositsNative(account);
+  const profitNative = marketNative - depositsNative.net;
+  const realizedNativeAccount = accountFx > 0 ? realizedBase / accountFx : realizedBase;
+  const unrealizedNative = profitNative - realizedNativeAccount;
   const out = {
     account, accountId,
-    cashNative, cashBase, holdingsBase, marketBase, value: marketBase,
+    cashNative, cashBase, holdingsNative, marketNative, marketBase, value: marketBase,
     netDeposits: deposits.net, deposits: deposits.deposits, withdrawals: deposits.withdrawals,
+    netDepositsNative: depositsNative.net, depositsNative: depositsNative.deposits, withdrawalsNative: depositsNative.withdrawals,
+    profitNative, returnPctNative: depositsNative.net > 0 ? profitNative / depositsNative.net : null,
+    realizedNativeAccount, unrealizedNative,
     realizedBase, realized: realizedBase,
     floatBase, floatPnl: floatBase,
     fxPnl, profit, unrealized, unrealizedPnl: unrealized,
@@ -858,6 +898,8 @@ function buildDailyAnalytics() {
 
     const accVals = new Array(N).fill(0);
     const accPnls = new Array(N).fill(0);
+    const nativeValues = new Array(N).fill(0);
+    const nativePnls = new Array(N).fill(0);
     for (let i = 0; i < N; i++) {
       let v = cashValues[i], p = cashPnls[i];
       instComps.forEach(c => { v += c.values[i]; p += c.pnls[i]; });
@@ -865,8 +907,11 @@ function buildDailyAnalytics() {
       accPnls[i] = p;
       totalValues[i] += v;
       totalPnls[i] += p;
+      const accFx = fxAt(account.currency, dates[i]) / baseRate;
+      nativeValues[i] = accFx > 0 ? v / accFx : v;
+      nativePnls[i] = accFx > 0 ? p / accFx : p;
     }
-    byAccount.set(account.id, { account, values: accVals, pnls: accPnls, cashValues, cashPnls, instruments: instComps, dates });
+    byAccount.set(account.id, { account, values: accVals, pnls: accPnls, nativeValues, nativePnls, cashValues, cashPnls, instruments: instComps, dates });
   });
 
   const daily = {
@@ -994,7 +1039,12 @@ function accountSeries(accountId, days) {
   const daily = buildDailyAnalytics();
   const a = daily.byAccount.get(accountId);
   if (!a) return null;
-  return a;
+  return Object.assign({}, a, {
+    baseValues: a.values,
+    basePnls: a.pnls,
+    values: a.nativeValues || a.values,
+    pnls: a.nativePnls || a.pnls
+  });
 }
 
 /* ---------- current group breakdown ---------- */
@@ -1108,29 +1158,33 @@ function accountFlow(accountId, periodKey) {
   const key = periodKey || 'all';
   const bounds = flowPeriodBounds(key);
   const daily = buildDailyAnalytics();
-  const series = daily.byAccount.get(accountId);
+  const rawSeries = daily.byAccount.get(accountId);
+  const series = rawSeries ? Object.assign({}, rawSeries, {
+    values: rawSeries.nativeValues || rawSeries.values,
+    pnls: rawSeries.nativePnls || rawSeries.pnls
+  }) : null;
   const recs = recordsForAccount(accountId);
   let beginning = bounds.start ? flowValueAt(series, addDays(bounds.start, -1)) : 0;
   if (bounds.start) {
     recs.filter(r => r.type === 'flow' && r.ledgerAdjust && r.flowField === 'opening' && r.date === bounds.start)
-      .forEach(r => { beginning += (Number(r.netDeltaNative) || 0) * fxToBaseAt(account.currency, r.date); });
+      .forEach(r => { beginning += (Number(r.netDeltaNative) || 0); });
   }
   const ending = flowValueAt(series, bounds.end);
   let inAmt = 0, outAmt = 0;
   recs.forEach(r => {
     if (!flowInPeriod(r, bounds)) return;
-    if (r.type === 'deposit') inAmt += flowRecordBase(r, account.currency);
-    else if (r.type === 'withdraw') outAmt += flowRecordBase(r, account.currency);
+    if (r.type === 'deposit') inAmt += Number(r.amount) || 0;
+    else if (r.type === 'withdraw') outAmt += Number(r.amount) || 0;
     else if (r.type === 'flow' && r.ledgerAdjust) {
-      if (r.flowField === 'in') inAmt += (Number(r.flowDeltaNative) || 0) * fxToBaseAt(account.currency, r.date);
-      else if (r.flowField === 'out') outAmt += (Number(r.flowDeltaNative) || 0) * fxToBaseAt(account.currency, r.date);
-      else if (r.flowField === 'opening' && !bounds.start) inAmt += (Number(r.netDeltaNative) || 0) * fxToBaseAt(account.currency, r.date);
+      if (r.flowField === 'in') inAmt += Number(r.flowDeltaNative) || 0;
+      else if (r.flowField === 'out') outAmt += Number(r.flowDeltaNative) || 0;
+      else if (r.flowField === 'opening' && !bounds.start) inAmt += Number(r.netDeltaNative) || 0;
     }
   });
   const net = inAmt - outAmt;
   const profit = ending - beginning - net;
   return {
-    scope: 'account', periodKey: key, periodLabel: bounds.label,
+    scope: 'account', periodKey: key, periodLabel: bounds.label, currency: account.currency,
     beginning, in: inAmt, out: outAmt, net, profit, ending,
     label: bounds.label,
     adjusted: recs.some(r => r.type === 'flow' && r.ledgerAdjust && (key === 'all' || r.periodKey === key))
@@ -1203,7 +1257,10 @@ function priceSeriesRange(instrumentId, days) {
 function recordAccount(rec) { return accountById(rec.accountId); }
 function recordInstrument(rec) { return rec.instrumentId ? instrumentById(rec.instrumentId) : null; }
 function recordCurrency(rec) {
-  if (rec.type === 'flow') return baseCurrency();
+  if (rec.type === 'flow') {
+    const acc = accountById(rec.accountId);
+    return acc ? acc.currency : baseCurrency();
+  }
   const inst = recordInstrument(rec);
   if (inst) return inst.currency;
   const acc = recordAccount(rec);
@@ -1233,8 +1290,8 @@ function recordAmountHTML(rec) {
   if (rec.type === 'price') return '<span class="mono">' + fmtPrice(rec.price, ccy) + '</span>';
   if (rec.type === 'flow') {
     const acc = accountById(rec.accountId);
-    const fx = acc ? fxToBaseAt(acc.currency, rec.date) : 1;
-    const v = (Number(rec.flowValueNative) || 0) * fx;
+    const ccy = acc ? acc.currency : baseCurrency();
+    const v = Number(rec.flowValueNative) || 0;
     const sign = rec.flowField === 'out' ? '−' : rec.flowField === 'in' ? '+' : rec.flowField === 'profit' ? (v > 0 ? '+' : v < 0 ? '-' : '') : '';
     const cls = rec.flowField === 'out' ? 'loss' : (rec.flowField === 'in' || (rec.flowField === 'profit' && v > 0)) ? 'gain' : (rec.flowField === 'profit' && v < 0 ? 'loss' : '');
     const body = (rec.flowField === 'opening' || rec.flowField === 'ending') ? fmtMoney(v, { currency: ccy }) : sign + fmtMoney(Math.abs(v), { currency: ccy });

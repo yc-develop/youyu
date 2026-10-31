@@ -154,6 +154,7 @@ function donutLegendHTML(items, opts) {
 function flowDiagramHTML(flow, opts) {
   const o = opts || {};
   const f = flow || {};
+  const money = v => fmtMoney(v, { currency: o.currency || f.currency || baseCurrency() });
   const pnl = Number(f.profit) || 0;
   const pnlCls = pnl > 0 ? 'gain' : pnl < 0 ? 'loss' : '';
   const pnlSign = pnl > 0 ? '+' : pnl < 0 ? '-' : '';
@@ -184,12 +185,12 @@ function flowDiagramHTML(flow, opts) {
         '<path d="M84 56 L84 64 Q84 69 77 69 L56 69 Q50 69 50 74" fill="none" stroke="rgba(255,255,255,.12)" stroke-width=".7" vector-effect="non-scaling-stroke"/>' +
         '<circle cx="50" cy="38" r=".8" fill="rgba(255,255,255,.35)"/><circle cx="50" cy="74" r=".8" fill="rgba(255,255,255,.35)"/>' +
       '</svg>' +
-      node('in', 'flow-top', '投入', ((f.in || 0) > 0 ? '+' : '') + fmtMoney(f.in || 0)) +
-      node('out', 'flow-top right', '转出', ((f.out || 0) > 0 ? '−' : '') + fmtMoney(f.out || 0)) +
-      node('opening', 'flow-mid a', '期初金额', fmtMoney(f.beginning || 0)) +
-      '<div class="flow-node flow-mid b accent"><span class="l">净投入</span><span class="v">' + ((f.net || 0) > 0 ? '+' : (f.net || 0) < 0 ? '−' : '') + fmtMoney(Math.abs(f.net || 0)) + '</span></div>' +
-      node('profit', 'flow-mid c ' + pnlCls, '资产盈亏', pnlSign + fmtMoney(Math.abs(pnl))) +
-      node('ending', 'flow-end total', '期末金额', fmtMoney(f.ending || 0)) +
+      node('in', 'flow-top', '投入', ((f.in || 0) > 0 ? '+' : '') + money(f.in || 0)) +
+      node('out', 'flow-top right', '转出', ((f.out || 0) > 0 ? '−' : '') + money(f.out || 0)) +
+      node('opening', 'flow-mid a', '期初金额', money(f.beginning || 0)) +
+      '<div class="flow-node flow-mid b accent"><span class="l">净投入</span><span class="v">' + ((f.net || 0) > 0 ? '+' : (f.net || 0) < 0 ? '−' : '') + money(Math.abs(f.net || 0)) + '</span></div>' +
+      node('profit', 'flow-mid c ' + pnlCls, '资产盈亏', pnlSign + money(Math.abs(pnl))) +
+      node('ending', 'flow-end total', '期末金额', money(f.ending || 0)) +
     '</div>' +
     '<div class="flow-legend"><span class="dot"></span>净投入 + 资产盈亏 = 期末 − 期初' + (editable ? ' · 点击金额可校正' : '') + '</div>' +
     (f.adjusted ? '<div class="flow-adjusted-note">本周期已写入账本调整，资产统计已同步；可在更新记录中删除调整或撤销本周期调整。</div>' : '') +

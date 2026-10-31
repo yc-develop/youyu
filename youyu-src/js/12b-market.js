@@ -367,3 +367,17 @@ async function hydrateDemoLedger() {
   saveState(true);
   if (!document.querySelector('.overlay') && demoMode) refreshPage();
 }
+
+async function ensureAccountHistories(accountId) {
+  const account = accountById(accountId);
+  if (!account) return;
+  const pending = (account.instruments || []).filter(i => i.market && i.market.code && !i.market.historyLoaded).map(i => i.id);
+  if (!pending.length) return;
+  for (const id of pending) {
+    const route = parseRoute();
+    if (route.name !== 'account' || route.id !== accountId) return;
+    await ensureInstrumentHistory(id, { noRefresh: true });
+  }
+  const route = parseRoute();
+  if (route.name === 'account' && route.id === accountId && !document.querySelector('.overlay')) refreshPage();
+}

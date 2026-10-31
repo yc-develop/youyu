@@ -94,6 +94,7 @@ function renderPage(opts) {
     const im = instrumentById(route.id);
     if (im && im.market) setTimeout(() => ensureInstrumentHistory(route.id), 80);
   }
+  if (route.name === 'account') setTimeout(() => ensureAccountHistories(route.id), 80);
 }
 function refreshPage() {
   const y = window.scrollY;
@@ -144,24 +145,35 @@ function qtyUnit(cls) {
 /* ---------- shared rows ---------- */
 function accountRowHTML(m) {
   const a = m.account;
+  const ccy = a.currency || baseCurrency();
+  const fx = fxToBase(ccy) || 1;
+  const market = (m.marketNative != null ? m.marketNative : m.marketBase / fx);
+  const realized = (m.realizedNativeAccount != null ? m.realizedNativeAccount : m.realizedBase / fx);
+  const floating = (m.unrealizedNative != null ? m.unrealizedNative : m.unrealized / fx);
+  const pct = m.returnPctNative != null ? m.returnPctNative : m.profitPct;
   return '<a class="account-row" href="#/account/' + encodeURIComponent(a.id) + '">' +
     accountIconHTML(a) +
     '<div class="acct-main"><div class="acct-name">' + esc(a.name) + ' <span class="ccy">' + a.currency + '</span></div>' +
-      '<div class="acct-meta"><span>已实现 <b class="' + pnlClass(m.realizedBase) + '">' + pnlText(m.realizedBase, { compact: true }) + '</b></span>' +
-      '<span class="sep"></span><span>浮盈 <b class="' + pnlClass(m.unrealized) + '">' + pnlText(m.unrealized, { compact: true }) + '</b></span></div>' +
+      '<div class="acct-meta"><span>已实现 <b class="' + pnlClass(realized) + '">' + pnlText(realized, { compact: true, currency: ccy }) + '</b></span>' +
+      '<span class="sep"></span><span>浮盈 <b class="' + pnlClass(floating) + '">' + pnlText(floating, { compact: true, currency: ccy }) + '</b></span></div>' +
     '</div>' +
-    '<div class="acct-value"><div class="v">' + fmtMoney(m.marketBase, { compact: true }) + '</div>' +
-      '<div class="p ' + pnlClass(m.profitPct) + '">' + (m.profitPct == null ? '—' : fmtPct(m.profitPct, 1)) + '</div>' +
+    '<div class="acct-value"><div class="v">' + fmtMoney(market, { compact: true, currency: ccy }) + '</div>' +
+      '<div class="p ' + pnlClass(pct) + '">' + (pct == null ? '—' : fmtPct(pct, 1)) + '</div>' +
     '</div>' +
     '<span class="acct-chevron">' + icon('chevronRight') + '</span></a>';
 }
-function holdingRowHTML(im) {
+function holdingRowHTML(im, opts) {
+  const o = opts || {};
+  const displayCcy = o.currency || im.inst.currency;
+  const displayFx = fxToBase(displayCcy) || 1;
+  const displayValue = im.marketBase / displayFx;
+  const displayPnl = im.unrealized / displayFx;
   return '<a class="holding-row" href="#/instrument/' + encodeURIComponent(im.inst.id) + '">' +
     instrumentIconHTML(im.inst) +
     '<div class="h-main"><div class="h-name">' + esc(im.inst.name) + '</div>' +
       '<div class="h-sub">' + esc(im.inst.symbol) + ' · ' + fmtQty(im.qty) + qtyUnit(im.inst.cls) + ' · 均价 ' + fmtPrice(im.avgCost, im.inst.currency) + '</div></div>' +
-    '<div class="h-value"><div class="v">' + fmtMoney(im.marketBase, { compact: true }) + '</div>' +
-      '<div class="p ' + pnlClass(im.unrealized) + '">' + pnlText(im.unrealized, { compact: true }) + '</div></div>' +
+    '<div class="h-value"><div class="v">' + fmtMoney(displayValue, { compact: true, currency: displayCcy }) + '</div>' +
+      '<div class="p ' + pnlClass(displayPnl) + '">' + pnlText(displayPnl, { compact: true, currency: displayCcy }) + '</div></div>' +
     '<span class="h-chevron">' + icon('chevronRight') + '</span></a>';
 }
 function recordRowHTML(rec, opts) {
@@ -195,14 +207,15 @@ function emptyBlock(title, text, actionHtml, ico) {
 }
 
 /* ---------- amount formatting ---------- */
-function moneyParts(v) {
-  if (state && state.settings && state.settings.hideAmounts) return { sym: baseMeta().symbol, main: '••••••', dec: '' };
+function moneyParts(v, ccy) {
+  const sym = symbolFor(ccy || baseCurrency());
+  if (state && state.settings && state.settings.hideAmounts) return { sym, main: '••••••', dec: '' };
   const n = Number(v) || 0;
   const abs = Math.abs(n);
   const fixed = abs.toFixed(2);
   const parts = fixed.split('.');
   const main = Number(parts[0]).toLocaleString('zh-CN');
-  return { sym: (n < 0 ? '-' : '') + baseMeta().symbol, main, dec: parts[1] };
+  return { sym: (n < 0 ? '-' : '') + sym, main, dec: parts[1] };
 }
 function fmtBase(v, opts) { return fmtMoney(v, Object.assign({ currency: baseCurrency() }, opts || {})); }
 function signedPct(v, digits) { return fmtPct(v, digits == null ? 2 : digits, true); }

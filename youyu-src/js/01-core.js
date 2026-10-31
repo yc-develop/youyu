@@ -242,7 +242,7 @@ function fmtPrice(n, ccy) {
 function pnlClass(v) { return Number(v) > 0.000001 ? 'gain' : Number(v) < -0.000001 ? 'loss' : 'flat'; }
 function pnlText(v, opts) {
   const o = opts || {};
-  return fmtMoney(v, { sign: true, compact: o.compact, decimals: o.decimals });
+  return fmtMoney(v, { sign: true, compact: o.compact, decimals: o.decimals, currency: o.currency });
 }
 function pctText(v, digits) { return fmtPct(v, digits == null ? 2 : digits, true); }
 function shortAmount(v) {

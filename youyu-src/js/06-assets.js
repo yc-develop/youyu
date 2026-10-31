@@ -69,8 +69,8 @@ function renderAccountPage(accountId) {
   const a = am.account;
   const daily = buildDailyAnalytics();
   const by = daily.byAccount.get(accountId);
-  const todayPnl = by ? by.pnls[by.pnls.length - 1] : 0;
-  const money = moneyParts(am.marketBase);
+  const todayPnl = by ? (by.nativePnls ? by.nativePnls[by.nativePnls.length - 1] : by.pnls[by.pnls.length - 1]) : 0;
+  const money = moneyParts(am.marketNative, a.currency);
   const composition = accountComposition(am);
   const records = recordsForAccount(accountId).slice().reverse();
   const flowPeriod = flowPeriodKey('account', accountId);
@@ -81,23 +81,23 @@ function renderAccountPage(accountId) {
         '<div class="dh-main"><div class="dh-name">' + esc(a.name) + '</div><div class="dh-sub"><span>' + esc(accountTypeName(a.type)) + '</span><span class="dot"></span><span>' + a.currency + '</span><span class="dot"></span><span>' + am.positions + ' 个持仓</span></div></div>' +
         '<span class="ccy" style="font-size:9px;border:1px solid var(--line);border-radius:5px;padding:3px 5px;color:var(--faint)">' + (a.note ? esc(a.note) : '账户') + '</span></div>' +
       '<div class="detail-total"><span class="cur">' + money.sym + '</span><span>' + money.main + '</span>' + (money.dec ? '<span class="cur" style="font-size:15px">.' + money.dec + '</span>' : '') + '</div>' +
-      '<div class="detail-pnl"><b class="' + pnlClass(am.profit) + '">' + (am.profit >= 0 ? '+' : '') + fmtMoney(am.profit) + '</b><span class="' + pnlClass(am.profit) + '">' + (am.profitPct == null ? '—' : fmtPct(am.profitPct, 2)) + '</span><span class="muted">累计收益</span>' +
-        '<span class="' + pnlClass(todayPnl) + '" style="margin-left:auto;font-size:9.5px">今日 ' + pnlText(todayPnl) + '</span></div>' +
+      '<div class="detail-pnl"><b class="' + pnlClass(am.profitNative) + '">' + (am.profitNative >= 0 ? '+' : '') + fmtMoney(am.profitNative, { currency: a.currency }) + '</b><span class="' + pnlClass(am.profitNative) + '">' + (am.returnPctNative == null ? '—' : fmtPct(am.returnPctNative, 2)) + '</span><span class="muted">累计收益</span>' +
+        '<span class="' + pnlClass(todayPnl) + '" style="margin-left:auto;font-size:9.5px">今日 ' + pnlText(todayPnl, { currency: a.currency }) + '</span></div>' +
       '<div class="detail-stats account-detail-stats">' +
-        '<div><div class="l">可用现金</div><div class="v">' + fmtMoney(am.cashBase) + '</div></div>' +
-        '<div><div class="l">持仓市值</div><div class="v">' + fmtMoney(am.holdingsBase) + '</div></div>' +
-        '<div><div class="l">持仓浮盈</div><div class="v ' + pnlClass(am.unrealized) + '">' + pnlText(am.unrealized) + '</div></div>' +
-        '<div><div class="l">累计已实现</div><div class="v ' + pnlClass(am.realizedBase) + '">' + pnlText(am.realizedBase) + '</div></div>' +
+        '<div><div class="l">可用现金</div><div class="v">' + fmtMoney(am.cashNative, { currency: a.currency }) + '</div></div>' +
+        '<div><div class="l">持仓市值</div><div class="v">' + fmtMoney(am.holdingsNative, { currency: a.currency }) + '</div></div>' +
+        '<div><div class="l">持仓浮盈</div><div class="v ' + pnlClass(am.unrealizedNative) + '">' + pnlText(am.unrealizedNative, { currency: a.currency }) + '</div></div>' +
+        '<div><div class="l">累计已实现</div><div class="v ' + pnlClass(am.realizedNativeAccount) + '">' + pnlText(am.realizedNativeAccount, { currency: a.currency }) + '</div></div>' +
       '</div>' +
     '</section>' +
-    (a.currency !== baseCurrency() ? '<div class="info-banner" style="margin-top:12px;margin-bottom:0">' + icon('swap') + '<div>1 ' + a.currency + ' = ' + fmtPrice(fxToBase(a.currency), baseCurrency()) + ' · 汇兑影响 <b class="' + pnlClass(am.fxPnl) + '">' + pnlText(am.fxPnl) + '</b> ' + (state.settings.considerFx ? '已计入累计收益' : '未计入累计收益') + '。<button class="text-btn" style="font-size:9px;margin-left:3px" data-action="toggle-fx">切换</button></div></div>' : '') +
+    (a.currency !== baseCurrency() ? '<div class="info-banner" style="margin-top:12px;margin-bottom:0">' + icon('swap') + '<div>账户统计以 <b>' + a.currency + '</b> 计价，不折算为 ' + baseCurrency() + '；组合总览仍按 ' + baseCurrency() + ' 汇总。参考汇率 1 ' + a.currency + ' = ' + fmtPrice(fxToBase(a.currency), baseCurrency()) + '。</div></div>' : '') +
     accountChartCard(am) +
-    '<div class="detail-section"><div class="section-head"><div><h2>资产构成</h2><div class="sub">现金与持仓 · 按当前市值</div></div><span class="tiny">' + baseCurrency() + '</span></div>' +
-      '<div class="card pad" style="padding-top:12px;padding-bottom:14px"><div class="donut-layout">' + donutBoxHTML(composition.items, { size: 132, stroke: 15, centerValue: fmtMoney(am.marketBase, { compact: true }), centerLabel: '账户资产' }) +
+    '<div class="detail-section"><div class="section-head"><div><h2>资产构成</h2><div class="sub">现金与持仓 · 按当前市值</div></div><span class="tiny">' + a.currency + '</span></div>' +
+      '<div class="card pad" style="padding-top:12px;padding-bottom:14px"><div class="donut-layout">' + donutBoxHTML(composition.items, { size: 132, stroke: 15, centerValue: fmtMoney(am.marketNative, { compact: true, currency: a.currency }), centerLabel: '账户资产' }) +
       '<div class="donut-legend">' + donutLegendHTML(composition.items, { compact: true }) + '</div></div></div></div>' +
-    '<div class="detail-section" style="margin-top:14px">' + flowDiagramHTML(accountFlow(accountId, flowPeriod), { scope: 'account', id: accountId, periodKey: flowPeriod, periods: flowPeriods('account', accountId), editable: true }) + '</div>' +
+    '<div class="detail-section" style="margin-top:14px">' + flowDiagramHTML(accountFlow(accountId, flowPeriod), { scope: 'account', id: accountId, periodKey: flowPeriod, periods: flowPeriods('account', accountId), editable: true, currency: a.currency }) + '</div>' +
     '<div class="detail-section"><div class="section-head"><div><h2>持仓</h2><div class="sub">按市值排序 · 点击查看标的</div></div><button class="text-btn" data-action="open-add-instrument" data-account="' + esc(a.id) + '">' + icon('plus') + '添加</button></div>' +
-      (am.instruments.filter(x => x.qty > 0.000001).length ? '<div class="list-card">' + am.instruments.filter(x => x.qty > 0.000001).sort((x, y) => y.marketBase - x.marketBase).map(holdingRowHTML).join('') + '</div>' :
+      (am.instruments.filter(x => x.qty > 0.000001).length ? '<div class="list-card">' + am.instruments.filter(x => x.qty > 0.000001).sort((x, y) => y.marketBase - x.marketBase).map(im => holdingRowHTML(im, { currency: a.currency })).join('') + '</div>' :
         '<div class="list-card">' + emptyBlock('这个账户还没有标的', '添加基金、股票或存单，记录买入与估值。', '<button class="btn primary sm" data-action="open-add-instrument" data-account="' + esc(a.id) + '">添加标的</button>', 'fund') + '</div>') +
     '</div>' +
     '<div class="detail-section"><div class="section-head"><div><h2>更新记录</h2><div class="sub">买入、卖出、换汇与估值更新</div></div><button class="text-btn" data-action="open-records" data-scope="account" data-id="' + esc(a.id) + '">全部 ' + records.length + '</button></div>' +
@@ -109,7 +109,8 @@ function renderAccountPage(accountId) {
 }
 
 function accountComposition(am) {
-  const list = [{ name: '现金', value: Math.max(0, am.cashBase), color: '#8e9aaf' }];
+  const fx = fxToBase(am.account.currency) || 1;
+  const list = [{ name: '现金', value: Math.max(0, am.cashNative), color: '#8e9aaf' }];
   am.instruments.filter(x => x.qty > 0.000001).forEach(im => {
     list.push({ name: im.inst.name, value: im.marketBase, color: im.inst.color || im.inst.color2 || '#ff9f45' });
   });
@@ -138,13 +139,13 @@ function accountChartCard(am) {
     else points = series.dates.slice(start).map((d, i) => ({ date: d, value: series.values[start + i] }));
     const color = mode === 'return' ? (tw.totalReturn >= 0 ? '#ff5d6c' : '#35d39a') : '#ff9f45';
     chartHTML = lineChartHTML({
-      points, mode: mode === 'return' ? 'percent' : 'money', color, height: 174,
+      points, mode: mode === 'return' ? 'percent' : 'money', currency: a.currency, color, height: 174,
       baseline: mode === 'return', aria: '账户资产曲线'
     });
     rangeText = points.length ? dateRangeLabel(points[0].date, points[points.length - 1].date) : '';
     const psPnl = ps.pnl;
     metricsHTML = '<div class="metrics">' +
-      '<div class="metric"><div class="lab">区间收益</div><div class="val ' + pnlClass(psPnl) + '">' + pnlText(psPnl, { compact: true }) + '</div><div class="sub">金额</div></div>' +
+      '<div class="metric"><div class="lab">区间收益</div><div class="val ' + pnlClass(psPnl) + '">' + pnlText(psPnl, { compact: true, currency: a.currency }) + '</div><div class="sub">金额</div></div>' +
       '<div class="metric"><div class="lab">区间收益率</div><div class="val ' + pnlClass(ps.returnPct) + '">' + fmtPct(ps.returnPct, 2) + '</div><div class="sub">时间加权</div></div>' +
       '<div class="metric"><div class="lab">最大回撤</div><div class="val loss">' + fmtPct(tw.maxDrawdown, 2) + '</div><div class="sub">回撤</div></div>' +
       '<div class="metric"><div class="lab">年化收益</div><div class="val ' + pnlClass(tw.annualized) + '">' + fmtPct(tw.annualized, 1) + '</div><div class="sub">参考</div></div>' +
@@ -153,7 +154,7 @@ function accountChartCard(am) {
     chartHTML = chartEmptyHTML('还没有足够的历史数据', 174);
   }
   return '<div class="detail-chart-card">' +
-    '<div class="chart-head"><div><h2>收益曲线</h2><div class="sub">' + (rangeText || '记账以来') + ' · ' + (a.currency === baseCurrency() ? a.currency + ' 计价' : (state.settings.considerFx ? '含汇率影响' : '按本币计价')) + '</div></div>' +
+    '<div class="chart-head"><div><h2>收益曲线</h2><div class="sub">' + (rangeText || '记账以来') + ' · ' + a.currency + ' 计价' + (a.currency === baseCurrency() ? '' : ' · 不折算') + '</div></div>' +
       '<div class="segmented small chart-toggle"><button class="seg ' + (mode === 'value' ? 'active' : '') + '" data-action="set-account-chart-mode" data-value="value">资产</button><button class="seg ' + (mode === 'return' ? 'active' : '') + '" data-action="set-account-chart-mode" data-value="return">收益率</button></div></div>' +
     chartHTML + metricsHTML +
     '<div class="period-row"><div class="segmented small">' + [30, 90, 365, 0].map(d => '<button class="seg ' + (period === d ? 'active' : '') + '" data-action="set-account-period" data-value="' + d + '">' + labels[d] + '</button>').join('') + '</div>' +
