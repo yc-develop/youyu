@@ -82,7 +82,7 @@ function openAccountForm(accountId) {
 function openInstrumentForm(accountId, instrumentId) {
   const account = accountById(accountId);
   if (!account) return;
-  const editing = instrumentId ? instrumentById(instrumentId) : null;
+  const editing = instrumentId ? (account.instruments || []).find(i => i.id === instrumentId) || null : null;
   const classes = instrumentTypeOptions();
   const colors = ['#ff6b35', '#ff9f45', '#5b8cff', '#b18cff', '#43d6b0', '#f2c45c', '#ff7a00', '#2b6bf3', '#c9d1d9', '#9ca3af'];
   const body = '<form id="instrument-form">' +
