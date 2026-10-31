@@ -7,6 +7,7 @@ const APP_NAME = '有余';
 // 沿用旧存储键，避免改名后已有本地账本丢失
 const STORE_KEY = 'yingji.portfolio.v1';
 const DEMO_STORE_KEY = 'yingji.demo.v1';
+const THEME_KEY = 'yingji.theme.v1';
 const SCHEMA = 3;
 const DAY_MS = 86400000;
 
@@ -73,6 +74,19 @@ function safeDiv(a, b, fallback) { return b ? a / b : (fallback === undefined ? 
 function round(n, d) { const p = Math.pow(10, d || 0); return Math.round((Number(n) || 0) * p) / p; }
 function uniq(arr) { return Array.from(new Set(arr || [])); }
 function deepClone(obj) { return JSON.parse(JSON.stringify(obj)); }
+function applyTheme() {
+  let saved = null;
+  try { saved = localStorage.getItem(THEME_KEY); } catch (e) {}
+  const theme = saved === 'light' || saved === 'dark'
+    ? saved
+    : (state && state.settings && state.settings.theme === 'light' ? 'light' : 'dark');
+  if (state && state.settings) state.settings.theme = theme;
+  document.documentElement.dataset.theme = theme;
+  document.documentElement.style.colorScheme = theme;
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', theme === 'light' ? '#f4f5f7' : '#08090b');
+  try { localStorage.setItem(THEME_KEY, theme); } catch (e) {}
+}
 function uid(prefix) { return (prefix || 'id') + '_' + Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-4); }
 function esc(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {

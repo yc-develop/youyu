@@ -18,6 +18,7 @@ function renderSettingsPage() {
   '<div class="install-card">' + icon('sparkles') + '<div><div class="t">把这个页面装进主屏幕</div><div class="s">在 Safari 中点「分享」→「添加到主屏幕」，即可像 App 一样全屏使用。数据保存在当前浏览器。</div></div></div>' +
   '<div class="settings-group"><div class="label">记账偏好</div><div class="settings-card">' +
     settingRowHTML('记账本币', base + ' · ' + baseMeta().name, 'wallet', 'open-base-currency', '所有统计统一折算为本币') +
+    settingRowHTML('日间模式', state.settings.theme === 'light' ? '已开启' : '已关闭', state.settings.theme === 'light' ? 'sun' : 'moon', 'toggle-theme', '切换浅色界面，适合白天使用', '<span class="switch ' + (state.settings.theme === 'light' ? 'on' : '') + '"></span>') +
     settingRowHTML('汇率影响', state.settings.considerFx ? '已计入收益' : '未计入收益', 'swap', 'toggle-fx', '关闭后，不把汇兑损益计入收益', '<span class="switch ' + (state.settings.considerFx ? 'on' : '') + '"></span>') +
     settingRowHTML('隐藏金额', state.settings.hideAmounts ? '已隐藏' : '显示金额', state.settings.hideAmounts ? 'eyeOff' : 'eye', 'toggle-hide', '适合在公共场合查看', '<span class="switch ' + (state.settings.hideAmounts ? 'on' : '') + '"></span>') +
     settingRowHTML('再平衡容忍带', '±' + (Number(state.settings.tolerance) || 0).toFixed(1) + '%', 'scale', 'open-tolerance', '偏离目标多少时提示再平衡') +
@@ -53,7 +54,7 @@ function renderSettingsPage() {
   '<div class="settings-group"><div class="label">关于</div><div class="settings-card">' +
     '<div class="setting-row"><span class="setting-icon accent">' + icon('shield') + '</span><span class="setting-main"><span class="t">本地存储</span><span class="s">所有数据保存在浏览器 localStorage，不上传服务器。清除浏览器数据会丢失账本，请定期导出备份。</span></span></div>' +
     '<div class="setting-row"><span class="setting-icon blue">' + icon('chart') + '</span><span class="setting-main"><span class="t">行情数据</span><span class="s">名称搜索来自新浪财经，最新报价来自腾讯行情；公开接口可能受网络影响，仅供估值参考。</span></span></div>' +
-    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v1.8</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
+    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v1.9</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
   '</div></div>' +
   '<div class="version">' + esc(APP_NAME) + ' · 投资组合<br>不构成投资建议 · 数据仅供参考</div>' +
   '<div style="height:8px"></div>';

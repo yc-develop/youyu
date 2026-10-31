@@ -52,6 +52,7 @@ function renderTabbar(active) {
 }
 
 function renderPage(opts) {
+  applyTheme();
   const o = opts || {};
   const route = parseRoute();
   const isDetail = route.name === 'account' || route.name === 'instrument' || route.name === 'groups' || route.name === 'types';

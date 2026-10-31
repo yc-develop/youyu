@@ -65,7 +65,7 @@ function renderRebalancePage() {
       '<button class="text-btn" style="font-size:9px;margin-left:4px" data-action="go" data-href="#/groups/' + encodeURIComponent(sid) + '">去分组 ' + icon('chevronRight') + '</button></div></div>' : '') +
   '</section>' +
   '<section class="card pad" style="margin-top:14px">' +
-    '<div class="card-head" style="padding:0"><div><h2>偏离与目标区间</h2><div class="sub">白线为目标，亮色区域为 ±' + tolerance.toFixed(1) + '% 容忍带</div></div><button class="text-btn" data-action="open-target-editor" data-scheme="' + esc(sid) + '">调整 ' + icon('chevronRight') + '</button></div>' +
+    '<div class="card-head" style="padding:0"><div><h2>偏离与目标区间</h2><div class="sub">竖线为目标，底色区域为 ±' + tolerance.toFixed(1) + '% 容忍带</div></div><button class="text-btn" data-action="open-target-editor" data-scheme="' + esc(sid) + '">调整 ' + icon('chevronRight') + '</button></div>' +
     '<div class="reb-list">' + rebalanceRows(items, tolerance) + '</div>' +
   '</section>' +
   '<div class="reb-actions"><button class="btn ghost" data-action="open-target-editor" data-scheme="' + esc(sid) + '">' + icon('sliders') + '调整目标</button>' +

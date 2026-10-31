@@ -35,6 +35,7 @@ function handleAction(action, el) {
     case 'toggle-hide':
       state.settings.hideAmounts = !state.settings.hideAmounts;
       saveState(); refreshPage(); return;
+    case 'toggle-theme': state.settings.theme = state.settings.theme === 'light' ? 'dark' : 'light'; try { localStorage.setItem(THEME_KEY, state.settings.theme); } catch (e) {} applyTheme(); saveState(); refreshPage(); toast(state.settings.theme === 'light' ? '已切换到日间模式' : '已切换到夜间模式', 'success'); return;
     case 'toggle-fx':
       state.settings.considerFx = !state.settings.considerFx;
       saveState();

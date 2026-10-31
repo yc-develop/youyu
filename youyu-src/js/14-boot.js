@@ -20,6 +20,7 @@ function afterRenderPage(route) {
 function boot() {
   try {
     loadState();
+applyTheme();
   } catch (e) {
     console.error(e);
     state = buildSeed();

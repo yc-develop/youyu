@@ -50,6 +50,7 @@ function normalizeState(obj) {
   obj.settings.considerFx = obj.settings.considerFx !== false;
   obj.settings.tolerance = Number.isFinite(Number(obj.settings.tolerance)) ? Number(obj.settings.tolerance) : 3;
   obj.settings.hideAmounts = !!obj.settings.hideAmounts;
+  obj.settings.theme = obj.settings.theme === 'light' ? 'light' : 'dark';
   obj.accountTypes = normalizeTypeList(obj.accountTypes, DEFAULT_ACCOUNT_TYPES, 'account');
   obj.instrumentTypes = normalizeTypeList(obj.instrumentTypes, DEFAULT_INSTRUMENT_TYPES, 'instrument');
   const validAccountTypes = new Set(obj.accountTypes.map(t => t.id));
