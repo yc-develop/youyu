@@ -198,7 +198,7 @@ function recordsCardHTML(records, opts) {
   if (!records.length) return '<div class="empty-state" style="padding:26px 16px"><p>还没有记录</p></div>';
   const list = o.limit ? records.slice(0, o.limit) : records;
   return '<div class="list-card">' + list.map(r => recordRowHTML(r, o)).join('') +
-    (o.limit && records.length > o.limit ? '<div class="records-more"><button class="text-btn" data-action="' + (o.moreAction || 'noop') + '" data-id="' + esc(o.id || '') + '">查看全部 ' + records.length + ' 条 ' + icon('chevronRight') + '</button></div>' : '') +
+    (o.limit && records.length > o.limit ? '<div class="records-more"><button class="text-btn" data-action="' + (o.moreAction || 'noop') + '"' + (o.moreScope ? ' data-scope="' + esc(o.moreScope) + '"' : '') + ' data-id="' + esc(o.id || '') + '">查看全部 ' + records.length + ' 条 ' + icon('chevronRight') + '</button></div>' : '') +
     '</div>';
 }
 function emptyBlock(title, text, actionHtml, ico) {
