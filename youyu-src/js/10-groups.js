@@ -50,7 +50,7 @@ function rebalanceSwitchHTML(scheme) {
 
 function renderBuiltinSchemePage(scheme) {
   const gb = groupBreakdown(scheme.id);
-  const cards = gb.items.filter(x => x.value > 0.5).map(it => '<div class="group-card" style="padding-bottom:12px">' +
+  const cards = gb.items.filter(x => x.value > 0).map(it => '<div class="group-card" style="padding-bottom:12px">' +
     '<div class="group-card-head"><span class="group-color" style="background:' + it.color + '"></span><div class="gc-main"><div class="gc-name">' + esc(it.name) + '<span class="gc-target">自动</span></div>' +
     '<div class="gc-sub">' + fmtMoney(it.value) + ' · 占比 ' + (it.pct * 100).toFixed(1) + '%</div></div></div></div>').join('');
   return backHead(scheme.name, '', '#/settings') +
