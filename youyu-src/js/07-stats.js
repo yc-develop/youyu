@@ -31,7 +31,7 @@ function renderStatsPage() {
     '<div class="card-head" style="padding:0"><div><h2>资产构成</h2><div class="sub">' + esc(scheme ? scheme.name : '') + ' · 按当前市值</div></div><span class="tiny">' + esc(baseCurrency()) + '</span></div>' +
     '<div class="donut-layout stats-donut-layout" style="margin-top:16px">' + donutBoxHTML(items, { size: 150, stroke: 16, centerValue: fmtMoney(gb.total, { compact: true }), centerLabel: '总资产' }) +
       '<div class="donut-legend">' + donutLegendHTML(items, { compact: !!scheme.builtin }) + '</div></div>' +
-    (gb.ungrouped ? '<div class="info-banner warn" style="margin-top:14px">' + icon('alert') + '<div>有 ' + fmtMoney(gb.ungrouped.value, { compact: true }) + ' 资产尚未归入分组。前往分组管理把账户或标的加入分组。</div></div>' : '') +
+    (gb.ungrouped && gb.ungrouped.value > 0.5 ? '<div class="info-banner warn" style="margin-top:14px">' + icon('alert') + '<div>有 ' + fmtMoney(gb.ungrouped.value, { compact: true }) + ' 资产尚未归入分组。前往分组管理把账户或标的加入分组。</div></div>' : '') +
     '<div class="divider-line"></div>' +
     '<div class="row-between"><span class="tiny">' + (builtin ? '默认自动分组 · 按当前持仓实时计算' : '目标配置：' + (gb.items.filter(x => x.id !== '__ungrouped').map(x => x.normalizedTarget.toFixed(0) + '%').join(' / ') || '未设置')) + '</span>' +
       (builtin ? '<button class="text-btn" data-action="go" data-href="#/settings">管理分组 ' + icon('chevronRight') + '</button>' : '<button class="text-btn" data-action="go" data-href="#/rebalance">查看再平衡 ' + icon('chevronRight') + '</button>') + '</div>' +

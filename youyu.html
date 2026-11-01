@@ -4748,7 +4748,7 @@ function renderStatsPage() {
     '<div class="card-head" style="padding:0"><div><h2>资产构成</h2><div class="sub">' + esc(scheme ? scheme.name : '') + ' · 按当前市值</div></div><span class="tiny">' + esc(baseCurrency()) + '</span></div>' +
     '<div class="donut-layout stats-donut-layout" style="margin-top:16px">' + donutBoxHTML(items, { size: 150, stroke: 16, centerValue: fmtMoney(gb.total, { compact: true }), centerLabel: '总资产' }) +
       '<div class="donut-legend">' + donutLegendHTML(items, { compact: !!scheme.builtin }) + '</div></div>' +
-    (gb.ungrouped ? '<div class="info-banner warn" style="margin-top:14px">' + icon('alert') + '<div>有 ' + fmtMoney(gb.ungrouped.value, { compact: true }) + ' 资产尚未归入分组。前往分组管理把账户或标的加入分组。</div></div>' : '') +
+    (gb.ungrouped && gb.ungrouped.value > 0.5 ? '<div class="info-banner warn" style="margin-top:14px">' + icon('alert') + '<div>有 ' + fmtMoney(gb.ungrouped.value, { compact: true }) + ' 资产尚未归入分组。前往分组管理把账户或标的加入分组。</div></div>' : '') +
     '<div class="divider-line"></div>' +
     '<div class="row-between"><span class="tiny">' + (builtin ? '默认自动分组 · 按当前持仓实时计算' : '目标配置：' + (gb.items.filter(x => x.id !== '__ungrouped').map(x => x.normalizedTarget.toFixed(0) + '%').join(' / ') || '未设置')) + '</span>' +
       (builtin ? '<button class="text-btn" data-action="go" data-href="#/settings">管理分组 ' + icon('chevronRight') + '</button>' : '<button class="text-btn" data-action="go" data-href="#/rebalance">查看再平衡 ' + icon('chevronRight') + '</button>') + '</div>' +
@@ -5210,11 +5210,11 @@ function renderRebalancePage() {
     '</div>' +
     '<div class="reb-summary"><div class="l">' + icon(offenders.length ? 'alert' : 'check') + (offenders.length ? offenders.length + ' 个分组偏离目标范围' : '当前配置在目标范围内') + '</div><div class="r">' + (offenders.length ? '有可优化空间' : '保持即可') + '</div></div>' +
     (Math.abs(schemeTargetTotal(scheme) - 100) > 0.01 ? '<div class="info-banner warn" style="margin-top:10px">' + icon('alert') + '<div>目标比例合计为 <b>' + schemeTargetTotal(scheme).toFixed(1) + '%</b>，当前页按归一化比例计算。</div></div>' : '') +
-    (ungrouped ? '<div class="info-banner warn" style="margin-top:10px">' + icon('alert') + '<div>' + fmtMoney(ungrouped.value, { compact: true }) + ' 资产未分组，无法参与再平衡。' +
+    (ungrouped && ungrouped.value > 0.5 ? '<div class="info-banner warn" style="margin-top:10px">' + icon('alert') + '<div>' + fmtMoney(ungrouped.value, { compact: true }) + ' 资产未分组，无法参与再平衡。' +
       '<button class="text-btn" style="font-size:9px;margin-left:4px" data-action="go" data-href="#/groups/' + encodeURIComponent(sid) + '">去分组 ' + icon('chevronRight') + '</button></div></div>' : '') +
   '</section>' +
   '<section class="card pad" style="margin-top:14px">' +
-    '<div class="card-head" style="padding:0"><div><h2>偏离与目标区间</h2><div class="sub">竖线为目标，底色区域为 ±' + tolerance.toFixed(1) + '% 容忍带</div></div><button class="text-btn" data-action="open-target-editor" data-scheme="' + esc(sid) + '">调整 ' + icon('chevronRight') + '</button></div>' +
+    '<div class="card-head" style="padding:0"><div><h2>偏离与目标区间</h2><div class="sub">竖线为目标，底色区域为 ±' + tolerance.toFixed(1) + '% 容忍带</div></div></div>' +
     '<div class="reb-list">' + rebalanceRows(items, tolerance) + '</div>' +
   '</section>' +
   '<div class="reb-actions"><button class="btn ghost" data-action="open-target-editor" data-scheme="' + esc(sid) + '">' + icon('sliders') + '调整目标</button>' +
@@ -5655,7 +5655,7 @@ function renderSettingsPage() {
   '<div class="settings-group"><div class="label">关于</div><div class="settings-card">' +
     '<div class="setting-row"><span class="setting-icon accent">' + icon('shield') + '</span><span class="setting-main"><span class="t">本地存储</span><span class="s">所有数据保存在浏览器 localStorage，不上传服务器。清除浏览器数据会丢失账本，请定期导出备份。</span></span></div>' +
     '<div class="setting-row"><span class="setting-icon blue">' + icon('chart') + '</span><span class="setting-main"><span class="t">行情数据</span><span class="s">名称搜索来自新浪财经，最新报价来自腾讯行情；公开接口可能受网络影响，仅供估值参考。</span></span></div>' +
-    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v3.2</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
+    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v3.3</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
   '</div></div>' +
   '<div class="version">' + esc(APP_NAME) + ' · 投资组合<br>不构成投资建议 · 数据仅供参考</div>' +
   '<div style="height:8px"></div>';
