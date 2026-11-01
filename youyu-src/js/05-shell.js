@@ -125,6 +125,10 @@ function iconBtn(action, ico, label, cls, attrs) {
 
 /* ---------- icons for entities ---------- */
 function accountIconHTML(account, extraCls) {
+  const brand = account.logo && ACCOUNT_BRAND_ICONS[account.logo];
+  if (brand) {
+    return '<span class="acct-icon brand ' + (extraCls || '') + '"><img src="' + brand + '" alt=""></span>';
+  }
   const c1 = account.color || '#ff9f45';
   const c2 = account.color2 || c1;
   return '<span class="acct-icon ' + (extraCls || '') + '" style="background:linear-gradient(145deg,' + c1 + ',' + c2 + ')"><span>' + esc(account.icon || (account.name || '?').slice(0, 1)) + '</span></span>';

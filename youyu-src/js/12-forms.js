@@ -18,8 +18,13 @@ const RECORD_TYPE_INFO = {
 function openAccountForm(accountId) {
   const editing = accountId ? accountById(accountId) : null;
   const colors = ['#1677ff', '#27b768', '#c69236', '#c23b32', '#ff6b35', '#6d7cff', '#ff7a00', '#2b6bf3', '#b18cff', '#43d6b0'];
+  const autoLogo = editing ? matchAccountBrand(editing.name) : null;
+  const logoValue = editing ? (editing.logo === autoLogo ? 'auto' : (editing.logo || 'none')) : 'auto';
+  const logoOptions = [{ value: 'auto', label: '自动匹配' }, { value: 'none', label: '首字图标' }]
+    .concat(ACCOUNT_BRANDS.map(b => ({ value: b.id, label: b.name })));
   const body = '<form id="account-form"><div class="form-grid">' +
     fieldHTML({ id: 'account-name', label: '账户名称', value: editing ? editing.name : '', placeholder: '例如：支付宝', full: true }) +
+    fieldHTML({ id: 'account-logo', label: '账户图标', type: 'select', value: logoValue, options: logoOptions, full: true, hint: '自动按账户名称匹配内置品牌图标；匹配不到时使用首字图标' }) +
     fieldHTML({ id: 'account-type', label: '账户类型', type: 'select', value: editing ? editing.type : (accountTypes()[0] ? accountTypes()[0].id : 'payment'), options: accountTypeOptions(), hint: '用于「账户类型分组」和账户筛选；可在「我的 → 类型管理」中维护。' }) +
     (editing ? fieldHTML({ id: 'account-currency', label: '币种', type: 'select', value: editing.currency, options: currencyOptions(), attrs: 'disabled' }) : fieldHTML({ id: 'account-currency', label: '币种', type: 'select', value: 'CNY', options: currencyOptions() })) +
     (editing ? '' : fieldHTML({ id: 'account-initial', label: '初始余额', value: '', placeholder: '0.00', unit: 'CNY', inputmode: 'decimal' })) +
@@ -53,16 +58,18 @@ function openAccountForm(accountId) {
     const currency = ccySel ? ccySel.value : 'CNY';
     const note = cleanText(form.querySelector('#account-note').value, 40);
     const color = form.querySelector('#account-color').value || '#ff9f45';
+    const logoRaw = (form.querySelector('#account-logo') || {}).value || 'auto';
+    const logo = logoRaw === 'auto' ? (matchAccountBrand(name) || '') : logoRaw === 'none' ? '' : logoRaw;
     state.isDemo = false;
     if (editing) {
-      editing.name = name; editing.type = type; editing.typeName = accountTypeName(type); editing.note = note; editing.color = color;
+      editing.name = name; editing.type = type; editing.typeName = accountTypeName(type); editing.note = note; editing.color = color; editing.logo = logo;
       editing.color2 = shadeColor(color, -18);
       editing.icon = name.slice(0, 1);
       saveState(); closeSheet(wrap); toast('账户已更新', 'success'); refreshPage(); return;
     }
     const id = uid('acc');
     const account = {
-      id, name, type, typeName: accountTypeName(type), currency, color, color2: shadeColor(color, -18), icon: name.slice(0, 1), note,
+      id, name, type, typeName: accountTypeName(type), currency, color, color2: shadeColor(color, -18), icon: name.slice(0, 1), logo, note,
       instruments: []
     };
     state.accounts.push(account);

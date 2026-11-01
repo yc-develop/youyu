@@ -70,6 +70,7 @@ function normalizeState(obj) {
     a.instruments = Array.isArray(a.instruments) ? a.instruments : [];
     a.currency = CURRENCY_META[a.currency] ? a.currency : 'CNY';
     if (a.demo == null) a.demo = seedAccountIds.has(a.id);
+    if (a.logo === undefined) a.logo = matchAccountBrand(a.name) || '';
     a.type = validAccountTypes.has(a.type) ? a.type : (validAccountTypes.has('payment') ? 'payment' : obj.accountTypes[0].id);
     a.typeName = accountTypeById(a.type) ? accountTypeById(a.type).name : a.type;
     a.color = a.color || '#ff9f45';
