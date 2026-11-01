@@ -2619,7 +2619,7 @@ function recordFx(rec, ccy) {
   return fxAt(ccy || 'CNY', rec.date);
 }
 function recordBase(rec, ccy) {
-  return (Number(rec.amount) || 0) * recordFx(rec, ccy) / rateCNY(baseCurrency());
+  return (Number(rec.amount) || 0) * fxToBase(ccy || 'CNY');
 }
 function accountCurrency(account) { return account ? account.currency : 'CNY'; }
 function instrumentCurrency(inst) { return inst ? inst.currency : accountCurrency(inst && inst.account); }
@@ -2815,10 +2815,9 @@ function accountIncome(account) {
   recordsForAccount(account.id).forEach(r => {
     const inst = r.instrumentId ? instrumentById(r.instrumentId) : null;
     const ccy = inst ? inst.currency : account.currency;
-    const rate = (recordFx(r, ccy) / rateCNY(baseCurrency()));
+    const rate = fxToBase(ccy);
     if (r.type === 'dividend' || r.type === 'interest' || r.type === 'cashProfit') income += (Number(r.amount) || 0) * rate;
     if (r.type === 'fee') fees += (Number(r.amount) || 0) * rate;
-    if (r.type === 'buy' || r.type === 'sell') fees += (Number(r.fee) || 0) * rate * (inst && inst.currency !== account.currency ? crossRate(inst.currency, account.currency, r.date) : 1);
   });
   return { income, fees };
 }
@@ -2834,11 +2833,11 @@ function accountNetDeposits(account) {
     }
     if (r.type !== 'flow' || !r.ledgerAdjust) return;
     if (r.flowField === 'in' || r.flowField === 'out') {
-      const d = (Number(r.flowDeltaNative) || 0) * fxToBaseAt(account.currency, r.date);
+      const d = (Number(r.flowDeltaNative) || 0) * fxToBase(account.currency);
       if (r.flowField === 'in') { deposits += d; net += d; }
       else { withdrawals += d; net -= d; }
     } else if (r.flowField === 'opening') {
-      net += (Number(r.netDeltaNative) || 0) * fxToBaseAt(account.currency, r.date);
+      net += (Number(r.netDeltaNative) || 0) * fxToBase(account.currency);
     }
   });
   return { net, deposits, withdrawals };
@@ -3045,11 +3044,10 @@ function buildDailyAnalytics() {
           nativeValuation += Number(r.cashNative) || 0;
         }
       });
-      const baseNow = fxAt(account.currency, d) / baseRate;
-      const basePrev = fxAt(account.currency, prevD) / baseRate;
-      const cashFx = consider ? cashStart * (baseNow - basePrev) : 0;
+      const baseNow = fxToBase(account.currency);
+      const cashFx = 0;
       cashValues[i] = cash * baseNow;
-      cashPnls[i] = (income - fees) * baseNow + valuation + cashFx;
+      cashPnls[i] = (income - fees) * baseNow + valuation;
       cashNativeValues[i] = cash;
       cashNativePnls[i] = nativeIncome - nativeFees + nativeValuation;
       cashFxSeries[i] = cashFx;
@@ -3083,9 +3081,9 @@ function buildDailyAnalytics() {
         });
         const p = priceAt(inst.id, d);
         const pp = priceAt(inst.id, prevD);
-        const fx = fxAt(inst.currency, d) / baseRate;
-        const pfx = fxAt(inst.currency, prevD) / baseRate;
-        const pnl = consider ? qtyStart * (p * fx - pp * pfx) : qtyStart * (p - pp) * fx;
+        const fx = fxToBase(inst.currency);
+        const pfx = fx;
+        const pnl = qtyStart * (p - pp) * fx;
         const cross = crossRate(inst.currency, account.currency, d);
         const crossPrev = crossRate(inst.currency, account.currency, prevD);
         vals[i] = qty * p * fx;
@@ -4507,7 +4505,7 @@ function renderAssetsPage() {
       '<div class="hero-stat"><div class="lab">可用现金</div><div class="val">' + fmtMoney(p.cash, { compact: true }) + '</div></div>' +
       '<div class="hero-stat"><div class="lab">持仓市值</div><div class="val">' + fmtMoney(p.holdings, { compact: true }) + '</div></div>' +
     '</div>' +
-    '<div class="hero-note">' + icon('swap') + '<span>汇率仅用于组合折算，不计入收益</span><span class="faint">' + baseCurrency() + '</span></div>' +
+    '<div class="hero-note">' + icon('swap') + '<span>按固定汇率折算，不计入收益</span><span class="faint">' + baseCurrency() + '</span></div>' +
   '</section>' +
   '<div class="quick-grid">' +
     '<button class="quick-item" data-action="open-record-picker">' + icon('plus') + '记一笔</button>' +
@@ -4516,7 +4514,7 @@ function renderAssetsPage() {
   '</div>' +
   '<div class="asset-toolbar"><div class="left"><span class="dot"></span>共 ' + p.accounts.length + ' 个账户 · ' + p.positions + ' 个持仓</div>' +
     '<div class="right"><span class="faint tiny">' + (demoMode ? (state.meta && state.meta.demoHydrated ? '示例数据' : '示例同步中') : '本地账本') + '</span></div></div>' +
-  '<section class="section" style="margin-top:10px"><div class="section-head"><div><h2>资产账户</h2><div class="sub">账户资产按当前汇率折算为 ' + baseCurrency() + '</div></div><button class="text-btn" data-action="open-add-account">' + icon('plus') + '新增</button></div>' +
+  '<section class="section" style="margin-top:10px"><div class="section-head"><div><h2>资产账户</h2><div class="sub">账户资产按固定汇率折算为 ' + baseCurrency() + '</div></div><button class="text-btn" data-action="open-add-account">' + icon('plus') + '新增</button></div>' +
     '<div class="stack-8">' + accountList + '</div></section>' +
   '<div class="version">数据仅保存在本机浏览器 · 建议定期导出备份<br>' + esc(APP_NAME) + ' · ' + (state.meta && state.meta.name ? state.meta.name : '我的投资组合') + '</div>';
 }
@@ -5681,7 +5679,7 @@ function renderSettingsPage() {
   '<div class="settings-group"><div class="label">关于</div><div class="settings-card">' +
     '<div class="setting-row"><span class="setting-icon accent">' + icon('shield') + '</span><span class="setting-main"><span class="t">本地存储</span><span class="s">所有数据保存在浏览器 localStorage，不上传服务器。清除浏览器数据会丢失账本，请定期导出备份。</span></span></div>' +
     '<div class="setting-row"><span class="setting-icon blue">' + icon('chart') + '</span><span class="setting-main"><span class="t">行情数据</span><span class="s">名称搜索来自新浪财经，最新报价来自腾讯行情；公开接口可能受网络影响，仅供估值参考。</span></span></div>' +
-    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v3.9</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
+    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v4.0</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
   '</div></div>' +
   '<div class="version">' + esc(APP_NAME) + ' · 投资组合<br>不构成投资建议 · 数据仅供参考</div>' +
   '<div style="height:8px"></div>';

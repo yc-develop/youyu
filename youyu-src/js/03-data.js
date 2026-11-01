@@ -414,7 +414,7 @@ function recordFx(rec, ccy) {
   return fxAt(ccy || 'CNY', rec.date);
 }
 function recordBase(rec, ccy) {
-  return (Number(rec.amount) || 0) * recordFx(rec, ccy) / rateCNY(baseCurrency());
+  return (Number(rec.amount) || 0) * fxToBase(ccy || 'CNY');
 }
 function accountCurrency(account) { return account ? account.currency : 'CNY'; }
 function instrumentCurrency(inst) { return inst ? inst.currency : accountCurrency(inst && inst.account); }
@@ -610,10 +610,9 @@ function accountIncome(account) {
   recordsForAccount(account.id).forEach(r => {
     const inst = r.instrumentId ? instrumentById(r.instrumentId) : null;
     const ccy = inst ? inst.currency : account.currency;
-    const rate = (recordFx(r, ccy) / rateCNY(baseCurrency()));
+    const rate = fxToBase(ccy);
     if (r.type === 'dividend' || r.type === 'interest' || r.type === 'cashProfit') income += (Number(r.amount) || 0) * rate;
     if (r.type === 'fee') fees += (Number(r.amount) || 0) * rate;
-    if (r.type === 'buy' || r.type === 'sell') fees += (Number(r.fee) || 0) * rate * (inst && inst.currency !== account.currency ? crossRate(inst.currency, account.currency, r.date) : 1);
   });
   return { income, fees };
 }
@@ -629,11 +628,11 @@ function accountNetDeposits(account) {
     }
     if (r.type !== 'flow' || !r.ledgerAdjust) return;
     if (r.flowField === 'in' || r.flowField === 'out') {
-      const d = (Number(r.flowDeltaNative) || 0) * fxToBaseAt(account.currency, r.date);
+      const d = (Number(r.flowDeltaNative) || 0) * fxToBase(account.currency);
       if (r.flowField === 'in') { deposits += d; net += d; }
       else { withdrawals += d; net -= d; }
     } else if (r.flowField === 'opening') {
-      net += (Number(r.netDeltaNative) || 0) * fxToBaseAt(account.currency, r.date);
+      net += (Number(r.netDeltaNative) || 0) * fxToBase(account.currency);
     }
   });
   return { net, deposits, withdrawals };
@@ -840,11 +839,10 @@ function buildDailyAnalytics() {
           nativeValuation += Number(r.cashNative) || 0;
         }
       });
-      const baseNow = fxAt(account.currency, d) / baseRate;
-      const basePrev = fxAt(account.currency, prevD) / baseRate;
-      const cashFx = consider ? cashStart * (baseNow - basePrev) : 0;
+      const baseNow = fxToBase(account.currency);
+      const cashFx = 0;
       cashValues[i] = cash * baseNow;
-      cashPnls[i] = (income - fees) * baseNow + valuation + cashFx;
+      cashPnls[i] = (income - fees) * baseNow + valuation;
       cashNativeValues[i] = cash;
       cashNativePnls[i] = nativeIncome - nativeFees + nativeValuation;
       cashFxSeries[i] = cashFx;
@@ -878,9 +876,9 @@ function buildDailyAnalytics() {
         });
         const p = priceAt(inst.id, d);
         const pp = priceAt(inst.id, prevD);
-        const fx = fxAt(inst.currency, d) / baseRate;
-        const pfx = fxAt(inst.currency, prevD) / baseRate;
-        const pnl = consider ? qtyStart * (p * fx - pp * pfx) : qtyStart * (p - pp) * fx;
+        const fx = fxToBase(inst.currency);
+        const pfx = fx;
+        const pnl = qtyStart * (p - pp) * fx;
         const cross = crossRate(inst.currency, account.currency, d);
         const crossPrev = crossRate(inst.currency, account.currency, prevD);
         vals[i] = qty * p * fx;

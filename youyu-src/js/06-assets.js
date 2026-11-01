@@ -55,7 +55,7 @@ function renderAssetsPage() {
       '<div class="hero-stat"><div class="lab">可用现金</div><div class="val">' + fmtMoney(p.cash, { compact: true }) + '</div></div>' +
       '<div class="hero-stat"><div class="lab">持仓市值</div><div class="val">' + fmtMoney(p.holdings, { compact: true }) + '</div></div>' +
     '</div>' +
-    '<div class="hero-note">' + icon('swap') + '<span>汇率仅用于组合折算，不计入收益</span><span class="faint">' + baseCurrency() + '</span></div>' +
+    '<div class="hero-note">' + icon('swap') + '<span>按固定汇率折算，不计入收益</span><span class="faint">' + baseCurrency() + '</span></div>' +
   '</section>' +
   '<div class="quick-grid">' +
     '<button class="quick-item" data-action="open-record-picker">' + icon('plus') + '记一笔</button>' +
@@ -64,7 +64,7 @@ function renderAssetsPage() {
   '</div>' +
   '<div class="asset-toolbar"><div class="left"><span class="dot"></span>共 ' + p.accounts.length + ' 个账户 · ' + p.positions + ' 个持仓</div>' +
     '<div class="right"><span class="faint tiny">' + (demoMode ? (state.meta && state.meta.demoHydrated ? '示例数据' : '示例同步中') : '本地账本') + '</span></div></div>' +
-  '<section class="section" style="margin-top:10px"><div class="section-head"><div><h2>资产账户</h2><div class="sub">账户资产按当前汇率折算为 ' + baseCurrency() + '</div></div><button class="text-btn" data-action="open-add-account">' + icon('plus') + '新增</button></div>' +
+  '<section class="section" style="margin-top:10px"><div class="section-head"><div><h2>资产账户</h2><div class="sub">账户资产按固定汇率折算为 ' + baseCurrency() + '</div></div><button class="text-btn" data-action="open-add-account">' + icon('plus') + '新增</button></div>' +
     '<div class="stack-8">' + accountList + '</div></section>' +
   '<div class="version">数据仅保存在本机浏览器 · 建议定期导出备份<br>' + esc(APP_NAME) + ' · ' + (state.meta && state.meta.name ? state.meta.name : '我的投资组合') + '</div>';
 }
