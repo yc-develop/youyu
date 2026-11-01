@@ -11,7 +11,7 @@ function renderStatsPage() {
   const scheme = schemeById(sid);
   const gb = groupBreakdown(sid);
   const p = portfolioSummary();
-  const items = visualGroupItems(gb.items.filter(x => x.value > 0.5), 8);
+  const items = visualGroupItems(gb.items.filter(x => x.value > 0), 8);
   const groupReturns = groupPeriodSummary(sid, 365);
   const retMap = new Map(groupReturns.map(x => [x.group.id, x]));
   const sankeyMode = ui.sankeyMode || 'account';
@@ -59,7 +59,7 @@ function visualGroupItems(items, max) {
 
 function statsGroupRows(gb, retMap, scheme) {
   const auto = !!(scheme && scheme.builtin);
-  const rows = auto ? gb.items.filter(x => x.value > 0.5) : gb.items;
+  const rows = auto ? gb.items.filter(x => x.value > 0) : gb.items;
   return rows.map(it => {
     const ret = retMap.get(it.id);
     return '<button class="stats-row" data-action="open-group-detail" data-id="' + esc(it.id) + '">' +

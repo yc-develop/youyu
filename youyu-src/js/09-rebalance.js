@@ -40,7 +40,7 @@ function renderRebalancePage() {
   const items = gb.items.filter(x => x.id !== '__ungrouped');
   const ungrouped = gb.ungrouped;
   const offenders = items.filter(x => x.status === 'high' || x.status === 'low');
-  const currentItems = gb.items.filter(x => x.value > 0.5).map(x => ({ name: x.name, value: x.value, color: x.color }));
+  const currentItems = gb.items.filter(x => x.value > 0).map(x => ({ name: x.name, value: x.value, color: x.color }));
   const targetItems = items.filter(x => (x.normalizedTarget || 0) > 0.01).map(x => ({ name: x.name, value: x.normalizedTarget, color: x.color }));
   const tolerance = Number(state.settings.tolerance) || 0;
   const donutCurrent = donutBoxHTML(currentItems, { size: 126, stroke: 14, centerValue: fmtMoney(gb.total, { compact: true }), centerLabel: '当前' });
@@ -91,7 +91,7 @@ function rebalanceRows(items, tolerance) {
         '<span class="reb-fill" style="width:' + current.toFixed(1) + '%;background:' + it.color + '"></span>' +
         '<span class="reb-target" style="left:calc(' + target.toFixed(1) + '% - 1px)"></span></div>' +
       '<div class="reb-meta"><span>目标 <b>' + target.toFixed(1) + '%</b> · 当前 <b>' + current.toFixed(1) + '%</b> · ' + (it.status === 'high' ? '超出' : it.status === 'low' ? '低于' : '接近') + ' <b class="diff ' + statusCls + '">' + (diff >= 0 ? '+' : '') + diff.toFixed(1) + '%</b></span>' +
-        '<span>' + (it.status === 'ok' ? '在目标区间内' : Math.abs(it.delta) < 0.5 ? '无需操作' : (it.delta > 0 ? '需买入 ' : '需卖出 ') + fmtMoney(Math.abs(it.delta), { compact: true })) + '</span></div>' +
+        '<span>' + (it.status === 'ok' ? '在目标区间内' : Math.abs(it.delta) < 0.005 ? '无需操作' : (it.delta > 0 ? '需买入 ' : '需卖出 ') + fmtMoney(Math.abs(it.delta), { compact: true })) + '</span></div>' +
     '</div>';
   }).join('');
 }

@@ -209,8 +209,8 @@ function sankeyHTML(schemeId, mode) {
   const last = daily.n - 1;
   const scheme = gb.scheme;
   if (!scheme || gb.total <= 0) return chartEmptyHTML('还没有可用于桑基图的资产', 260);
-  let visibleGroups = gb.items.filter(g => g.value > 0.5 && g.id !== '__ungrouped');
-  if (gb.ungrouped && gb.ungrouped.value > 0.5) visibleGroups.push(gb.ungrouped);
+  let visibleGroups = gb.items.filter(g => g.value > 0 && g.id !== '__ungrouped');
+  if (gb.ungrouped && gb.ungrouped.value > 0) visibleGroups.push(gb.ungrouped);
   if (!visibleGroups.length) return chartEmptyHTML('还没有可用于桑基图的资产', 260);
   const total = sum(visibleGroups, g => g.value);
   let restGroupIds = new Set();
@@ -236,7 +236,7 @@ function sankeyHTML(schemeId, mode) {
       const match = g.id === '__sankey_other' ? restGroupIds.has(compGroup) : compGroup === g.id;
       if (!match) return;
       const value = comp.values[last] || 0;
-      if (value <= 0.5) return;
+      if (value <= 0) return;
       let key, label, sub;
       if (mode === 'instrument' && inst) {
         key = 'inst:' + inst.id;
