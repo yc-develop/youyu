@@ -143,6 +143,7 @@ function qtyUnit(cls) {
   if (cls === 'stock' || cls === 'etf') return '股';
   if (cls === 'deposit') return '笔';
   if (cls === 'bond') return '张';
+  if (cls === 'gold') return '克';
   return '份';
 }
 

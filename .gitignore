@@ -20,3 +20,6 @@
 /.netlify-token
 /.netlify-site-id
 .ssh/
+
+# 个人账本备份（不要提交）
+/youyu-backup-*.json
