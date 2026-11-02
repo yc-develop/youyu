@@ -70,7 +70,6 @@ function renderRebalancePage() {
   '</section>' +
   '<div class="reb-actions"><button class="btn ghost" data-action="open-target-editor" data-scheme="' + esc(sid) + '">' + icon('sliders') + '调整目标</button>' +
     '<button class="btn primary" data-action="open-rebalance-plan" data-scheme="' + esc(sid) + '">' + icon('sparkles') + '查看再平衡</button></div>' +
-  '<div class="info-banner" style="margin-top:14px">' + icon('info') + '<div>再平衡建议按当前持仓比例分配到组内标的，仅作为操作参考，不会自动下单或修改你的账本。</div></div>' +
   '<div style="height:12px"></div>';
 }
 

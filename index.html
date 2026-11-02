@@ -2973,14 +2973,7 @@ function normalizeTargets(scheme) {
     normalized: total > 0 ? rebalanceTargetFor(scheme, g) / total : 0
   }));
 }
-function groupIncludeSummary(group) {
-  if (group.typeFilter) return instrumentTypeName(group.typeFilter) + ' · 按标的类型';
-  const names = [];
-  (group.includeAccounts || []).forEach(id => { const a = accountById(id); if (a) names.push(a.name); });
-  (group.includeCashAccounts || []).forEach(id => { if ((group.includeAccounts || []).indexOf(id) < 0) { const a = accountById(id); if (a) names.push(a.name + ' · 现金'); } });
-  (group.includeInstruments || []).forEach(id => { const i = instrumentById(id); if (i) names.push(i.name); });
-  return names.length ? names.join(' · ') : '尚未选择资产';
-}
+
 
 /* ---------- daily analytics ---------- */
 function dailyStartDate() {
@@ -4514,8 +4507,8 @@ function renderAssetsPage() {
     '<button class="quick-item violet" data-action="go" data-href="#/rebalance">' + icon('scale') + '再平衡</button>' +
   '</div>' +
   '<div class="asset-toolbar"><div class="left"><span class="dot"></span>共 ' + p.accounts.length + ' 个账户 · ' + p.positions + ' 个持仓</div>' +
-    '<div class="right"><span class="faint tiny">' + (demoMode ? (state.meta && state.meta.demoHydrated ? '示例数据' : '示例同步中') : '本地账本') + '</span></div></div>' +
-  '<section class="section" style="margin-top:10px"><div class="section-head"><div><h2>资产账户</h2><div class="sub">账户资产按固定汇率折算为 ' + baseCurrency() + '</div></div><button class="text-btn" data-action="open-add-account">' + icon('plus') + '新增</button></div>' +
+    (demoMode ? '<div class="right"><span class="faint tiny">' + (state.meta && state.meta.demoHydrated ? '示例数据' : '示例同步中') + '</span></div>' : '') + '</div>' +
+  '<section class="section" style="margin-top:10px"><div class="section-head"><div><h2>账户</h2></div><button class="text-btn" data-action="open-add-account">' + icon('plus') + '新增</button></div>' +
     '<div class="stack-8">' + accountList + '</div></section>' +
   '<div class="version">数据仅保存在本机浏览器 · 建议定期导出备份<br>' + esc(APP_NAME) + ' · ' + (state.meta && state.meta.name ? state.meta.name : '我的投资组合') + '</div>';
 }
@@ -4888,7 +4881,6 @@ function openGroupDetailSheet(groupId, schemeId) {
   }).join('') : '<div class="tiny" style="padding:16px 0">这个分组还没有资产</div>';
   const body = '<div class="stat-hero" style="margin-bottom:0"><div><div class="eyebrow">' + esc(scheme.name) + ' · 分组构成</div><div class="big" style="font-size:25px">' + fmtMoney(total) + '</div><div class="cap">占组合 ' + (gb.total > 0 ? (total / gb.total * 100).toFixed(1) : '0') + '% · 目标 ' + (Number(g.target) || 0).toFixed(0) + '%</div></div>' +
     '<div class="right">近一年<b class="' + (ret ? pnlClass(ret.returnPct) : '') + '">' + (ret ? fmtPct(ret.returnPct, 2) : '—') + '</b><span>收益率</span></div></div>' +
-    '<div class="info-banner" style="margin-top:14px">' + icon('info') + '<div>' + esc(groupIncludeSummary(g)) + '</div></div>' +
     '<div class="bar-list" style="margin-top:16px">' + list + '</div>' +
     '<div style="height:8px"></div>';
   openSheet({ title: g.name, sub: '分组构成与表现', body, footer: builtin ? '<button class="btn ghost" data-sheet-close>关闭</button>' : '<button class="btn ghost" data-action="open-group-editor" data-id="' + esc(g.id) + '" data-scheme="' + esc(sid) + '">编辑分组</button><button class="btn primary" data-action="open-target-editor" data-scheme="' + esc(sid) + '">调整目标</button>' });
@@ -5244,7 +5236,6 @@ function renderRebalancePage() {
   '</section>' +
   '<div class="reb-actions"><button class="btn ghost" data-action="open-target-editor" data-scheme="' + esc(sid) + '">' + icon('sliders') + '调整目标</button>' +
     '<button class="btn primary" data-action="open-rebalance-plan" data-scheme="' + esc(sid) + '">' + icon('sparkles') + '查看再平衡</button></div>' +
-  '<div class="info-banner" style="margin-top:14px">' + icon('info') + '<div>再平衡建议按当前持仓比例分配到组内标的，仅作为操作参考，不会自动下单或修改你的账本。</div></div>' +
   '<div style="height:12px"></div>';
 }
 
@@ -5395,7 +5386,6 @@ function renderGroupsPage(schemeId) {
         '<div class="gc-actions"><button class="icon-btn sm" data-action="move-group" data-id="' + esc(g.id) + '" data-dir="-1" ' + (i === 0 ? 'disabled' : '') + ' aria-label="上移">' + icon('chevronUp') + '</button>' +
         '<button class="icon-btn sm" data-action="move-group" data-id="' + esc(g.id) + '" data-dir="1" ' + (i === scheme.groups.length - 1 ? 'disabled' : '') + ' aria-label="下移">' + icon('chevronDown') + '</button>' +
         '<button class="icon-btn sm" data-action="open-group-editor" data-id="' + esc(g.id) + '" data-scheme="' + esc(scheme.id) + '" aria-label="编辑">' + icon('edit') + '</button></div></div>' +
-      '<div class="gc-include">' + esc(groupIncludeSummary(g)) + '</div>' +
     '</div>';
   }).join('');
 
@@ -5680,7 +5670,7 @@ function renderSettingsPage() {
   '<div class="settings-group"><div class="label">关于</div><div class="settings-card">' +
     '<div class="setting-row"><span class="setting-icon accent">' + icon('shield') + '</span><span class="setting-main"><span class="t">本地存储</span><span class="s">所有数据保存在浏览器 localStorage，不上传服务器。清除浏览器数据会丢失账本，请定期导出备份。</span></span></div>' +
     '<div class="setting-row"><span class="setting-icon blue">' + icon('chart') + '</span><span class="setting-main"><span class="t">行情数据</span><span class="s">名称搜索来自新浪财经，最新报价来自腾讯行情；公开接口可能受网络影响，仅供估值参考。</span></span></div>' +
-    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v4.3</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
+    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v4.4</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
   '</div></div>' +
   '<div class="version">' + esc(APP_NAME) + ' · 投资组合<br>不构成投资建议 · 数据仅供参考</div>' +
   '<div style="height:8px"></div>';

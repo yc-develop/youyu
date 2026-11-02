@@ -16,7 +16,6 @@ function renderGroupsPage(schemeId) {
         '<div class="gc-actions"><button class="icon-btn sm" data-action="move-group" data-id="' + esc(g.id) + '" data-dir="-1" ' + (i === 0 ? 'disabled' : '') + ' aria-label="上移">' + icon('chevronUp') + '</button>' +
         '<button class="icon-btn sm" data-action="move-group" data-id="' + esc(g.id) + '" data-dir="1" ' + (i === scheme.groups.length - 1 ? 'disabled' : '') + ' aria-label="下移">' + icon('chevronDown') + '</button>' +
         '<button class="icon-btn sm" data-action="open-group-editor" data-id="' + esc(g.id) + '" data-scheme="' + esc(scheme.id) + '" aria-label="编辑">' + icon('edit') + '</button></div></div>' +
-      '<div class="gc-include">' + esc(groupIncludeSummary(g)) + '</div>' +
     '</div>';
   }).join('');
 

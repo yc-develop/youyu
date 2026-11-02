@@ -146,7 +146,6 @@ function openGroupDetailSheet(groupId, schemeId) {
   }).join('') : '<div class="tiny" style="padding:16px 0">这个分组还没有资产</div>';
   const body = '<div class="stat-hero" style="margin-bottom:0"><div><div class="eyebrow">' + esc(scheme.name) + ' · 分组构成</div><div class="big" style="font-size:25px">' + fmtMoney(total) + '</div><div class="cap">占组合 ' + (gb.total > 0 ? (total / gb.total * 100).toFixed(1) : '0') + '% · 目标 ' + (Number(g.target) || 0).toFixed(0) + '%</div></div>' +
     '<div class="right">近一年<b class="' + (ret ? pnlClass(ret.returnPct) : '') + '">' + (ret ? fmtPct(ret.returnPct, 2) : '—') + '</b><span>收益率</span></div></div>' +
-    '<div class="info-banner" style="margin-top:14px">' + icon('info') + '<div>' + esc(groupIncludeSummary(g)) + '</div></div>' +
     '<div class="bar-list" style="margin-top:16px">' + list + '</div>' +
     '<div style="height:8px"></div>';
   openSheet({ title: g.name, sub: '分组构成与表现', body, footer: builtin ? '<button class="btn ghost" data-sheet-close>关闭</button>' : '<button class="btn ghost" data-action="open-group-editor" data-id="' + esc(g.id) + '" data-scheme="' + esc(sid) + '">编辑分组</button><button class="btn primary" data-action="open-target-editor" data-scheme="' + esc(sid) + '">调整目标</button>' });

@@ -768,14 +768,7 @@ function normalizeTargets(scheme) {
     normalized: total > 0 ? rebalanceTargetFor(scheme, g) / total : 0
   }));
 }
-function groupIncludeSummary(group) {
-  if (group.typeFilter) return instrumentTypeName(group.typeFilter) + ' · 按标的类型';
-  const names = [];
-  (group.includeAccounts || []).forEach(id => { const a = accountById(id); if (a) names.push(a.name); });
-  (group.includeCashAccounts || []).forEach(id => { if ((group.includeAccounts || []).indexOf(id) < 0) { const a = accountById(id); if (a) names.push(a.name + ' · 现金'); } });
-  (group.includeInstruments || []).forEach(id => { const i = instrumentById(id); if (i) names.push(i.name); });
-  return names.length ? names.join(' · ') : '尚未选择资产';
-}
+
 
 /* ---------- daily analytics ---------- */
 function dailyStartDate() {
