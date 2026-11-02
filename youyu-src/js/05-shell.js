@@ -175,7 +175,7 @@ function holdingRowHTML(im, opts) {
   return '<a class="holding-row" href="#/instrument/' + encodeURIComponent(im.inst.id) + '">' +
     instrumentIconHTML(im.inst) +
     '<div class="h-main"><div class="h-name">' + esc(im.inst.name) + '</div>' +
-      '<div class="h-sub">' + esc(im.inst.symbol) + ' · ' + fmtQty(im.qty) + qtyUnit(im.inst.cls) + ' · 均价 ' + fmtPrice(im.avgCost, im.inst.currency) + '</div></div>' +
+      '<div class="h-sub">' + esc(im.inst.symbol) + ' · ' + (im.qty > 0.000001 ? fmtQty(im.qty) + qtyUnit(im.inst.cls) + ' · 均价 ' + fmtPrice(im.avgCost, im.inst.currency) : '未建仓') + '</div></div>' +
     '<div class="h-value"><div class="v">' + fmtMoney(displayValue, { compact: true, currency: displayCcy }) + '</div>' +
       '<div class="p ' + pnlClass(displayPnl) + '">' + pnlText(displayPnl, { compact: true, currency: displayCcy }) + '</div></div>' +
     '<span class="h-chevron">' + icon('chevronRight') + '</span></a>';
