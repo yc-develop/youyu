@@ -506,7 +506,9 @@ function openRecordForm(accountId, type, instrumentId, editId, draft) {
       const qty = parseNumber(form.querySelector('#record-qty').value);
       const price = parseNumber(priceInput.value);
       const fee = parseNumber(form.querySelector('#record-fee') ? form.querySelector('#record-fee').value : 0);
-      if (!(qty > 0) || !(price > 0)) { toast('请填写数量和价格', 'error'); return; }
+      if (!(qty > 0)) { toast('请填写数量', 'error'); return; }
+      if (price < 0) { toast('价格不能为负数', 'error'); return; }
+      if (type === 'sell' && !(price > 0)) { toast('请填写卖出价格', 'error'); return; }
       if (type === 'sell') {
         const im = computeInstrumentMetrics(inst.id);
         let available = im.qty;
