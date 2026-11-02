@@ -330,7 +330,13 @@ function instrumentById(id) {
 }
 function instrumentsOf(account) { return (account && account.instruments) || []; }
 function recordsSorted() {
-  return (state.records || []).slice().sort((a, b) => a.date === b.date ? String(a.id).localeCompare(String(b.id)) : (a.date < b.date ? -1 : 1));
+  return (state.records || []).slice().sort((a, b) => {
+    if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+    const ac = String(a.createdAt || '');
+    const bc = String(b.createdAt || '');
+    if (ac !== bc) return ac < bc ? -1 : 1;
+    return String(a.id).localeCompare(String(b.id));
+  });
 }
 function recordsForAccount(accountId) {
   return recordsSorted().filter(r => r.accountId === accountId);
