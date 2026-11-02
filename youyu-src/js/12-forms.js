@@ -61,6 +61,7 @@ function openAccountForm(accountId) {
     const logoRaw = (form.querySelector('#account-logo') || {}).value || 'auto';
     const logo = logoRaw === 'auto' ? (matchAccountBrand(name) || '') : logoRaw === 'none' ? '' : logoRaw;
     state.isDemo = false;
+    if (!selectedMarket && /^AU9999$/i.test(symbol)) selectedMarket = Object.assign({}, SGE_AU9999);
     if (editing) {
       editing.name = name; editing.type = type; editing.typeName = accountTypeName(type); editing.note = note; editing.color = color; editing.logo = logo;
       editing.color2 = shadeColor(color, -18);
@@ -94,10 +95,10 @@ function openInstrumentForm(accountId, instrumentId) {
   const colors = ['#ff6b35', '#ff9f45', '#5b8cff', '#b18cff', '#43d6b0', '#f2c45c', '#ff7a00', '#2b6bf3', '#c9d1d9', '#9ca3af'];
   const body = '<form id="instrument-form">' +
     '<div class="market-search-block">' +
-      '<div class="market-search-head"><span>行情匹配</span><span class="market-source">新浪搜索 · 腾讯报价 · 仅供估值参考</span></div>' +
-      '<div class="market-search-row"><input class="input" id="market-query" placeholder="搜索名称 / 代码：茅台、AAPL、110008、国债ETF" autocomplete="off" spellcheck="false"><button type="button" class="btn sm" id="market-search-btn">' + icon('search') + '搜索</button></div>' +
+      '<div class="market-search-head"><span>行情匹配</span><span class="market-source">新浪搜索 · 腾讯 / 东财报价 · 仅供估值参考</span></div>' +
+      '<div class="market-search-row"><input class="input" id="market-query" placeholder="搜索名称 / 代码：茅台、AAPL、110008、AU9999" autocomplete="off" spellcheck="false"><button type="button" class="btn sm" id="market-search-btn">' + icon('search') + '搜索</button></div>' +
       '<div id="market-results" class="market-results"></div>' +
-      '<div id="market-status" class="market-status">支持 A股、场外基金、场内 ETF、美股、港股、债券。选中后自动填入最新价格。</div>' +
+      '<div id="market-status" class="market-status">支持 A股、场外基金、场内 ETF、美股、港股、债券、上金所 AU9999。选中后自动填入最新价格。</div>' +
     '</div>' +
     '<div class="form-grid">' +
     fieldHTML({ id: 'inst-name', label: '标的名称', value: editing ? editing.name : '', placeholder: '例如：苹果 / 沪深300ETF', full: true }) +
@@ -132,7 +133,7 @@ function openInstrumentForm(accountId, instrumentId) {
     if (selectedMarket) {
       setMarketStatus('已连接 <b>' + esc(selectedMarket.label || '') + '</b> · ' + esc(selectedMarket.symbol || '') + (selectedMarket.lastUpdated ? ' · ' + esc(selectedMarket.lastUpdated) : '') + ' · 可手动刷新行情', 'ok');
     } else if (!editing) {
-      setMarketStatus('支持 A股、场外基金、场内 ETF、美股、港股、债券。选中后自动填入最新价格。');
+      setMarketStatus('支持 A股、场外基金、场内 ETF、美股、港股、债券、上金所 AU9999。选中后自动填入最新价格。');
     }
   };
   const fillFromMarket = (meta, quote) => {
@@ -214,6 +215,7 @@ function openInstrumentForm(accountId, instrumentId) {
       return;
     }
     state.isDemo = false;
+    if (!selectedMarket && /^AU9999$/i.test(symbol)) selectedMarket = Object.assign({}, SGE_AU9999);
     if (editing) {
       editing.name = name; editing.symbol = symbol; editing.cls = cls; editing.color = color;
       editing.note = note; editing.color2 = shadeColor(color, -18);

@@ -3,6 +3,7 @@
    数据源：新浪财经搜索（JSONP）+ 腾讯行情（CORS）
    ========================================================= */
 const MARKET_SEARCH_TYPES = '11,21,22,23,31,41,81,201,202,203';
+const SGE_AU9999 = { provider: 'eastmoney', code: '118.au9999', marketType: 'SGE', label: '上金所', symbol: 'AU9999', name: '黄金9999', currency: 'CNY', cls: 'gold' };
 let marketSearchSeq = 0;
 
 function marketFundClass(name) {
@@ -88,6 +89,7 @@ function parseSinaSuggest(raw, query) {
 function marketSearch(query) {
   const q = String(query || '').trim();
   if (!q) return Promise.resolve([]);
+  if (/au9999|黄金9999|沪金|上金所/i.test(q)) return Promise.resolve([Object.assign({}, SGE_AU9999)]);
   return new Promise((resolve, reject) => {
     const seq = ++marketSearchSeq;
     const script = document.createElement('script');
@@ -112,8 +114,37 @@ function marketSearch(query) {
     document.head.appendChild(script);
   });
 }
+async function fetchEastmoneySgeQuote(market) {
+  const res = await fetch('https://push2.eastmoney.com/api/qt/stock/get?secid=' + encodeURIComponent(market.code) + '&fields=f43,f57,f58,f60,f86,f170&_=' + Date.now(), { cache: 'no-store', mode: 'cors' });
+  if (!res.ok) throw new Error('上金所行情请求失败');
+  const json = await res.json();
+  const d = json && json.data;
+  if (!d || !(Number(d.f43) > 0)) throw new Error('上金所行情为空');
+  const price = Number(d.f43) / 100;
+  const prevClose = Number(d.f60) / 100;
+  const changePct = Number(d.f170) / 100;
+  const ts = Number(d.f86);
+  let time = '';
+  if (ts > 0) {
+    const dt = new Date(ts * 1000);
+    time = dateKey(dt) + ' ' + pad2(dt.getHours()) + ':' + pad2(dt.getMinutes()) + ':' + pad2(dt.getSeconds());
+  }
+  return { price, prevClose, changePct, time, name: d.f58 || market.name, currency: market.currency || 'CNY' };
+}
+async function fetchEastmoneySgeHistory(market) {
+  const res = await fetch('https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=' + encodeURIComponent(market.code) + '&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57,f58&klt=101&fqt=0&beg=0&end=20500101&lmt=2500&_=' + Date.now(), { cache: 'no-store', mode: 'cors' });
+  if (!res.ok) throw new Error('上金所历史行情请求失败');
+  const json = await res.json();
+  const rows = json && json.data && json.data.klines;
+  if (!Array.isArray(rows) || !rows.length) throw new Error('上金所历史行情为空');
+  return rows.map(row => {
+    const f = String(row).split(',');
+    return [f[0], Number(f[2]) / 100];
+  }).filter(x => x[0] && x[1] > 0);
+}
 async function fetchTencentQuote(market) {
   if (!market || !market.code) throw new Error('未绑定行情代码');
+  if (market.provider === 'eastmoney' || market.marketType === 'SGE') return fetchEastmoneySgeQuote(market);
   const res = await fetch('https://qt.gtimg.cn/q=' + encodeURIComponent(market.code) + '&_=' + Date.now(), {
     cache: 'no-store',
     mode: 'cors'
@@ -293,7 +324,8 @@ async function ensureInstrumentHistory(id, opts) {
   try {
     let rows = [];
     const code = actual.market.code;
-    if (code.indexOf('jj') === 0) rows = await fetchFundHistory(actual.market);
+    if (actual.market.provider === 'eastmoney' || actual.market.marketType === 'SGE') rows = await fetchEastmoneySgeHistory(actual.market);
+    else if (code.indexOf('jj') === 0) rows = await fetchFundHistory(actual.market);
     else if (code.indexOf('us') === 0) rows = await fetchSinaUSHistory(actual.market);
     else if (/^(sh|sz)/.test(code)) {
       try { rows = await fetchSinaCNHistory(actual.market); } catch (e) { rows = await fetchTencentHistory(actual.market); }
