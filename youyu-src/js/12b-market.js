@@ -139,7 +139,7 @@ async function fetchEastmoneySgeHistory(market) {
   if (!Array.isArray(rows) || !rows.length) throw new Error('上金所历史行情为空');
   return rows.map(row => {
     const f = String(row).split(',');
-    return [f[0], Number(f[2]) / 100];
+    return [f[0], Number(f[2])];
   }).filter(x => x[0] && x[1] > 0);
 }
 async function fetchTencentQuote(market) {
@@ -319,6 +319,10 @@ async function ensureInstrumentHistory(id, opts) {
   const found = instrumentById(id);
   if (!found || !found.market || !found.market.code) return false;
   const actual = (accountById(found.accountId) || { instruments: [] }).instruments.find(x => x.id === id);
+  if (actual && actual.market && actual.market.marketType === 'SGE' && actual.market.historyVersion !== 2) {
+    actual.market.historyLoaded = false;
+    state.prices[id] = (state.prices[id] || []).filter(p => p[2] !== 'market');
+  }
   if (!actual || actual.market.historyLoaded || historyLoadingIds.has(id)) return !!(actual && actual.market.historyLoaded);
   historyLoadingIds.add(id);
   try {
@@ -335,6 +339,7 @@ async function ensureInstrumentHistory(id, opts) {
     rows.forEach(([date, price]) => upsertPricePoint(id, date, price, 'market'));
     actual.market = Object.assign({}, actual.market, {
       historyLoaded: true,
+      historyVersion: actual.market.marketType === 'SGE' ? 2 : actual.market.historyVersion,
       historySyncedAt: nowISO(),
       historyCount: rows.length
     });
