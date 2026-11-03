@@ -34,7 +34,7 @@ applyTheme();
     history.replaceState(null, '', '#/assets');
   }
   const route = parseRoute();
-  if (!TABS.some(t => t.key === route.name) && ['account', 'instrument', 'groups', 'types'].indexOf(route.name) < 0) {
+  if (!TABS.some(t => t.key === route.name) && ['account', 'instrument', 'groups', 'types', 'import'].indexOf(route.name) < 0) {
     history.replaceState(null, '', '#/assets');
   }
   renderPage({ scroll: true });

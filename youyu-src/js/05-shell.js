@@ -21,6 +21,7 @@ function parseRoute() {
   if (parts[0] === 'instrument' && parts[1]) return { name: 'instrument', id: decodeURIComponent(parts[1]) };
   if (parts[0] === 'groups' && parts[1]) return { name: 'groups', schemeId: decodeURIComponent(parts[1]) };
   if (parts[0] === 'types') return { name: 'types' };
+  if (parts[0] === 'import') return { name: 'import' };
   if (TABS.some(t => t.key === parts[0])) return { name: parts[0] };
   return { name: 'assets' };
 }
@@ -55,7 +56,7 @@ function renderPage(opts) {
   applyTheme();
   const o = opts || {};
   const route = parseRoute();
-  const isDetail = route.name === 'account' || route.name === 'instrument' || route.name === 'groups' || route.name === 'types';
+  const isDetail = route.name === 'account' || route.name === 'instrument' || route.name === 'groups' || route.name === 'types' || route.name === 'import';
   const screen = $('#screen');
   const scrollY = window.scrollY;
   const prevKey = lastRouteKey;
@@ -70,9 +71,11 @@ function renderPage(opts) {
   else if (route.name === 'instrument') html = renderInstrumentPage(route.id);
   else if (route.name === 'groups') html = renderGroupsPage(route.schemeId);
   else if (route.name === 'types') html = renderTypesPage();
+  else if (route.name === 'import') html = renderImportPage();
   if (!html) html = renderNotFound();
   screen.className = 'screen' + (isDetail ? ' detail-screen' : '');
   screen.innerHTML = '<div class="page">' + html + '</div>';
+  if (route.name === 'import' && typeof bindImportPage === 'function') bindImportPage();
   const tabbar = $('#tabbar');
   tabbar.style.display = isDetail ? 'none' : 'grid';
   renderTabbar(activeTabFor(route));

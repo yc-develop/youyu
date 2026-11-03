@@ -45,6 +45,7 @@ function renderSettingsPage() {
   '<div class="settings-group"><div class="label">数据</div><div class="settings-card">' +
     settingRowHTML('导出账本', 'JSON 备份', 'download', 'export-data', '保存账户、交易、价格与分组') +
     settingRowHTML('导入账本', '从备份恢复', 'upload', 'import-data', '导入会覆盖当前账本') +
+    '<a class="setting-row" href="#/import"><span class="setting-icon blue">' + icon('search') + '</span><span class="setting-main"><span class="t">截图导入</span><span class="s">从截图提取的交易文字</span></span><span class="setting-value">' + icon('chevronRight') + '</span></a>' +
     (demoMode ? settingRowHTML('退出演示', '回到我的账本', 'logout', 'switch-user', '演示账本与真实账本完全分离') : settingRowHTML('体验示例数据', '完整演示', 'sparkles', 'switch-demo', '切换到独立演示账本，不影响真实数据')) +
     (demoMode ? settingRowHTML('重置示例数据', '重新同步', 'refresh', 'reset-demo', '仅重置演示账本，不影响真实数据') : '') +
     settingRowHTML('清空账本', '从零开始', 'trash', 'clear-data', '删除所有账户与记录', '', 'danger') +
@@ -53,7 +54,7 @@ function renderSettingsPage() {
   '<div class="settings-group"><div class="label">关于</div><div class="settings-card">' +
     '<div class="setting-row"><span class="setting-icon accent">' + icon('shield') + '</span><span class="setting-main"><span class="t">本地存储</span><span class="s">所有数据保存在浏览器 localStorage，不上传服务器。清除浏览器数据会丢失账本，请定期导出备份。</span></span></div>' +
     '<div class="setting-row"><span class="setting-icon blue">' + icon('chart') + '</span><span class="setting-main"><span class="t">行情数据</span><span class="s">名称搜索来自新浪财经，最新报价来自腾讯行情；公开接口可能受网络影响，仅供估值参考。</span></span></div>' +
-    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v4.7</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
+    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v4.8</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
   '</div></div>' +
   '<div class="version">' + esc(APP_NAME) + ' · 投资组合<br>不构成投资建议 · 数据仅供参考</div>' +
   '<div style="height:8px"></div>';

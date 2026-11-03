@@ -1406,6 +1406,27 @@ html[data-theme="light"] .hero-note{background:rgba(16,24,40,.035);border-color:
 .acct-icon.brand::after{display:none}
 .acct-icon.brand img{width:100%;height:100%;display:block;object-fit:cover;border-radius:inherit}
 html[data-theme="light"] .acct-icon.brand{border-color:rgba(16,24,40,.1);box-shadow:0 6px 16px -12px rgba(16,24,40,.3)}
+.import-help{display:flex;gap:10px;align-items:flex-start;padding:13px 14px;border:1px solid var(--line);background:rgba(91,140,255,.08);border-radius:14px;color:var(--ink-2);font-size:11px;line-height:1.55}
+.import-help .icon{color:var(--blue);flex:0 0 18px;margin-top:1px}
+.import-help b{display:block;color:var(--ink);font-size:12px;margin-bottom:2px}
+.import-help p{margin:0;color:var(--faint)}
+.import-textarea{min-height:138px;resize:vertical;line-height:1.5}
+.import-actions{display:flex;gap:8px;margin-top:10px}
+.import-actions .btn{flex:1}
+.import-steps{margin-top:12px;padding:11px 12px;border-left:2px solid var(--blue);background:rgba(91,140,255,.06);border-radius:0 10px 10px 0;color:var(--faint);font-size:10px;line-height:1.65}
+.import-steps b{color:var(--ink-2)}
+.import-preview{margin-top:14px}
+.import-list{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--card)}
+.import-row{display:flex;align-items:flex-start;gap:10px;padding:11px 12px;border-top:1px solid var(--line)}
+.import-row:first-child{border-top:0}
+.import-row.bad{background:rgba(255,93,108,.05)}
+.import-row input{margin-top:3px;accent-color:var(--accent-color)}
+.import-main{flex:1;min-width:0}
+.import-main b{display:block;font-size:11.5px;font-weight:600}
+.import-main small{display:block;margin-top:3px;color:var(--faint);font-size:9.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.import-main em{display:block;margin-top:3px;color:var(--loss);font-size:9px;font-style:normal}
+.import-amt{font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.import-footer{margin-top:12px}
 
 </style>
 </head>
@@ -4097,6 +4118,7 @@ function parseRoute() {
   if (parts[0] === 'instrument' && parts[1]) return { name: 'instrument', id: decodeURIComponent(parts[1]) };
   if (parts[0] === 'groups' && parts[1]) return { name: 'groups', schemeId: decodeURIComponent(parts[1]) };
   if (parts[0] === 'types') return { name: 'types' };
+  if (parts[0] === 'import') return { name: 'import' };
   if (TABS.some(t => t.key === parts[0])) return { name: parts[0] };
   return { name: 'assets' };
 }
@@ -4131,7 +4153,7 @@ function renderPage(opts) {
   applyTheme();
   const o = opts || {};
   const route = parseRoute();
-  const isDetail = route.name === 'account' || route.name === 'instrument' || route.name === 'groups' || route.name === 'types';
+  const isDetail = route.name === 'account' || route.name === 'instrument' || route.name === 'groups' || route.name === 'types' || route.name === 'import';
   const screen = $('#screen');
   const scrollY = window.scrollY;
   const prevKey = lastRouteKey;
@@ -4146,9 +4168,11 @@ function renderPage(opts) {
   else if (route.name === 'instrument') html = renderInstrumentPage(route.id);
   else if (route.name === 'groups') html = renderGroupsPage(route.schemeId);
   else if (route.name === 'types') html = renderTypesPage();
+  else if (route.name === 'import') html = renderImportPage();
   if (!html) html = renderNotFound();
   screen.className = 'screen' + (isDetail ? ' detail-screen' : '');
   screen.innerHTML = '<div class="page">' + html + '</div>';
+  if (route.name === 'import' && typeof bindImportPage === 'function') bindImportPage();
   const tabbar = $('#tabbar');
   tabbar.style.display = isDetail ? 'none' : 'grid';
   renderTabbar(activeTabFor(route));
@@ -5668,6 +5692,7 @@ function renderSettingsPage() {
   '<div class="settings-group"><div class="label">数据</div><div class="settings-card">' +
     settingRowHTML('导出账本', 'JSON 备份', 'download', 'export-data', '保存账户、交易、价格与分组') +
     settingRowHTML('导入账本', '从备份恢复', 'upload', 'import-data', '导入会覆盖当前账本') +
+    '<a class="setting-row" href="#/import"><span class="setting-icon blue">' + icon('search') + '</span><span class="setting-main"><span class="t">截图导入</span><span class="s">从截图提取的交易文字</span></span><span class="setting-value">' + icon('chevronRight') + '</span></a>' +
     (demoMode ? settingRowHTML('退出演示', '回到我的账本', 'logout', 'switch-user', '演示账本与真实账本完全分离') : settingRowHTML('体验示例数据', '完整演示', 'sparkles', 'switch-demo', '切换到独立演示账本，不影响真实数据')) +
     (demoMode ? settingRowHTML('重置示例数据', '重新同步', 'refresh', 'reset-demo', '仅重置演示账本，不影响真实数据') : '') +
     settingRowHTML('清空账本', '从零开始', 'trash', 'clear-data', '删除所有账户与记录', '', 'danger') +
@@ -5676,7 +5701,7 @@ function renderSettingsPage() {
   '<div class="settings-group"><div class="label">关于</div><div class="settings-card">' +
     '<div class="setting-row"><span class="setting-icon accent">' + icon('shield') + '</span><span class="setting-main"><span class="t">本地存储</span><span class="s">所有数据保存在浏览器 localStorage，不上传服务器。清除浏览器数据会丢失账本，请定期导出备份。</span></span></div>' +
     '<div class="setting-row"><span class="setting-icon blue">' + icon('chart') + '</span><span class="setting-main"><span class="t">行情数据</span><span class="s">名称搜索来自新浪财经，最新报价来自腾讯行情；公开接口可能受网络影响，仅供估值参考。</span></span></div>' +
-    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v4.7</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
+    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v4.8</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
   '</div></div>' +
   '<div class="version">' + esc(APP_NAME) + ' · 投资组合<br>不构成投资建议 · 数据仅供参考</div>' +
   '<div style="height:8px"></div>';
@@ -7149,6 +7174,221 @@ function openTypeEditor(kind, typeId) {
 
 
 /* =========================================================
+   12d · 截图 OCR 文本导入
+   ========================================================= */
+let importDrafts = [];
+let importAccountId = '';
+let importInstrumentId = '';
+
+function importAccount() {
+  return accountById(importAccountId) || accounts()[0] || null;
+}
+function importInstrumentOptions(account) {
+  return (account ? (account.instruments || []) : []).map(i => '<option value="' + esc(i.id) + '">' + esc(i.name) + ' · ' + esc(i.symbol || '') + '</option>').join('');
+}
+function renderImportPage() {
+  const list = accounts();
+  if (!list.length) return backHead('截图导入', '', '#/settings') + '<div class="detail-body">' + emptyBlock('还没有账户', '先添加账户，再导入交易记录。', '<a class="btn primary sm" href="#/assets">去添加账户</a>', 'wallet') + '</div>';
+  if (!importAccountId || !accountById(importAccountId)) importAccountId = list[0].id;
+  const account = importAccount();
+  if (!importInstrumentId || !(account.instruments || []).some(i => i.id === importInstrumentId)) importInstrumentId = (account.instruments[0] || {}).id || '';
+  return backHead('截图导入', '', '#/settings') +
+    '<div class="detail-body">' +
+      '<div class="import-help">' + icon('search') + '<div><b>从截图导入</b><p>用 iPhone 相册或分享菜单提取文字，复制后回到这里读取。没有自动上传，截图不会离开手机。</p></div></div>' +
+      '<div class="form-grid" style="margin-top:14px">' +
+        fieldHTML({ id: 'import-account', label: '导入到账户', type: 'select', value: importAccountId, options: list.map(a => ({ value: a.id, label: a.name + ' · ' + a.currency })) }) +
+        fieldHTML({ id: 'import-instrument', label: '买入/卖出标的', type: 'select', value: importInstrumentId, options: (account.instruments || []).map(i => ({ value: i.id, label: i.name + ' · ' + (i.symbol || '') })), hint: '现金类记录会自动忽略标的' }) +
+      '</div>' +
+      '<div class="field" style="margin-top:12px"><label>识别文字</label><textarea class="input import-textarea" id="import-text" rows="8" placeholder="把截图中的交易文字粘贴到这里，例如：&#10;2025-05-13&#10;实时买入  ¥10,000.00&#10;克数:13.0833克&#10;交易价:¥764.33"></textarea></div>' +
+      '<div class="import-actions"><button class="btn ghost sm" data-action="import-clipboard">' + icon('file') + '读取剪贴板</button><button class="btn primary sm" data-action="import-parse">' + icon('search') + '解析</button></div>' +
+      '<div class="import-steps"><b>快捷指令</b><br>截图 → 分享 → 运行「提取图像文字并复制」→ 回到本页点「读取剪贴板」。<br>下一步会先预览，再确认写入。</div>' +
+      '<div id="import-preview" class="import-preview"></div>' +
+      '<div id="import-footer" class="import-footer"></div>' +
+    '</div>';
+}
+function bindImportPage() {
+  const accountSel = $('#import-account');
+  const instSel = $('#import-instrument');
+  const textEl = $('#import-text');
+  const previewEl = $('#import-preview');
+  const footerEl = $('#import-footer');
+  if (!accountSel || !textEl || !previewEl) return;
+  const syncInstruments = () => {
+    const account = accountById(accountSel.value);
+    importAccountId = accountSel.value;
+    const opts = (account && account.instruments) || [];
+    if (!opts.some(i => i.id === importInstrumentId)) importInstrumentId = (opts[0] || {}).id || '';
+    instSel.innerHTML = opts.map(i => '<option value="' + esc(i.id) + '">' + esc(i.name) + ' · ' + esc(i.symbol || '') + '</option>').join('');
+    instSel.value = importInstrumentId;
+    importDrafts = [];
+    renderImportPreview();
+  };
+  accountSel.addEventListener('change', syncInstruments);
+  instSel.addEventListener('change', () => { importInstrumentId = instSel.value; });
+  textEl.addEventListener('input', () => { importDrafts = []; renderImportPreview(); });
+  const readClipboard = async () => {
+    try {
+      const txt = await navigator.clipboard.readText();
+      if (!txt.trim()) { toast('剪贴板是空的', 'error'); return; }
+      textEl.value = txt;
+      toast('已读取剪贴板', 'success');
+    } catch (e) {
+      toast('无法读取剪贴板，请手动粘贴', 'error');
+    }
+  };
+  const parse = () => {
+    const account = accountById(accountSel.value);
+    const instrumentId = instSel.value;
+    importAccountId = accountSel.value;
+    importInstrumentId = instrumentId;
+    importDrafts = parseImportText(textEl.value, account, instrumentId);
+    renderImportPreview();
+    if (!importDrafts.length) toast('没有识别到交易，请检查文字格式', 'error');
+  };
+  const render = () => {
+    const previewAccount = accountById(accountSel.value);
+    previewEl.innerHTML = importPreviewHTML(importDrafts, previewAccount ? previewAccount.currency : 'CNY');
+    footerEl.innerHTML = importDrafts.length ? '<button class="btn primary wide" data-action="import-confirm">导入 ' + importDrafts.filter(x => x.checked && !x.error).length + ' 条记录</button>' : '';
+    previewEl.querySelectorAll('[data-import-index]').forEach(cb => cb.addEventListener('change', () => {
+      const d = importDrafts[Number(cb.getAttribute('data-import-index'))];
+      if (d) d.checked = cb.checked;
+      footerEl.innerHTML = importDrafts.length ? '<button class="btn primary wide" data-action="import-confirm">导入 ' + importDrafts.filter(x => x.checked && !x.error).length + ' 条记录</button>' : '';
+    }));
+  };
+  window.__renderImportPreview = render;
+  const actions = {
+    'import-clipboard': readClipboard,
+    'import-parse': parse,
+    'import-confirm': confirmImport
+  };
+  const onClick = e => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const fn = actions[btn.getAttribute('data-action')];
+    if (fn) { e.preventDefault(); fn(); }
+  };
+  const wrap = document.querySelector('.detail-screen .page') || document;
+  wrap.addEventListener('click', onClick);
+  render();
+}
+function renderImportPreview() { if (typeof window.__renderImportPreview === 'function') window.__renderImportPreview(); }
+
+function parseImportText(text, account, instrumentId) {
+  const raw = String(text || '').trim();
+  if (!raw) return [];
+  if (raw[0] === '[' || raw[0] === '{') {
+    try {
+      const obj = JSON.parse(raw);
+      const arr = Array.isArray(obj) ? obj : (Array.isArray(obj.records) ? obj.records : []);
+      if (arr.length) return arr.map(x => normalizeImportDraft(x, account, instrumentId)).filter(Boolean);
+    } catch (e) {}
+  }
+  const lines = raw.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+  const dateRe = /(20\d{2}[-/]\d{1,2}[-/]\d{1,2})/;
+  const starts = [];
+  lines.forEach((line, i) => { if (dateRe.test(line)) starts.push(i); });
+  if (!starts.length) return [];
+  const bounds = starts.map(idx => {
+    const prev = lines[idx - 1] || '';
+    const includePrev = /活期结息|实时买入|实时卖出|买入|卖出|存入|取出|利息|费用|更新收益/.test(prev) && !/[¥￥]/.test(prev) && !/交易价|克数|价格/.test(prev);
+    return { idx, start: includePrev ? idx - 1 : idx };
+  });
+  return bounds.map((b, n) => {
+    const end = n + 1 < bounds.length ? bounds[n + 1].start : lines.length;
+    return parseImportBlock(lines.slice(b.start, end).join('\n'), account, instrumentId);
+  }).filter(Boolean);
+}
+function parseImportBlock(block, account, instrumentId) {
+  const text = String(block || '').replace(/\u00a0/g, ' ');
+  const dm = text.match(/(20\d{2}[-/]\d{1,2}[-/]\d{1,2})/);
+  if (!dm) return null;
+  const date = dm[1].replace(/\//g, '-').split('-').map((x, i) => i === 0 ? x : x.padStart(2, '0')).join('-');
+  const qtyM = text.match(/(?:克数|数量|份额|股数)\s*[:：]?\s*([\d,]+(?:\.\d+)?)/i);
+  const priceM = text.match(/(?:交易价|成交价|单价|价格)\s*[:：]?\s*[¥￥]?\s*([\d,]+(?:\.\d+)?)/i);
+  const qty = qtyM ? parseNum(qtyM[1]) : 0;
+  let price = priceM ? parseNum(priceM[1]) : 0;
+  const money = [];
+  const mr = /[¥￥]\s*([\d,]+(?:\.\d+)?)/g;
+  let mm;
+  while ((mm = mr.exec(text)) !== null) money.push(parseNum(mm[1]));
+  const amountLabel = text.match(/(?:金额|成交金额|发生额)\s*[:：]?\s*[¥￥]?\s*([\d,]+(?:\.\d+)?)/);
+  let amount = amountLabel ? parseNum(amountLabel[1]) : (money.length ? money[0] : 0);
+  let type = detectImportType(text);
+  const isGram = /克数|克/.test(text);
+  if (type === 'interest' && isGram && !money.length) type = 'buy';
+  if (type === 'buy' || type === 'sell') {
+    if (!(amount > 0) && qty > 0 && price > 0) amount = qty * price;
+    if (!(price > 0) && qty > 0 && amount > 0) price = amount / qty;
+  }
+  const draft = {
+    date, type, amount: round(amount, 2), qty: round(qty, 6), price: round(price, 4), fee: 0,
+    note: (text.match(/活期结息|实时买入|实时卖出|买入|卖出|存入|取出|利息|费用/) || ['截图导入'])[0],
+    instrumentId: (type === 'buy' || type === 'sell') ? instrumentId : null,
+    checked: true, error: '', duplicate: false
+  };
+  if (!['deposit','withdraw','interest','fee','cashProfit','buy','sell'].includes(type)) draft.error = '无法识别类型';
+  if (type === 'buy' || type === 'sell') {
+    if (!(draft.qty > 0)) draft.error = '缺少数量';
+    else if (type === 'sell' && !(draft.price > 0)) draft.error = '缺少卖出价格';
+    else if (!draft.instrumentId) draft.error = '缺少标的';
+  } else if (type !== 'cashProfit' && !(draft.amount > 0)) draft.error = '缺少金额';
+  if (draft.error) draft.checked = false;
+  const existing = account ? recordsForAccount(account.id) : [];
+  const fp = importFingerprint(draft, account ? account.id : '');
+  if (existing.some(r => importFingerprint(r, account.id) === fp)) { draft.duplicate = true; draft.checked = false; draft.error = '疑似重复'; }
+  return draft;
+}
+function normalizeImportDraft(x, account, instrumentId) {
+  if (!x || !x.date) return null;
+  const type = x.type || detectImportType(JSON.stringify(x));
+  return Object.assign({}, x, {
+    type, instrumentId: (type === 'buy' || type === 'sell') ? (x.instrumentId || instrumentId) : null,
+    amount: Number(x.amount) || 0, qty: Number(x.qty) || 0, price: Number(x.price) || 0,
+    checked: x.checked !== false, error: '', duplicate: false
+  });
+}
+function detectImportType(text) {
+  const s = String(text || '');
+  if (/活期结息|结息|利息/.test(s)) return /克数|克/.test(s) && !/[¥￥]/.test(s) ? 'buy' : 'interest';
+  if (/实时卖出|卖出|证券卖出/.test(s)) return 'sell';
+  if (/实时买入|买入|证券买入/.test(s)) return 'buy';
+  if (/存入|转入|充值/.test(s)) return 'deposit';
+  if (/取出|转出|提现/.test(s)) return 'withdraw';
+  if (/更新收益/.test(s)) return 'cashProfit';
+  if (/费用|手续费/.test(s)) return 'fee';
+  return '';
+}
+function parseNum(v) { return Number(String(v || '').replace(/[,，\s]/g, '')) || 0; }
+function importFingerprint(r, accountId) {
+  return [r.date, r.type, accountId, r.instrumentId || '', Math.round((Number(r.amount) || 0) * 100), Math.round((Number(r.qty) || 0) * 1000000), Math.round((Number(r.price) || 0) * 10000)].join('|');
+}
+function importPreviewHTML(list, currency) {
+  if (!list.length) return '';
+  return '<div class="import-list">' + list.map((d, i) => '<div class="import-row ' + (d.error ? 'bad' : '') + '"><input type="checkbox" data-import-index="' + i + '" ' + (d.checked && !d.error ? 'checked' : '') + ' ' + (d.error ? 'disabled' : '') + '><div class="import-main"><b>' + esc(d.date) + ' · ' + esc(importTypeLabel(d.type)) + '</b><small>' + (d.qty ? esc(fmtQty(d.qty)) + ' · ' : '') + (d.price ? esc(fmtPrice(d.price)) + ' · ' : '') + esc(d.note || '') + '</small>' + (d.error ? '<em>' + esc(d.error) + '</em>' : '') + '</div><span class="import-amt">' + fmtMoney(d.amount || 0, { compact: true, currency: currency || 'CNY' }) + '</span></div>').join('') + '</div>';
+}
+function importTypeLabel(t) { return { deposit: '存入', withdraw: '取出', interest: '利息', fee: '费用', cashProfit: '更新收益', buy: '买入', sell: '卖出' }[t] || t; }
+function confirmImport() {
+  const valid = importDrafts.filter(d => d.checked && !d.error);
+  if (!valid.length) { toast('没有可导入的记录', 'error'); return; }
+  const account = accountById(importAccountId);
+  if (!account) return;
+  const now = Date.now();
+  valid.forEach((d, i) => {
+    const rec = {
+      id: uid('rec'), date: d.date, type: d.type, accountId: account.id,
+      instrumentId: d.instrumentId || null, amount: round(d.amount, 2), qty: d.qty || 0,
+      price: d.price || 0, fee: d.fee || 0, fxRate: fxAt(account.currency, d.date),
+      note: d.note || '截图导入', createdAt: new Date(now + i * 1000).toISOString()
+    };
+    state.records.push(rec);
+  });
+  saveState();
+  toast('已导入 ' + valid.length + ' 条记录', 'success');
+  navigate('#/account/' + encodeURIComponent(account.id));
+}
+
+
+/* =========================================================
    13 · 全局交互 / 动作路由
    ========================================================= */
 function defaultUi() {
@@ -7452,7 +7692,7 @@ applyTheme();
     history.replaceState(null, '', '#/assets');
   }
   const route = parseRoute();
-  if (!TABS.some(t => t.key === route.name) && ['account', 'instrument', 'groups', 'types'].indexOf(route.name) < 0) {
+  if (!TABS.some(t => t.key === route.name) && ['account', 'instrument', 'groups', 'types', 'import'].indexOf(route.name) < 0) {
     history.replaceState(null, '', '#/assets');
   }
   renderPage({ scroll: true });
