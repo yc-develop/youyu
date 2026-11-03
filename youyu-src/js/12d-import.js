@@ -153,7 +153,11 @@ function parseImportText(text, account, instrumentId) {
   });
   return bounds.map((b, n) => {
     const end = n + 1 < bounds.length ? bounds[n + 1].start : lines.length;
-    return parseImportBlock(lines.slice(b.start, end).join('\n'), account, instrumentId);
+    const block = lines.slice(b.start, end).join('\n');
+    const target = detectImportTarget(block, account);
+    const blockAccount = target.account || account;
+    const blockInstrument = (target.instrument && target.instrument.id) || instrumentId;
+    return parseImportBlock(block, blockAccount, blockInstrument);
   }).filter(Boolean);
 }
 function parseImportBlock(block, account, instrumentId) {
@@ -196,7 +200,7 @@ function parseImportBlock(block, account, instrumentId) {
     if (!(price > 0) && qty > 0 && amount > 0) price = amount / qty;
   }
   const draft = {
-    date, type, amount: round(amount, 2), qty: qty, price: price, fee: round(fee, 2),
+    date, type, accountId: account ? account.id : null, amount: round(amount, 2), qty: qty, price: price, fee: round(fee, 2),
     note: (text.match(/活期结息|实时买入|实时卖出|分红|派息|买入|卖出|存入|取出|利息|费用/) || ['截图导入'])[0],
     instrumentId: (type === 'buy' || type === 'sell' || type === 'dividend') ? instrumentId : null,
     checked: true, error: '', duplicate: false
@@ -220,7 +224,7 @@ function normalizeImportDraft(x, account, instrumentId) {
   if (!x || !x.date) return null;
   const type = x.type || detectImportType(JSON.stringify(x));
   return Object.assign({}, x, {
-    type, instrumentId: (type === 'buy' || type === 'sell' || type === 'dividend') ? (x.instrumentId || instrumentId) : null,
+    type, accountId: x.accountId || (account && account.id) || null, instrumentId: (type === 'buy' || type === 'sell' || type === 'dividend') ? (x.instrumentId || instrumentId) : null,
     amount: Number(x.amount) || 0, qty: normalizeFundQty(Number(x.qty) || 0, (instrumentId && instrumentById(instrumentId) || {}).cls), price: Number(x.price) || 0,
     checked: x.checked !== false, error: '', duplicate: false
   });
@@ -243,16 +247,17 @@ function importFingerprint(r, accountId) {
 }
 function importPreviewHTML(list, currency) {
   if (!list.length) return '';
-  return '<div class="import-list">' + list.map((d, i) => '<div class="import-row ' + (d.error ? 'bad' : '') + '"><input type="checkbox" data-import-index="' + i + '" ' + (d.checked && !d.error ? 'checked' : '') + ' ' + (d.error ? 'disabled' : '') + '><div class="import-main"><b>' + esc(d.date) + ' · ' + esc(importTypeLabel(d.type)) + '</b><small>' + (d.qty ? esc(fmtQty(d.qty)) + ' · ' : '') + (d.price ? esc(fmtPrice(d.price)) + ' · ' : '') + esc(d.note || '') + '</small>' + (d.fee ? '<small>手续费 ' + esc(fmtMoney(d.fee, { currency: currency || 'CNY' })) + '</small>' : '') + (d.error ? '<em>' + esc(d.error) + '</em>' : '') + '</div><span class="import-amt">' + fmtMoney(d.amount || 0, { compact: true, currency: currency || 'CNY' }) + '</span></div>').join('') + '</div>';
+  return '<div class="import-list">' + list.map((d, i) => '<div class="import-row ' + (d.error ? 'bad' : '') + '"><input type="checkbox" data-import-index="' + i + '" ' + (d.checked && !d.error ? 'checked' : '') + ' ' + (d.error ? 'disabled' : '') + '><div class="import-main"><b>' + esc(d.date) + ' · ' + esc(importTypeLabel(d.type)) + (accountById(d.accountId) ? ' · ' + esc(accountById(d.accountId).name) : '') + '</b><small>' + (d.qty ? esc(fmtQty(d.qty)) + ' · ' : '') + (d.price ? esc(fmtPrice(d.price)) + ' · ' : '') + esc(d.note || '') + '</small>' + (d.fee ? '<small>手续费 ' + esc(fmtMoney(d.fee, { currency: currency || 'CNY' })) + '</small>' : '') + (d.error ? '<em>' + esc(d.error) + '</em>' : '') + '</div><span class="import-amt">' + fmtMoney(d.amount || 0, { compact: true, currency: currency || 'CNY' }) + '</span></div>').join('') + '</div>';
 }
 function importTypeLabel(t) { return { deposit: '存入', withdraw: '取出', interest: '利息', fee: '费用', cashProfit: '更新收益', buy: '买入', sell: '卖出', dividend: '分红' }[t] || t; }
 function confirmImport() {
   const valid = importDrafts.filter(d => d.checked && !d.error);
   if (!valid.length) { toast('没有可导入的记录', 'error'); return; }
-  const account = accountById(importAccountId);
-  if (!account) return;
+  const fallbackAccount = accountById(importAccountId);
+  if (!fallbackAccount) return;
   const now = Date.now();
   valid.forEach((d, i) => {
+    const account = accountById(d.accountId) || fallbackAccount;
     const rec = {
       id: uid('rec'), date: d.date, type: d.type, accountId: account.id,
       instrumentId: d.instrumentId || null, amount: round(d.amount, 2), qty: normalizeFundQty(d.qty || 0, (d.instrumentId && instrumentById(d.instrumentId) || {}).cls),
@@ -263,5 +268,5 @@ function confirmImport() {
   });
   saveState();
   toast('已导入 ' + valid.length + ' 条记录', 'success');
-  navigate('#/account/' + encodeURIComponent(account.id));
+  navigate('#/account/' + encodeURIComponent(valid[0].accountId || fallbackAccount.id));
 }
