@@ -70,6 +70,7 @@ function lineChartHTML(opts) {
     const seen = new Set();
     return (o.markers || []).map(m => {
       if (!m || (m.type !== 'buy' && m.type !== 'sell')) return '';
+      if (m.date < points[0].date || m.date > points[points.length - 1].date) return '';
       const key = m.date + '|' + m.type;
       if (seen.has(key)) return '';
       seen.add(key);
