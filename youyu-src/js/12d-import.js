@@ -186,6 +186,7 @@ function parseImportBlock(block, account, instrumentId) {
   const isGram = /克数|克/.test(text);
   if (type === 'interest' && isGram && !money.length) type = 'buy';
   let parsedQty = qtyM ? qty : (units.share.length ? units.share[0] : 0);
+  if (type === 'dividend' && !(amount > 0) && units.yuan.length) amount = units.yuan[0];
   if (type === 'buy' || type === 'sell') {
     if (!(qty > 0) && parsedQty > 0) qty = parsedQty;
     if (!(amount > 0) && units.yuan.length) amount = type === 'sell' ? units.yuan[1] || units.yuan[0] : units.yuan[0];
@@ -196,15 +197,18 @@ function parseImportBlock(block, account, instrumentId) {
   }
   const draft = {
     date, type, amount: round(amount, 2), qty: qty, price: price, fee: round(fee, 2),
-    note: (text.match(/活期结息|实时买入|实时卖出|买入|卖出|存入|取出|利息|费用/) || ['截图导入'])[0],
-    instrumentId: (type === 'buy' || type === 'sell') ? instrumentId : null,
+    note: (text.match(/活期结息|实时买入|实时卖出|分红|派息|买入|卖出|存入|取出|利息|费用/) || ['截图导入'])[0],
+    instrumentId: (type === 'buy' || type === 'sell' || type === 'dividend') ? instrumentId : null,
     checked: true, error: '', duplicate: false
   };
-  if (!['deposit','withdraw','interest','fee','cashProfit','buy','sell'].includes(type)) draft.error = '无法识别类型';
+  if (!['deposit','withdraw','interest','fee','cashProfit','buy','sell','dividend'].includes(type)) draft.error = '无法识别类型';
   if (type === 'buy' || type === 'sell') {
     if (!(draft.qty > 0)) draft.error = '缺少数量';
     else if (type === 'sell' && !(draft.price > 0)) draft.error = '缺少卖出价格';
     else if (!draft.instrumentId) draft.error = '缺少标的';
+  } else if (type === 'dividend') {
+    if (!draft.instrumentId) draft.error = '缺少标的';
+    else if (!(draft.amount > 0)) draft.error = '缺少金额';
   } else if (type !== 'cashProfit' && !(draft.amount > 0)) draft.error = '缺少金额';
   if (draft.error) draft.checked = false;
   const existing = account ? recordsForAccount(account.id) : [];
@@ -216,7 +220,7 @@ function normalizeImportDraft(x, account, instrumentId) {
   if (!x || !x.date) return null;
   const type = x.type || detectImportType(JSON.stringify(x));
   return Object.assign({}, x, {
-    type, instrumentId: (type === 'buy' || type === 'sell') ? (x.instrumentId || instrumentId) : null,
+    type, instrumentId: (type === 'buy' || type === 'sell' || type === 'dividend') ? (x.instrumentId || instrumentId) : null,
     amount: Number(x.amount) || 0, qty: normalizeFundQty(Number(x.qty) || 0, (instrumentId && instrumentById(instrumentId) || {}).cls), price: Number(x.price) || 0,
     checked: x.checked !== false, error: '', duplicate: false
   });
@@ -224,6 +228,7 @@ function normalizeImportDraft(x, account, instrumentId) {
 function detectImportType(text) {
   const s = String(text || '');
   if (/活期结息|结息|利息/.test(s)) return /克数|克/.test(s) && !/[¥￥]/.test(s) ? 'buy' : 'interest';
+  if (/分红|派息/.test(s)) return 'dividend';
   if (/实时卖出|卖出|证券卖出/.test(s)) return 'sell';
   if (/实时买入|买入|证券买入/.test(s)) return 'buy';
   if (/存入|转入|充值/.test(s)) return 'deposit';
@@ -240,7 +245,7 @@ function importPreviewHTML(list, currency) {
   if (!list.length) return '';
   return '<div class="import-list">' + list.map((d, i) => '<div class="import-row ' + (d.error ? 'bad' : '') + '"><input type="checkbox" data-import-index="' + i + '" ' + (d.checked && !d.error ? 'checked' : '') + ' ' + (d.error ? 'disabled' : '') + '><div class="import-main"><b>' + esc(d.date) + ' · ' + esc(importTypeLabel(d.type)) + '</b><small>' + (d.qty ? esc(fmtQty(d.qty)) + ' · ' : '') + (d.price ? esc(fmtPrice(d.price)) + ' · ' : '') + esc(d.note || '') + '</small>' + (d.fee ? '<small>手续费 ' + esc(fmtMoney(d.fee, { currency: currency || 'CNY' })) + '</small>' : '') + (d.error ? '<em>' + esc(d.error) + '</em>' : '') + '</div><span class="import-amt">' + fmtMoney(d.amount || 0, { compact: true, currency: currency || 'CNY' }) + '</span></div>').join('') + '</div>';
 }
-function importTypeLabel(t) { return { deposit: '存入', withdraw: '取出', interest: '利息', fee: '费用', cashProfit: '更新收益', buy: '买入', sell: '卖出' }[t] || t; }
+function importTypeLabel(t) { return { deposit: '存入', withdraw: '取出', interest: '利息', fee: '费用', cashProfit: '更新收益', buy: '买入', sell: '卖出', dividend: '分红' }[t] || t; }
 function confirmImport() {
   const valid = importDrafts.filter(d => d.checked && !d.error);
   if (!valid.length) { toast('没有可导入的记录', 'error'); return; }
