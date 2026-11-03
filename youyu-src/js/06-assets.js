@@ -261,10 +261,11 @@ function instrumentChartCard(im) {
     const days = Math.max(1, daysBetween(list[0][0], list[list.length - 1][0]));
     const annualized = Math.pow(Math.max(0.0001, endPrice / startPrice), 365 / days) - 1;
     const points = list.map(([d, p]) => ({ date: d, value: p }));
+    const tradeMarkers = recordsForInstrument(inst.id).filter(r => r.type === 'buy' || r.type === 'sell').map(r => ({ date: r.date, type: r.type }));
     chartHTML = lineChartHTML({
       points, mode: 'price', currency: inst.currency,
       color: inst.color || '#ff9f45',
-      height: 174, baseline: false, aria: '标的价格曲线'
+      height: 174, baseline: false, aria: '标的价格曲线', markers: tradeMarkers
     });
     rangeText = dateRangeLabel(list[0][0], list[list.length - 1][0]);
     lastDate = list[list.length - 1][0];
@@ -280,7 +281,7 @@ function instrumentChartCard(im) {
   const ccyLabel = mode === 'profit' ? inst.currency + ' 累计收益' : inst.currency + ' 原币计价';
   const sourceLabel = inst.market ? '行情自动同步' : '按记录生成';
   return '<div class="detail-chart-card">' +
-    '<div class="chart-head"><div><h2>' + (mode === 'profit' ? '累计收益' : '价格走势') + '</h2><div class="sub">' + (rangeText || '暂无数据') + ' · ' + ccyLabel + ' · ' + sourceLabel + '</div></div>' +
+    '<div class="chart-head"><div><h2>' + (mode === 'profit' ? '累计收益' : '价格走势') + '</h2><div class="sub">' + (rangeText || '暂无数据') + ' · ' + ccyLabel + ' · ' + sourceLabel + (mode === 'price' && recordsForInstrument(inst.id).some(r => r.type === 'buy' || r.type === 'sell') ? ' · B 买入 / S 卖出' : '') + '</div></div>' +
       '<div class="segmented small chart-toggle"><button class="seg ' + (mode === 'price' ? 'active' : '') + '" data-action="set-instrument-chart-mode" data-value="price">价格</button><button class="seg ' + (mode === 'profit' ? 'active' : '') + '" data-action="set-instrument-chart-mode" data-value="profit">累计收益</button></div></div>' +
     chartHTML + metricsHTML +
     '<div class="period-row"><div class="segmented small">' + [30, 90, 365, 0].map(d => '<button class="seg ' + (period === d ? 'active' : '') + '" data-action="set-instrument-period" data-value="' + d + '">' + labels[d] + '</button>').join('') + '</div>' +

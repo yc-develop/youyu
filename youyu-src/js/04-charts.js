@@ -66,6 +66,24 @@ function lineChartHTML(opts) {
     const anchor = i === 0 ? 'start' : i === points.length - 1 ? 'end' : 'middle';
     labels += '<text class="axis-label" x="' + x(i).toFixed(2) + '" y="' + (H - 6) + '" text-anchor="' + anchor + '">' + esc(shortDate(points[i].date)) + '</text>';
   });
+  const markerSvg = (() => {
+    const seen = new Set();
+    return (o.markers || []).map(m => {
+      if (!m || (m.type !== 'buy' && m.type !== 'sell')) return '';
+      const key = m.date + '|' + m.type;
+      if (seen.has(key)) return '';
+      seen.add(key);
+      let idx = points.findIndex(p => p.date >= m.date);
+      if (idx < 0) idx = points.length - 1;
+      const isBuy = m.type === 'buy';
+      const cx = x(idx);
+      const cy = clamp(y(Number(points[idx].value)) + (isBuy ? -11 : 11), pad.t + 8, H - pad.b - 8);
+      return '<g class="trade-marker" pointer-events="none">' +
+        '<circle cx="' + cx.toFixed(2) + '" cy="' + cy.toFixed(2) + '" r="6.5" fill="' + (isBuy ? '#5b8cff' : '#2bb673') + '" stroke="#16181d" stroke-width="1.2"/>' +
+        '<text x="' + cx.toFixed(2) + '" y="' + (cy + 2.7).toFixed(2) + '" text-anchor="middle" font-size="8" font-weight="700" fill="#fff">' + (isBuy ? 'B' : 'S') + '</text>' +
+      '</g>';
+    }).join('');
+  })();
   const last = points[points.length - 1];
   const lastX = x(points.length - 1), lastY = y(Number(last.value));
   const tipFmt = value => {
@@ -84,6 +102,7 @@ function lineChartHTML(opts) {
     grid +
     '<path class="area" d="' + areaD + '" fill="url(#' + gid + ')"/>' +
     '<path class="line" d="' + d + '" stroke="' + color + '"/>' +
+    markerSvg +
     '<line class="crosshair" data-hover="line" x1="0" y1="' + pad.t + '" x2="0" y2="' + (H - pad.b) + '" opacity="0"/>' +
     '<circle class="last-dot" cx="' + lastX.toFixed(2) + '" cy="' + lastY.toFixed(2) + '" r="3.1" fill="' + color + '"/>' +
     '<circle class="hover-dot" data-hover="dot" cx="0" cy="0" r="3.8" fill="' + color + '" opacity="0"/>' +
