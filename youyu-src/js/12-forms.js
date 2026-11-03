@@ -341,6 +341,7 @@ function openRecordForm(accountId, type, instrumentId, editId, draft) {
       fieldHTML({ id: 'record-qty', label: '数量', value: valueOf('qty', ''), placeholder: '0', inputmode: 'decimal' }) +
       fieldHTML({ id: 'record-price', label: '成交价', value: valueOf('price', ''), placeholder: '0.00', unit: chosen ? chosen.currency : account.currency, inputmode: 'decimal' }) +
       fieldHTML({ id: 'record-fee', label: '费用（可选）', value: valueOf('fee', ''), placeholder: '0.00', unit: chosen ? chosen.currency : account.currency, inputmode: 'decimal' }) +
+      fieldHTML({ id: 'record-amount', label: '成交金额', value: valueOf('amount', ''), placeholder: '自动按数量 × 价格', unit: chosen ? chosen.currency : account.currency, inputmode: 'decimal', full: true, hint: '实际支付/到账金额，可手动修正；修改数量或价格时，未手改的金额会自动更新' }) +
       fieldHTML({ id: 'record-date', label: '日期', type: 'date', value: dateVal, attrs: 'max="' + todayKey() + '"' }) +
       fieldHTML({ id: 'record-note', label: '备注（可选）', value: noteVal, placeholder: '买入 / 卖出原因', full: true }) + '</div>' +
       fxRateFieldHTML(chosen ? chosen.currency : account.currency, true, fxVal) +
@@ -402,12 +403,18 @@ function openRecordForm(accountId, type, instrumentId, editId, draft) {
   const instSel = form.querySelector('#record-instrument');
   const priceInput = form.querySelector('#record-price');
   const preview = form.querySelector('#record-preview');
+  const tradeAmountInput = form.querySelector('#record-amount');
+  if (tradeAmountInput && (editRec || (draft && draft.amount != null && draft.amount !== ''))) tradeAmountInput.dataset.manual = '1';
+  if (tradeAmountInput) tradeAmountInput.addEventListener('input', () => { tradeAmountInput.dataset.manual = '1'; });
   const updatePreview = () => {
     if (!preview) return;
     const q = parseNumber(form.querySelector('#record-qty') ? form.querySelector('#record-qty').value : 0);
     const p = parseNumber(priceInput ? priceInput.value : 0);
     const fee = parseNumber(form.querySelector('#record-fee') ? form.querySelector('#record-fee').value : 0);
-    preview.innerHTML = '成交金额 <b>' + fmtMoney(q * p, { currency: chosen ? chosen.currency : account.currency }) + '</b>' + (fee ? '<span> + 费用 ' + fmtMoney(fee, { currency: chosen ? chosen.currency : account.currency }) + '</span>' : '');
+    const autoAmount = round(q * p, 2);
+    if (tradeAmountInput && tradeAmountInput.dataset.manual !== '1') tradeAmountInput.value = autoAmount ? autoAmount.toFixed(2) : '';
+    const amount = tradeAmountInput ? parseNumber(tradeAmountInput.value) : autoAmount;
+    preview.innerHTML = '成交金额 <b>' + fmtMoney(amount, { currency: chosen ? chosen.currency : account.currency }) + '</b>' + (fee ? '<span> + 费用 ' + fmtMoney(fee, { currency: chosen ? chosen.currency : account.currency }) + '</span>' : '');
   };
   if (preview) {
     form.querySelectorAll('input').forEach(inp => inp.addEventListener('input', updatePreview));
@@ -521,8 +528,11 @@ function openRecordForm(accountId, type, instrumentId, editId, draft) {
         available = Math.max(0, available);
         if (qty > available + 0.000001) { toast('卖出数量超过当前持仓（' + fmtQty(available) + '）', 'error'); return; }
       }
+      const parsedAmount = form.querySelector('#record-amount') ? parseNumber(form.querySelector('#record-amount').value) : round(qty * price, 2);
+      if (type === 'sell' && !(parsedAmount > 0)) { toast('请填写大于 0 的成交金额', 'error'); return; }
+      if (parsedAmount < 0) { toast('成交金额不能为负数', 'error'); return; }
       baseRec.type = type; baseRec.instrumentId = inst.id; baseRec.qty = qty; baseRec.price = price;
-      baseRec.amount = round(qty * price, 2); baseRec.fee = fee; baseRec.fxRate = fxInput > 0 ? fxInput : fxAt(inst.currency, date);
+      baseRec.amount = round(parsedAmount, 2); baseRec.fee = fee; baseRec.fxRate = fxInput > 0 ? fxInput : fxAt(inst.currency, date);
     } else if (type === 'dividend') {
       if (!instSel || !instSel.value) { toast('请选择标的', 'error'); return; }
       const inst = instById(instSel.value);
