@@ -146,7 +146,7 @@ function parseImportBlock(block, account, instrumentId) {
     if (!(price > 0) && qty > 0 && amount > 0) price = amount / qty;
   }
   const draft = {
-    date, type, amount: round(amount, 2), qty: round(qty, 6), price: round(price, 4), fee: 0,
+    date, type, amount: round(amount, 2), qty: qty, price: price, fee: 0,
     note: (text.match(/活期结息|实时买入|实时卖出|买入|卖出|存入|取出|利息|费用/) || ['截图导入'])[0],
     instrumentId: (type === 'buy' || type === 'sell') ? instrumentId : null,
     checked: true, error: '', duplicate: false
