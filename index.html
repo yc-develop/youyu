@@ -1428,6 +1428,8 @@ html[data-theme="light"] .acct-icon.brand{border-color:rgba(16,24,40,.1);box-sha
 .import-amt{font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
 .import-footer{margin-top:12px}
 
+.import-auto-target{padding:11px 12px;border:1px solid var(--line);border-radius:10px;color:var(--faint);font-size:11px;background:rgba(91,140,255,.05)}
+
 </style>
 </head>
 <body>
@@ -5734,7 +5736,7 @@ function renderSettingsPage() {
   '<div class="settings-group"><div class="label">关于</div><div class="settings-card">' +
     '<div class="setting-row"><span class="setting-icon accent">' + icon('shield') + '</span><span class="setting-main"><span class="t">本地存储</span><span class="s">所有数据保存在浏览器 localStorage，不上传服务器。清除浏览器数据会丢失账本，请定期导出备份。</span></span></div>' +
     '<div class="setting-row"><span class="setting-icon blue">' + icon('chart') + '</span><span class="setting-main"><span class="t">行情数据</span><span class="s">名称搜索来自新浪财经，最新报价来自腾讯行情；公开接口可能受网络影响，仅供估值参考。</span></span></div>' +
-    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v5.8</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
+    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v5.9</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
   '</div></div>' +
   '<div class="version">' + esc(APP_NAME) + ' · 投资组合<br>不构成投资建议 · 数据仅供参考</div>' +
   '<div style="height:8px"></div>';
@@ -7253,13 +7255,13 @@ function renderImportPage() {
   if (!list.length) return backHead('截图导入', '', '#/settings') + '<div class="detail-body">' + emptyBlock('还没有账户', '先添加账户，再导入交易记录。', '<a class="btn primary sm" href="#/assets">去添加账户</a>', 'wallet') + '</div>';
   if (!importAccountId || !accountById(importAccountId)) importAccountId = list[0].id;
   const account = importAccount();
-  if (!importInstrumentId || !(account.instruments || []).some(i => i.id === importInstrumentId)) importInstrumentId = (account.instruments[0] || {}).id || '';
+  if (!importInstrumentId || !(account.instruments || []).some(i => i.id === importInstrumentId)) importInstrumentId = (account.instruments || []).length === 1 ? account.instruments[0].id : '';
   return backHead('截图导入', '', '#/settings') +
     '<div class="detail-body">' +
       '<div class="import-help">' + icon('search') + '<div><b>从截图导入</b><p>用 iPhone 相册或分享菜单提取文字，复制后回到这里读取。没有自动上传，截图不会离开手机。</p></div></div>' +
       '<div class="form-grid" style="margin-top:14px">' +
         fieldHTML({ id: 'import-account', label: '导入到账户', type: 'select', value: importAccountId, options: list.map(a => ({ value: a.id, label: a.name + ' · ' + a.currency })) }) +
-        fieldHTML({ id: 'import-instrument', label: '标的（自动识别）', type: 'select', value: importInstrumentId, options: (account.instruments || []).map(i => ({ value: i.id, label: i.name + ' · ' + (i.symbol || '') })), hint: '优先从文字中识别名称/代码；识别不到时使用当前选择' }) +
+        '<div class="field"><label>标的</label><div class="import-auto-target">按每行文字自动识别，不需要选择</div></div>' +
       '</div>' +
       '<div class="field" style="margin-top:12px"><label>识别文字</label><textarea class="input import-textarea" id="import-text" rows="8" placeholder="把截图中的交易文字粘贴到这里，例如：&#10;2025-05-13&#10;实时买入  ¥10,000.00&#10;克数:13.0833克&#10;交易价:¥764.33"></textarea></div>' +
       '<div class="import-actions"><button class="btn ghost sm" data-action="import-clipboard">' + icon('file') + '读取剪贴板</button><button class="btn primary sm" data-action="import-parse">' + icon('search') + '解析</button></div>' +
@@ -7270,7 +7272,6 @@ function renderImportPage() {
 }
 function bindImportPage() {
   const accountSel = $('#import-account');
-  const instSel = $('#import-instrument');
   const textEl = $('#import-text');
   const previewEl = $('#import-preview');
   const footerEl = $('#import-footer');
@@ -7280,15 +7281,11 @@ function bindImportPage() {
     importAccountId = accountSel.value;
     const opts = (account && account.instruments) || [];
     if (!opts.some(i => i.id === importInstrumentId)) importInstrumentId = (opts[0] || {}).id || '';
-    if (instSel) {
-      instSel.innerHTML = opts.map(i => '<option value="' + esc(i.id) + '">' + esc(i.name) + ' · ' + esc(i.symbol || '') + '</option>').join('');
-      instSel.value = importInstrumentId;
-    }
+    importInstrumentId = opts.length === 1 ? opts[0].id : '';
     importDrafts = [];
     renderImportPreview();
   };
   accountSel.addEventListener('change', syncInstruments);
-  if (instSel) instSel.addEventListener('change', () => { importInstrumentId = instSel.value; });
   textEl.addEventListener('input', () => { importDrafts = []; renderImportPreview(); });
   const readClipboard = async () => {
     try {
@@ -7311,9 +7308,8 @@ function bindImportPage() {
     }
     if (detected.instrument) {
       importInstrumentId = detected.instrument.id;
-      if (instSel) instSel.value = importInstrumentId;
     }
-    const instrumentId = (detected.instrument && detected.instrument.id) || (instSel && instSel.value) || importInstrumentId || '';
+    const instrumentId = (detected.instrument && detected.instrument.id) || importInstrumentId || '';
     importAccountId = account ? account.id : accountSel.value;
     importInstrumentId = instrumentId;
     importDrafts = parseImportText(textEl.value, account, instrumentId);
@@ -7465,7 +7461,7 @@ function importFingerprint(r, accountId) {
 }
 function importPreviewHTML(list, currency) {
   if (!list.length) return '';
-  return '<div class="import-list">' + list.map((d, i) => '<div class="import-row ' + (d.error ? 'bad' : '') + '"><input type="checkbox" data-import-index="' + i + '" ' + (d.checked && !d.error ? 'checked' : '') + ' ' + (d.error ? 'disabled' : '') + '><div class="import-main"><b>' + esc(d.date) + ' · ' + esc(importTypeLabel(d.type)) + (accountById(d.accountId) ? ' · ' + esc(accountById(d.accountId).name) : '') + '</b><small>' + (d.qty ? esc(fmtQty(d.qty)) + ' · ' : '') + (d.price ? esc(fmtPrice(d.price)) + ' · ' : '') + esc(d.note || '') + '</small>' + (d.fee ? '<small>手续费 ' + esc(fmtMoney(d.fee, { currency: currency || 'CNY' })) + '</small>' : '') + (d.error ? '<em>' + esc(d.error) + '</em>' : '') + '</div><span class="import-amt">' + fmtMoney(d.amount || 0, { compact: true, currency: currency || 'CNY' }) + '</span></div>').join('') + '</div>';
+  return '<div class="import-list">' + list.map((d, i) => '<div class="import-row ' + (d.error ? 'bad' : '') + '"><input type="checkbox" data-import-index="' + i + '" ' + (d.checked && !d.error ? 'checked' : '') + ' ' + (d.error ? 'disabled' : '') + '><div class="import-main"><b>' + esc(d.date) + ' · ' + esc(importTypeLabel(d.type)) + (accountById(d.accountId) ? ' · ' + esc(accountById(d.accountId).name) : '') + (instrumentById(d.instrumentId) ? ' · ' + instrumentById(d.instrumentId).name : '') + '</b><small>' + (d.qty ? esc(fmtQty(d.qty)) + ' · ' : '') + (d.price ? esc(fmtPrice(d.price)) + ' · ' : '') + esc(d.note || '') + '</small>' + (d.fee ? '<small>手续费 ' + esc(fmtMoney(d.fee, { currency: currency || 'CNY' })) + '</small>' : '') + (d.error ? '<em>' + esc(d.error) + '</em>' : '') + '</div><span class="import-amt">' + fmtMoney(d.amount || 0, { compact: true, currency: currency || 'CNY' }) + '</span></div>').join('') + '</div>';
 }
 function importTypeLabel(t) { return { deposit: '存入', withdraw: '取出', interest: '利息', fee: '费用', cashProfit: '更新收益', buy: '买入', sell: '卖出', dividend: '分红' }[t] || t; }
 function confirmImport() {

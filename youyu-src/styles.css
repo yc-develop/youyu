@@ -1409,3 +1409,5 @@ html[data-theme="light"] .acct-icon.brand{border-color:rgba(16,24,40,.1);box-sha
 .import-main em{display:block;margin-top:3px;color:var(--loss);font-size:9px;font-style:normal}
 .import-amt{font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
 .import-footer{margin-top:12px}
+
+.import-auto-target{padding:11px 12px;border:1px solid var(--line);border-radius:10px;color:var(--faint);font-size:11px;background:rgba(91,140,255,.05)}
