@@ -163,6 +163,7 @@ function parseImportBlock(block, account, instrumentId) {
   const date = dm[1].replace(/\//g, '-').split('-').map((x, i) => i === 0 ? x : x.padStart(2, '0')).join('-');
   const qtyM = text.match(/(?:克数|数量|份额|股数)\s*[:：]?\s*([\d,]+(?:\.\d+)?)/i);
   const priceM = text.match(/(?:交易价|成交价|单价|价格)\s*[:：]?\s*[¥￥]?\s*([\d,]+(?:\.\d+)?)/i);
+  const feeM = text.match(/(?:手续费|费用|佣金)\s*[:：]?\s*[¥￥]?\s*([\d,]+(?:\.\d+)?)/i);
   const inst = instrumentId ? instrumentById(instrumentId) : null;
   let qty = normalizeFundQty(qtyM ? parseNum(qtyM[1]) : 0, inst ? inst.cls : '');
   let price = priceM ? parseNum(priceM[1]) : 0;
@@ -181,18 +182,20 @@ function parseImportBlock(block, account, instrumentId) {
   const amountLabel = text.match(/(?:金额|成交金额|发生额)\s*[:：]?\s*[¥￥]?\s*([\d,]+(?:\.\d+)?)/);
   let amount = amountLabel ? parseNum(amountLabel[1]) : (money.length ? money[0] : 0);
   let type = detectImportType(text);
+  let fee = feeM ? parseNum(feeM[1]) : 0;
   const isGram = /克数|克/.test(text);
   if (type === 'interest' && isGram && !money.length) type = 'buy';
   let parsedQty = qtyM ? qty : (units.share.length ? units.share[0] : 0);
   if (type === 'buy' || type === 'sell') {
     if (!(qty > 0) && parsedQty > 0) qty = parsedQty;
-    if (!(amount > 0) && units.yuan.length) amount = type === 'sell' ? units.yuan[units.yuan.length - 1] : units.yuan[0];
+    if (!(amount > 0) && units.yuan.length) amount = type === 'sell' ? units.yuan[1] || units.yuan[0] : units.yuan[0];
     if (!(price > 0) && units.yuan.length > 1) price = type === 'sell' ? units.yuan[0] : units.yuan[1];
+    if (!fee && units.yuan.length > 2) fee = units.yuan[2];
     if (!(amount > 0) && qty > 0 && price > 0) amount = qty * price;
     if (!(price > 0) && qty > 0 && amount > 0) price = amount / qty;
   }
   const draft = {
-    date, type, amount: round(amount, 2), qty: qty, price: price, fee: 0,
+    date, type, amount: round(amount, 2), qty: qty, price: price, fee: round(fee, 2),
     note: (text.match(/活期结息|实时买入|实时卖出|买入|卖出|存入|取出|利息|费用/) || ['截图导入'])[0],
     instrumentId: (type === 'buy' || type === 'sell') ? instrumentId : null,
     checked: true, error: '', duplicate: false
@@ -231,11 +234,11 @@ function detectImportType(text) {
 }
 function parseNum(v) { return Number(String(v || '').replace(/[,，\s]/g, '')) || 0; }
 function importFingerprint(r, accountId) {
-  return [r.date, r.type, accountId, r.instrumentId || '', Math.round((Number(r.amount) || 0) * 100), Math.round((Number(r.qty) || 0) * 1000000), Math.round((Number(r.price) || 0) * 10000)].join('|');
+  return [r.date, r.type, accountId, r.instrumentId || '', Math.round((Number(r.amount) || 0) * 100), Math.round((Number(r.qty) || 0) * 1000000), Math.round((Number(r.price) || 0) * 10000), Math.round((Number(r.fee) || 0) * 100)].join('|');
 }
 function importPreviewHTML(list, currency) {
   if (!list.length) return '';
-  return '<div class="import-list">' + list.map((d, i) => '<div class="import-row ' + (d.error ? 'bad' : '') + '"><input type="checkbox" data-import-index="' + i + '" ' + (d.checked && !d.error ? 'checked' : '') + ' ' + (d.error ? 'disabled' : '') + '><div class="import-main"><b>' + esc(d.date) + ' · ' + esc(importTypeLabel(d.type)) + '</b><small>' + (d.qty ? esc(fmtQty(d.qty)) + ' · ' : '') + (d.price ? esc(fmtPrice(d.price)) + ' · ' : '') + esc(d.note || '') + '</small>' + (d.error ? '<em>' + esc(d.error) + '</em>' : '') + '</div><span class="import-amt">' + fmtMoney(d.amount || 0, { compact: true, currency: currency || 'CNY' }) + '</span></div>').join('') + '</div>';
+  return '<div class="import-list">' + list.map((d, i) => '<div class="import-row ' + (d.error ? 'bad' : '') + '"><input type="checkbox" data-import-index="' + i + '" ' + (d.checked && !d.error ? 'checked' : '') + ' ' + (d.error ? 'disabled' : '') + '><div class="import-main"><b>' + esc(d.date) + ' · ' + esc(importTypeLabel(d.type)) + '</b><small>' + (d.qty ? esc(fmtQty(d.qty)) + ' · ' : '') + (d.price ? esc(fmtPrice(d.price)) + ' · ' : '') + esc(d.note || '') + '</small>' + (d.fee ? '<small>手续费 ' + esc(fmtMoney(d.fee, { currency: currency || 'CNY' })) + '</small>' : '') + (d.error ? '<em>' + esc(d.error) + '</em>' : '') + '</div><span class="import-amt">' + fmtMoney(d.amount || 0, { compact: true, currency: currency || 'CNY' }) + '</span></div>').join('') + '</div>';
 }
 function importTypeLabel(t) { return { deposit: '存入', withdraw: '取出', interest: '利息', fee: '费用', cashProfit: '更新收益', buy: '买入', sell: '卖出' }[t] || t; }
 function confirmImport() {
