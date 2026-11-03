@@ -230,7 +230,7 @@ function openInstrumentForm(accountId, instrumentId) {
     const inst = { id, accountId: account.id, name, symbol, cls, currency, color, color2: shadeColor(color, -18), note, market: selectedMarket || null };
     account.instruments.push(inst);
     state.prices[id] = [[todayKey(), price > 0 ? price : 1, 'record']];
-    const qty = Math.max(0, parseNumber(form.querySelector('#inst-qty') ? form.querySelector('#inst-qty').value : 0));
+    const qty = normalizeFundQty(Math.max(0, parseNumber(form.querySelector('#inst-qty') ? form.querySelector('#inst-qty').value : 0)), cls);
     if (qty > 0) {
       const cost = parseNumber(form.querySelector('#inst-cost') ? form.querySelector('#inst-cost').value : 0) || price || 1;
       state.records.push({
@@ -512,7 +512,7 @@ function openRecordForm(accountId, type, instrumentId, editId, draft) {
       if (!instSel || !instSel.value) { toast('请选择标的', 'error'); return; }
       const inst = instById(instSel.value);
       if (!inst) return;
-      const qty = parseNumber(form.querySelector('#record-qty').value);
+      const qty = normalizeFundQty(parseNumber(form.querySelector('#record-qty').value), inst.cls);
       const price = parseNumber(priceInput.value);
       const fee = parseNumber(form.querySelector('#record-fee') ? form.querySelector('#record-fee').value : 0);
       if (!(qty > 0)) { toast('请填写数量', 'error'); return; }

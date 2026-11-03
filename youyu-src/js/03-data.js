@@ -134,6 +134,12 @@ function normalizeState(obj) {
     });
   });
   obj.meta = obj.meta || {};
+  // 场外基金按基金公司确认份额精度（0.01份）对齐
+  const fundById = {};
+  (obj.accounts || []).forEach(a => (a.instruments || []).forEach(i => { if (isOtcFundClass(i.cls)) fundById[i.id] = i; }));
+  (obj.records || []).forEach(r => {
+    if (fundById[r.instrumentId] && (r.type === 'buy' || r.type === 'sell')) r.qty = round(r.qty, 2);
+  });
   return true;
 }
 
@@ -320,6 +326,12 @@ function allInstruments() {
   const out = [];
   accounts().forEach(a => (a.instruments || []).forEach(i => out.push(Object.assign({}, i, { accountId: a.id, account: a }))));
   return out;
+}
+function isOtcFundClass(cls) {
+  return ['moneyFund', 'bondFund', 'equityFund'].indexOf(cls) >= 0;
+}
+function normalizeFundQty(qty, cls) {
+  return isOtcFundClass(cls) ? round(qty, 2) : qty;
 }
 function instrumentById(id) {
   for (const a of accounts()) {

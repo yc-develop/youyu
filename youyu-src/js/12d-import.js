@@ -130,7 +130,8 @@ function parseImportBlock(block, account, instrumentId) {
   const date = dm[1].replace(/\//g, '-').split('-').map((x, i) => i === 0 ? x : x.padStart(2, '0')).join('-');
   const qtyM = text.match(/(?:克数|数量|份额|股数)\s*[:：]?\s*([\d,]+(?:\.\d+)?)/i);
   const priceM = text.match(/(?:交易价|成交价|单价|价格)\s*[:：]?\s*[¥￥]?\s*([\d,]+(?:\.\d+)?)/i);
-  const qty = qtyM ? parseNum(qtyM[1]) : 0;
+  const inst = instrumentId ? instrumentById(instrumentId) : null;
+  const qty = normalizeFundQty(qtyM ? parseNum(qtyM[1]) : 0, inst ? inst.cls : '');
   let price = priceM ? parseNum(priceM[1]) : 0;
   const money = [];
   const mr = /[¥￥]\s*([\d,]+(?:\.\d+)?)/g;
@@ -168,7 +169,7 @@ function normalizeImportDraft(x, account, instrumentId) {
   const type = x.type || detectImportType(JSON.stringify(x));
   return Object.assign({}, x, {
     type, instrumentId: (type === 'buy' || type === 'sell') ? (x.instrumentId || instrumentId) : null,
-    amount: Number(x.amount) || 0, qty: Number(x.qty) || 0, price: Number(x.price) || 0,
+    amount: Number(x.amount) || 0, qty: normalizeFundQty(Number(x.qty) || 0, (instrumentId && instrumentById(instrumentId) || {}).cls), price: Number(x.price) || 0,
     checked: x.checked !== false, error: '', duplicate: false
   });
 }
@@ -201,7 +202,7 @@ function confirmImport() {
   valid.forEach((d, i) => {
     const rec = {
       id: uid('rec'), date: d.date, type: d.type, accountId: account.id,
-      instrumentId: d.instrumentId || null, amount: round(d.amount, 2), qty: d.qty || 0,
+      instrumentId: d.instrumentId || null, amount: round(d.amount, 2), qty: normalizeFundQty(d.qty || 0, (d.instrumentId && instrumentById(d.instrumentId) || {}).cls),
       price: d.price || 0, fee: d.fee || 0, fxRate: fxAt(account.currency, d.date),
       note: d.note || '截图导入', createdAt: new Date(now + i * 1000).toISOString()
     };
