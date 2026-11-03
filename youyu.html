@@ -5713,7 +5713,7 @@ function renderSettingsPage() {
   '<div class="settings-group"><div class="label">关于</div><div class="settings-card">' +
     '<div class="setting-row"><span class="setting-icon accent">' + icon('shield') + '</span><span class="setting-main"><span class="t">本地存储</span><span class="s">所有数据保存在浏览器 localStorage，不上传服务器。清除浏览器数据会丢失账本，请定期导出备份。</span></span></div>' +
     '<div class="setting-row"><span class="setting-icon blue">' + icon('chart') + '</span><span class="setting-main"><span class="t">行情数据</span><span class="s">名称搜索来自新浪财经，最新报价来自腾讯行情；公开接口可能受网络影响，仅供估值参考。</span></span></div>' +
-    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v5.1</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
+    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v5.2</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
   '</div></div>' +
   '<div class="version">' + esc(APP_NAME) + ' · 投资组合<br>不构成投资建议 · 数据仅供参考</div>' +
   '<div style="height:8px"></div>';
@@ -7312,7 +7312,7 @@ function parseImportText(text, account, instrumentId) {
   if (!starts.length) return [];
   const bounds = starts.map(idx => {
     const prev = lines[idx - 1] || '';
-    const includePrev = /活期结息|实时买入|实时卖出|买入|卖出|存入|取出|利息|费用|更新收益/.test(prev) && !/[¥￥]/.test(prev) && !/交易价|克数|价格/.test(prev);
+    const includePrev = !dateRe.test(prev) && /活期结息|实时买入|实时卖出|买入|卖出|存入|取出|利息|费用|更新收益/.test(prev) && !/[¥￥]/.test(prev) && !/交易价|克数|价格/.test(prev);
     return { idx, start: includePrev ? idx - 1 : idx };
   });
   return bounds.map((b, n) => {
@@ -7328,18 +7328,30 @@ function parseImportBlock(block, account, instrumentId) {
   const qtyM = text.match(/(?:克数|数量|份额|股数)\s*[:：]?\s*([\d,]+(?:\.\d+)?)/i);
   const priceM = text.match(/(?:交易价|成交价|单价|价格)\s*[:：]?\s*[¥￥]?\s*([\d,]+(?:\.\d+)?)/i);
   const inst = instrumentId ? instrumentById(instrumentId) : null;
-  const qty = normalizeFundQty(qtyM ? parseNum(qtyM[1]) : 0, inst ? inst.cls : '');
+  let qty = normalizeFundQty(qtyM ? parseNum(qtyM[1]) : 0, inst ? inst.cls : '');
   let price = priceM ? parseNum(priceM[1]) : 0;
   const money = [];
   const mr = /[¥￥]\s*([\d,]+(?:\.\d+)?)/g;
   let mm;
   while ((mm = mr.exec(text)) !== null) money.push(parseNum(mm[1]));
+  const units = { yuan: [], share: [] };
+  const ur = /([\d,]+(?:\.\d+)?)\s*(元|份|股)/g;
+  let um;
+  while ((um = ur.exec(text)) !== null) {
+    const v = parseNum(um[1]);
+    if (um[2] === '元') units.yuan.push(v);
+    else units.share.push(v);
+  }
   const amountLabel = text.match(/(?:金额|成交金额|发生额)\s*[:：]?\s*[¥￥]?\s*([\d,]+(?:\.\d+)?)/);
   let amount = amountLabel ? parseNum(amountLabel[1]) : (money.length ? money[0] : 0);
   let type = detectImportType(text);
   const isGram = /克数|克/.test(text);
   if (type === 'interest' && isGram && !money.length) type = 'buy';
+  let parsedQty = qtyM ? qty : (units.share.length ? units.share[0] : 0);
   if (type === 'buy' || type === 'sell') {
+    if (!(qty > 0) && parsedQty > 0) qty = parsedQty;
+    if (!(amount > 0) && units.yuan.length) amount = type === 'sell' ? units.yuan[units.yuan.length - 1] : units.yuan[0];
+    if (!(price > 0) && units.yuan.length > 1) price = type === 'sell' ? units.yuan[0] : units.yuan[1];
     if (!(amount > 0) && qty > 0 && price > 0) amount = qty * price;
     if (!(price > 0) && qty > 0 && amount > 0) price = amount / qty;
   }
