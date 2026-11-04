@@ -233,17 +233,7 @@ function sankeyHTML(schemeId, mode) {
   if (gb.ungrouped && gb.ungrouped.value > 0) visibleGroups.push(gb.ungrouped);
   if (!visibleGroups.length) return chartEmptyHTML('还没有可用于桑基图的资产', 260);
   const total = sum(visibleGroups, g => g.value);
-  let restGroupIds = new Set();
-  if (visibleGroups.length > 6) {
-    const sorted = visibleGroups.slice().sort((a, b) => b.value - a.value);
-    const rest = sorted.slice(5);
-    rest.forEach(g => restGroupIds.add(g.id));
-    visibleGroups = sorted.slice(0, 5).concat([{
-      id: '__sankey_other', name: '其他 ' + rest.length + ' 组', color: '#6b7280',
-      value: sum(rest, x => x.value), pct: sum(rest, x => x.pct), target: 0,
-      normalizedTarget: 0, status: 'auto', synthetic: true
-    }]);
-  }
+  const restGroupIds = new Set();
 
   // group -> leaves
   const groupData = [];
