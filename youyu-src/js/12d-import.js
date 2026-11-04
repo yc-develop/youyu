@@ -12,20 +12,35 @@ function importInstrumentOptions(account) {
   return (account ? (account.instruments || []) : []).map(i => '<option value="' + esc(i.id) + '">' + esc(i.name) + ' · ' + esc(i.symbol || '') + '</option>').join('');
 }
 function importBlockCandidate(text) {
-  const line = String(text || '').split(/\r?\n/).map(x => x.trim()).find(Boolean) || '';
-  const m = line.match(/^(.+?)\s+(?:买入|卖出|分红|派息|存入|取出|利息|费用)/);
-  let name = m ? m[1].trim() : '';
-  name = name.replace(/^(?:标的|名称)\s*[:：]\s*/, '').trim();
-  if (!name || name.length < 2 || name.length > 40) return '';
-  if (/[¥￥]/.test(name) || /20\d{2}[-/]\d{1,2}[-/]\d{1,2}/.test(name)) return '';
-  if (/^(标的|交易类型|交易日期|交易金额|确认净值|确认份额|手续费)$/.test(name)) return '';
-  return name;
+  const lines = String(text || '').split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = lines[i];
+    const m = line.match(/^(.+?)\s+(?:买入|卖出|分红|派息|存入|取出|利息|费用)/);
+    if (!m) continue;
+    let name = m[1].trim().replace(/^(?:标的|名称)\s*[:：]\s*/, '').trim();
+    if (!name || name.length < 2 || name.length > 40) continue;
+    if (/[¥￥]/.test(name) || /20\d{2}[-/]\d{1,2}[-/]\d{1,2}/.test(name)) continue;
+    if (/^(标的|交易类型|交易日期|交易金额|确认净值|确认份额|手续费)$/.test(name)) continue;
+    return name;
+  }
+  return '';
 }
 function inferImportInstrumentClass(name) {
   const n = String(name || '');
   if (/货币|现金|余额/.test(n)) return 'moneyFund';
   if (/债|债券|存单|同业/.test(n)) return 'bondFund';
   return 'equityFund';
+}
+function findImportInstrument(name, preferredAccount) {
+  const n = String(name || '').trim().toLowerCase();
+  if (!n) return null;
+  const list = accounts().slice().sort((a, b) => (preferredAccount && a.id === preferredAccount.id ? -1 : 0) - (preferredAccount && b.id === preferredAccount.id ? -1 : 0));
+  for (const a of list) {
+    for (const i of (a.instruments || [])) {
+      if (String(i.name || '').trim().toLowerCase() === n || String(i.symbol || '').trim().toLowerCase() === n) return { account: a, instrument: i, matched: true };
+    }
+  }
+  return null;
 }
 function detectImportTarget(text, selectedAccount) {
   const raw = String(text || '').toLowerCase();
@@ -39,12 +54,12 @@ function detectImportTarget(text, selectedAccount) {
       if (!best || score > best.score) best = { account: a, instrument: i, score };
     });
   }));
-  if (best) return { account: best.account, instrument: best.instrument };
+  if (best) return { account: best.account, instrument: best.instrument, matched: true };
   let account = selectedAccount || all[0] || null;
   const acctMatch = all.slice().sort((a, b) => String(b.name).length - String(a.name).length).find(a => raw.indexOf(String(a.name).toLowerCase()) >= 0);
   if (acctMatch) account = acctMatch;
   const insts = (account && account.instruments) || [];
-  return { account, instrument: insts.length === 1 ? insts[0] : null };
+  return { account, instrument: insts.length === 1 ? insts[0] : null, matched: false };
 }
 function renderImportPage() {
   const list = accounts();
@@ -164,15 +179,23 @@ function parseImportText(text, account, instrumentId) {
   return bounds.map((b, n) => {
     const end = n + 1 < bounds.length ? bounds[n + 1].start : lines.length;
     const block = lines.slice(b.start, end).join('\n');
-    const target = detectImportTarget(block, account);
-    const candidate = importBlockCandidate(block);
+    const context = lines.slice(Math.max(0, b.start - 3), b.start).join('\n');
+    const candidate = importBlockCandidate(block) || importBlockCandidate(context);
+    let target = detectImportTarget(block, account);
+    const exact = candidate ? findImportInstrument(candidate, account) : null;
+    if (exact) target = exact;
+    if (!target.matched && !exact && !candidate) {
+      const contextTarget = detectImportTarget(context, account);
+      if (contextTarget.matched) target = contextTarget;
+    }
     const blockAccount = target.account || account;
-    const blockInstrument = target.instrument ? target.instrument.id : (candidate ? '' : instrumentId);
-    return parseImportBlock(block, blockAccount, blockInstrument, candidate);
+    const blockInstrument = target.matched && target.instrument ? target.instrument.id : (candidate ? '' : instrumentId);
+    return parseImportBlock(block, blockAccount, blockInstrument, candidate, context);
   }).filter(Boolean);
 }
-function parseImportBlock(block, account, instrumentId, candidate) {
+function parseImportBlock(block, account, instrumentId, candidate, context) {
   const text = String(block || '').replace(/\u00a0/g, ' ');
+  const typeText = String(context || '') + '\n' + text;
   const dm = text.match(/(20\d{2}[-/]\d{1,2}[-/]\d{1,2})/);
   if (!dm) return null;
   const date = dm[1].replace(/\//g, '-').split('-').map((x, i) => i === 0 ? x : x.padStart(2, '0')).join('-');
@@ -197,7 +220,7 @@ function parseImportBlock(block, account, instrumentId, candidate) {
   }
   const amountLabel = text.match(/(?:金额|成交金额|发生额)\s*[:：]?\s*[¥￥]?\s*([\d,]+(?:\.\d+)?)/);
   let amount = amountLabel ? parseNum(amountLabel[1]) : (money.length ? money[0] : 0);
-  let type = detectImportType(text);
+  let type = detectImportType(typeText);
   let fee = feeM ? parseNum(feeM[1]) : 0;
   const isGram = /克数|克/.test(text);
   if (type === 'interest' && isGram && !money.length) type = 'buy';
@@ -213,7 +236,7 @@ function parseImportBlock(block, account, instrumentId, candidate) {
   }
   const draft = {
     date, type, accountId: account ? account.id : null, amount: round(amount, 2), qty: qty, price: price, fee: round(fee, 2),
-    note: (text.match(/活期结息|实时买入|实时卖出|分红|派息|买入|卖出|存入|取出|利息|费用/) || ['截图导入'])[0],
+    note: (typeText.match(/活期结息|实时买入|实时卖出|分红|派息|买入|卖出|存入|取出|利息|费用/) || ['截图导入'])[0],
     instrumentId: (type === 'buy' || type === 'sell' || type === 'dividend') ? instrumentId : null,
     newInstrumentName: (type === 'buy' || type === 'sell' || type === 'dividend') && !instrumentId && candidate ? candidate : '',
     checked: true, error: '', duplicate: false
