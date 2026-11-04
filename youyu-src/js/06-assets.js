@@ -119,7 +119,7 @@ function accountComposition(am) {
   const fx = fxToBase(am.account.currency) || 1;
   const list = [{ name: '现金', value: Math.max(0, am.cashNative), color: '#8e9aaf' }];
   am.instruments.filter(x => x.qty > 0.000001).forEach(im => {
-    list.push({ name: im.inst.name, value: im.marketBase, color: im.inst.color || im.inst.color2 || '#ff9f45' });
+    list.push({ name: im.inst.name, value: im.marketNative != null ? im.marketNative : im.marketBase / fx, color: im.inst.color || im.inst.color2 || '#ff9f45' });
   });
   list.sort((a, b) => b.value - a.value);
   if (list.length > 6) {

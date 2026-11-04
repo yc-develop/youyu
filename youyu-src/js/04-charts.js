@@ -301,7 +301,7 @@ function sankeyHTML(schemeId, mode) {
   const x0 = 8, x1 = 116, x2 = 232;
   const nodeW = 9;
   const avail = H - top - bottom;
-  const gapG = nG > 1 ? 12 : 0;
+  const gapG = 0;
   const gapL = nL > 1 ? 6 : 0;
   const minGroupH = 12, minLeafH = 11;
   const groupScale = Math.max(0, (avail - gapG * (nG - 1) - minGroupH * nG) / Math.max(1, total));
