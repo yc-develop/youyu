@@ -5736,7 +5736,7 @@ function renderSettingsPage() {
   '<div class="settings-group"><div class="label">关于</div><div class="settings-card">' +
     '<div class="setting-row"><span class="setting-icon accent">' + icon('shield') + '</span><span class="setting-main"><span class="t">本地存储</span><span class="s">所有数据保存在浏览器 localStorage，不上传服务器。清除浏览器数据会丢失账本，请定期导出备份。</span></span></div>' +
     '<div class="setting-row"><span class="setting-icon blue">' + icon('chart') + '</span><span class="setting-main"><span class="t">行情数据</span><span class="s">名称搜索来自新浪财经，最新报价来自腾讯行情；公开接口可能受网络影响，仅供估值参考。</span></span></div>' +
-    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v5.9</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
+    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v6.0</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
   '</div></div>' +
   '<div class="version">' + esc(APP_NAME) + ' · 投资组合<br>不构成投资建议 · 数据仅供参考</div>' +
   '<div style="height:8px"></div>';
@@ -7231,6 +7231,22 @@ function importAccount() {
 function importInstrumentOptions(account) {
   return (account ? (account.instruments || []) : []).map(i => '<option value="' + esc(i.id) + '">' + esc(i.name) + ' · ' + esc(i.symbol || '') + '</option>').join('');
 }
+function importBlockCandidate(text) {
+  const line = String(text || '').split(/\r?\n/).map(x => x.trim()).find(Boolean) || '';
+  const m = line.match(/^(.+?)\s+(?:买入|卖出|分红|派息|存入|取出|利息|费用)/);
+  let name = m ? m[1].trim() : '';
+  name = name.replace(/^(?:标的|名称)\s*[:：]\s*/, '').trim();
+  if (!name || name.length < 2 || name.length > 40) return '';
+  if (/[¥￥]/.test(name) || /20\d{2}[-/]\d{1,2}[-/]\d{1,2}/.test(name)) return '';
+  if (/^(标的|交易类型|交易日期|交易金额|确认净值|确认份额|手续费)$/.test(name)) return '';
+  return name;
+}
+function inferImportInstrumentClass(name) {
+  const n = String(name || '');
+  if (/货币|现金|余额/.test(n)) return 'moneyFund';
+  if (/债|债券|存单|同业/.test(n)) return 'bondFund';
+  return 'equityFund';
+}
 function detectImportTarget(text, selectedAccount) {
   const raw = String(text || '').toLowerCase();
   const all = accounts();
@@ -7369,12 +7385,13 @@ function parseImportText(text, account, instrumentId) {
     const end = n + 1 < bounds.length ? bounds[n + 1].start : lines.length;
     const block = lines.slice(b.start, end).join('\n');
     const target = detectImportTarget(block, account);
+    const candidate = importBlockCandidate(block);
     const blockAccount = target.account || account;
-    const blockInstrument = (target.instrument && target.instrument.id) || instrumentId;
-    return parseImportBlock(block, blockAccount, blockInstrument);
+    const blockInstrument = target.instrument ? target.instrument.id : (candidate ? '' : instrumentId);
+    return parseImportBlock(block, blockAccount, blockInstrument, candidate);
   }).filter(Boolean);
 }
-function parseImportBlock(block, account, instrumentId) {
+function parseImportBlock(block, account, instrumentId, candidate) {
   const text = String(block || '').replace(/\u00a0/g, ' ');
   const dm = text.match(/(20\d{2}[-/]\d{1,2}[-/]\d{1,2})/);
   if (!dm) return null;
@@ -7383,7 +7400,8 @@ function parseImportBlock(block, account, instrumentId) {
   const priceM = text.match(/(?:交易价|成交价|单价|价格)\s*[:：]?\s*[¥￥]?\s*([\d,]+(?:\.\d+)?)/i);
   const feeM = text.match(/(?:手续费|费用|佣金)\s*[:：]?\s*[¥￥]?\s*([\d,]+(?:\.\d+)?)/i);
   const inst = instrumentId ? instrumentById(instrumentId) : null;
-  let qty = normalizeFundQty(qtyM ? parseNum(qtyM[1]) : 0, inst ? inst.cls : '');
+  const inferredClass = inst ? inst.cls : (candidate ? inferImportInstrumentClass(candidate) : '');
+  let qty = normalizeFundQty(qtyM ? parseNum(qtyM[1]) : 0, inferredClass);
   let price = priceM ? parseNum(priceM[1]) : 0;
   const money = [];
   const mr = /[¥￥]\s*([\d,]+(?:\.\d+)?)/g;
@@ -7417,15 +7435,16 @@ function parseImportBlock(block, account, instrumentId) {
     date, type, accountId: account ? account.id : null, amount: round(amount, 2), qty: qty, price: price, fee: round(fee, 2),
     note: (text.match(/活期结息|实时买入|实时卖出|分红|派息|买入|卖出|存入|取出|利息|费用/) || ['截图导入'])[0],
     instrumentId: (type === 'buy' || type === 'sell' || type === 'dividend') ? instrumentId : null,
+    newInstrumentName: (type === 'buy' || type === 'sell' || type === 'dividend') && !instrumentId && candidate ? candidate : '',
     checked: true, error: '', duplicate: false
   };
   if (!['deposit','withdraw','interest','fee','cashProfit','buy','sell','dividend'].includes(type)) draft.error = '无法识别类型';
   if (type === 'buy' || type === 'sell') {
     if (!(draft.qty > 0)) draft.error = '缺少数量';
     else if (type === 'sell' && !(draft.price > 0)) draft.error = '缺少卖出价格';
-    else if (!draft.instrumentId) draft.error = '缺少标的';
+    else if (!draft.instrumentId && !draft.newInstrumentName) draft.error = '缺少标的';
   } else if (type === 'dividend') {
-    if (!draft.instrumentId) draft.error = '缺少标的';
+    if (!draft.instrumentId && !draft.newInstrumentName) draft.error = '缺少标的';
     else if (!(draft.amount > 0)) draft.error = '缺少金额';
   } else if (type !== 'cashProfit' && !(draft.amount > 0)) draft.error = '缺少金额';
   if (draft.error) draft.checked = false;
@@ -7461,7 +7480,7 @@ function importFingerprint(r, accountId) {
 }
 function importPreviewHTML(list, currency) {
   if (!list.length) return '';
-  return '<div class="import-list">' + list.map((d, i) => '<div class="import-row ' + (d.error ? 'bad' : '') + '"><input type="checkbox" data-import-index="' + i + '" ' + (d.checked && !d.error ? 'checked' : '') + ' ' + (d.error ? 'disabled' : '') + '><div class="import-main"><b>' + esc(d.date) + ' · ' + esc(importTypeLabel(d.type)) + (accountById(d.accountId) ? ' · ' + esc(accountById(d.accountId).name) : '') + (instrumentById(d.instrumentId) ? ' · ' + instrumentById(d.instrumentId).name : '') + '</b><small>' + (d.qty ? esc(fmtQty(d.qty)) + ' · ' : '') + (d.price ? esc(fmtPrice(d.price)) + ' · ' : '') + esc(d.note || '') + '</small>' + (d.fee ? '<small>手续费 ' + esc(fmtMoney(d.fee, { currency: currency || 'CNY' })) + '</small>' : '') + (d.error ? '<em>' + esc(d.error) + '</em>' : '') + '</div><span class="import-amt">' + fmtMoney(d.amount || 0, { compact: true, currency: currency || 'CNY' }) + '</span></div>').join('') + '</div>';
+  return '<div class="import-list">' + list.map((d, i) => '<div class="import-row ' + (d.error ? 'bad' : '') + '"><input type="checkbox" data-import-index="' + i + '" ' + (d.checked && !d.error ? 'checked' : '') + ' ' + (d.error ? 'disabled' : '') + '><div class="import-main"><b>' + esc(d.date) + ' · ' + esc(importTypeLabel(d.type)) + (accountById(d.accountId) ? ' · ' + esc(accountById(d.accountId).name) : '') + (instrumentById(d.instrumentId) ? ' · ' + instrumentById(d.instrumentId).name : (d.newInstrumentName ? ' · 新标的 · ' + esc(d.newInstrumentName) : '')) + '</b><small>' + (d.qty ? esc(fmtQty(d.qty)) + ' · ' : '') + (d.price ? esc(fmtPrice(d.price)) + ' · ' : '') + esc(d.note || '') + '</small>' + (d.fee ? '<small>手续费 ' + esc(fmtMoney(d.fee, { currency: currency || 'CNY' })) + '</small>' : '') + (d.error ? '<em>' + esc(d.error) + '</em>' : '') + '</div><span class="import-amt">' + fmtMoney(d.amount || 0, { compact: true, currency: currency || 'CNY' }) + '</span></div>').join('') + '</div>';
 }
 function importTypeLabel(t) { return { deposit: '存入', withdraw: '取出', interest: '利息', fee: '费用', cashProfit: '更新收益', buy: '买入', sell: '卖出', dividend: '分红' }[t] || t; }
 function confirmImport() {
@@ -7470,11 +7489,28 @@ function confirmImport() {
   const fallbackAccount = accountById(importAccountId);
   if (!fallbackAccount) return;
   const now = Date.now();
+  const colors = ['#ff9f45', '#5b8cff', '#b18cff', '#43d6b0', '#f2c45c', '#ff7aa2', '#7c9cff', '#ff5d6c'];
   valid.forEach((d, i) => {
     const account = accountById(d.accountId) || fallbackAccount;
+    let inst = d.instrumentId ? instrumentById(d.instrumentId) : null;
+    if (!inst && d.newInstrumentName) {
+      inst = (account.instruments || []).find(x => String(x.name).trim() === String(d.newInstrumentName).trim()) || null;
+      if (!inst) {
+        const cls = inferImportInstrumentClass(d.newInstrumentName);
+        const color = colors[account.instruments.length % colors.length];
+        inst = {
+          id: uid('inst'), accountId: account.id, name: d.newInstrumentName, symbol: d.newInstrumentName.slice(0, 20),
+          cls, currency: account.currency, color, color2: shadeColor(color, -18), note: '截图导入自动创建'
+        };
+        account.instruments.push(inst);
+        state.prices[inst.id] = [];
+      }
+      if (inst && d.price > 0) upsertPricePoint(inst.id, d.date, d.price);
+      d.instrumentId = inst ? inst.id : '';
+    }
     const rec = {
       id: uid('rec'), date: d.date, type: d.type, accountId: account.id,
-      instrumentId: d.instrumentId || null, amount: round(d.amount, 2), qty: normalizeFundQty(d.qty || 0, (d.instrumentId && instrumentById(d.instrumentId) || {}).cls),
+      instrumentId: inst ? inst.id : null, amount: round(d.amount, 2), qty: normalizeFundQty(d.qty || 0, inst ? inst.cls : ''),
       price: d.price || 0, fee: d.fee || 0, fxRate: fxAt(account.currency, d.date),
       note: d.note || '截图导入', createdAt: new Date(now + i * 1000).toISOString()
     };
