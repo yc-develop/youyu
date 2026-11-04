@@ -281,6 +281,9 @@ function sankeyHTML(schemeId, mode) {
     }
     groupData.push({ group: g, leaves });
   });
+  for (let i = groupData.length - 1; i >= 0; i--) {
+    if (!groupData[i].leaves.length) groupData.splice(i, 1);
+  }
 
   // unique leaves across groups
   const leafTotals = new Map();
