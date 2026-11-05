@@ -61,7 +61,6 @@ function openAccountForm(accountId) {
     const logoRaw = (form.querySelector('#account-logo') || {}).value || 'auto';
     const logo = logoRaw === 'auto' ? (matchAccountBrand(name) || '') : logoRaw === 'none' ? '' : logoRaw;
     state.isDemo = false;
-    if (!selectedMarket && /^AU9999$/i.test(symbol)) selectedMarket = Object.assign({}, SGE_AU9999);
     if (editing) {
       editing.name = name; editing.type = type; editing.typeName = accountTypeName(type); editing.note = note; editing.color = color; editing.logo = logo;
       editing.color2 = shadeColor(color, -18);
