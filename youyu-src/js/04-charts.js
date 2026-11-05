@@ -233,7 +233,7 @@ function sankeyHTML(schemeId, mode) {
   if (gb.ungrouped && gb.ungrouped.value > 0) visibleGroups.push(gb.ungrouped);
   if (!visibleGroups.length) return chartEmptyHTML('还没有可用于桑基图的资产', 260);
   const total = sum(visibleGroups, g => g.value);
-  const restGroupIds = new Set();
+  let restGroupIds = new Set();
   if (visibleGroups.length > 6) {
     const sorted = visibleGroups.slice().sort((a, b) => b.value - a.value);
     const rest = sorted.slice(5);
@@ -284,11 +284,6 @@ function sankeyHTML(schemeId, mode) {
   for (let i = groupData.length - 1; i >= 0; i--) {
     if (!groupData[i].leaves.length) groupData.splice(i, 1);
   }
-  // 聚合组按实际叶子重算，避免出现“其他组 18.41 -> 账户 19.12”
-  groupData.forEach(gd => {
-    if (gd.group.synthetic) gd.group.value = sum(gd.leaves, l => l.value);
-  });
-  const layoutTotal = sum(groupData, gd => gd.group.value);
 
   // unique leaves across groups
   const leafTotals = new Map();
@@ -312,8 +307,8 @@ function sankeyHTML(schemeId, mode) {
   const gapG = nG > 1 ? 12 : 0;
   const gapL = nL > 1 ? 6 : 0;
   const minGroupH = 12, minLeafH = 11;
-  const groupScale = Math.max(0, (avail - gapG * (nG - 1) - minGroupH * nG) / Math.max(1, layoutTotal));
-  const leafScale = Math.max(0, (avail - gapL * (nL - 1) - minLeafH * nL) / Math.max(1, layoutTotal));
+  const groupScale = Math.max(0, (avail - gapG * (nG - 1) - minGroupH * nG) / Math.max(1, total));
+  const leafScale = Math.max(0, (avail - gapL * (nL - 1) - minLeafH * nL) / Math.max(1, total));
 
   // group y — reserve a minimum node height, then distribute the rest by value
   let gy = top;
