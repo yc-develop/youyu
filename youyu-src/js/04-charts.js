@@ -283,6 +283,10 @@ function sankeyHTML(schemeId, mode) {
   for (let i = groupData.length - 1; i >= 0; i--) {
     if (!groupData[i].leaves.length) groupData.splice(i, 1);
   }
+  // 分组按实际正净值叶子重算，避免负现金被单独丢弃后产生虚高
+  groupData.forEach(gd => { gd.group.value = sum(gd.leaves, l => l.value); });
+  const layoutTotal = sum(groupData, gd => gd.group.value);
+  const hasNegative = Math.abs(layoutTotal - total) > 0.5;
 
   // unique leaves across groups
   const leafTotals = new Map();
@@ -306,8 +310,8 @@ function sankeyHTML(schemeId, mode) {
   const gapG = nG > 1 ? 12 : 0;
   const gapL = nL > 1 ? 6 : 0;
   const minGroupH = 12, minLeafH = 11;
-  const groupScale = Math.max(0, (avail - gapG * (nG - 1) - minGroupH * nG) / Math.max(1, total));
-  const leafScale = Math.max(0, (avail - gapL * (nL - 1) - minLeafH * nL) / Math.max(1, total));
+  const groupScale = Math.max(0, (avail - gapG * (nG - 1) - minGroupH * nG) / Math.max(1, layoutTotal));
+  const leafScale = Math.max(0, (avail - gapL * (nL - 1) - minLeafH * nL) / Math.max(1, layoutTotal));
 
   // group y — reserve a minimum node height, then distribute the rest by value
   let gy = top;
@@ -378,7 +382,7 @@ function sankeyHTML(schemeId, mode) {
   // nodes & labels
   nodesSvg += '<rect x="' + x0 + '" y="' + totalNodeY.toFixed(2) + '" width="' + nodeW + '" height="' + totalNodeH.toFixed(2) + '" rx="4" fill="url(#sankeyTotal)"/>';
   labelsSvg += '<text class="sankey-head" x="' + x0 + '" y="15">总资产</text>' +
-    '<text class="sankey-total" x="' + x0 + '" y="34">' + esc(fmtMoney(total, { compact: true, decimals: 2 })) + '</text>' +
+    '<text class="sankey-total" x="' + x0 + '" y="34">' + esc(fmtMoney(layoutTotal, { compact: true, decimals: 2 })) + '</text>' +
     '<text class="sankey-head" x="' + x1 + '" y="15">分组</text>' +
     '<text class="sankey-head" x="' + x2 + '" y="15">' + (mode === 'instrument' ? '底层标的' : '账户') + '</text>';
   groupData.forEach(gd => {
@@ -396,7 +400,7 @@ function sankeyHTML(schemeId, mode) {
 
   return '<div class="sankey-shell"><svg class="sankey-svg" viewBox="0 0 ' + W + ' ' + H + '" width="100%" role="img" aria-label="资产流向桑基图" style="height:auto;display:block">' +
     '<defs><linearGradient id="sankeyTotal" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff9f45"/><stop offset=".55" stop-color="#5b8cff"/><stop offset="1" stop-color="#b18cff"/></linearGradient></defs>' +
-    linksSvg + nodesSvg + labelsSvg + '</svg></div>';
+    linksSvg + nodesSvg + labelsSvg + '</svg>' + (hasNegative ? '<div class="sankey-hint">' + icon('info') + '<span>负值已从流向中剔除，仅展示正净值资产</span></div>' : '') + '</div>';
 }
 
 /* ---------- chart interactions ---------- */
