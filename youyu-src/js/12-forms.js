@@ -303,6 +303,7 @@ function openRecordForm(accountId, type, instrumentId, editId, draft) {
   const info = RECORD_TYPE_INFO[type] || RECORD_TYPE_INFO.deposit;
   const valueOf = (key, fallback) => draft && draft[key] != null ? draft[key] : (editRec && editRec[key] != null ? editRec[key] : (fallback == null ? '' : fallback));
   const dateVal = valueOf('date', todayKey());
+  const dividendShare = type === 'dividend' && editRec && Number(editRec.qty) > 0 && !(Number(editRec.amount) > 0);
   const noteVal = valueOf('note', '');
   const fxVal = editRec && editRec.fxRate ? editRec.fxRate : '';
   const instSelect = () => fieldHTML({
@@ -346,13 +347,26 @@ function openRecordForm(accountId, type, instrumentId, editId, draft) {
       fxRateFieldHTML(chosen ? chosen.currency : account.currency, true, fxVal) +
       '<div class="record-preview" id="record-preview">成交金额 <b>—</b></div>';
   } else if (type === 'dividend' || type === 'price') {
-    fields = '<div class="form-grid">' + instSelect() +
-      (type === 'dividend' ? fieldHTML({ id: 'record-amount', label: '分红金额', value: valueOf('amount', ''), placeholder: '0.00', unit: chosen ? chosen.currency : account.currency, inputmode: 'decimal' }) : '') +
-      fieldHTML({ id: 'record-price', label: type === 'price' ? '最新价格 / 净值' : '价格（可选）', value: valueOf('price', ''), placeholder: '0.00', unit: chosen ? chosen.currency : account.currency, inputmode: 'decimal', full: type === 'price' }) +
-      fieldHTML({ id: 'record-date', label: '日期', type: 'date', value: dateVal, attrs: 'max="' + todayKey() + '"' }) +
-      fieldHTML({ id: 'record-note', label: '备注（可选）', value: noteVal, placeholder: type === 'price' ? '收盘价 / 净值' : '现金分红', full: true }) + '</div>' +
-      (type === 'dividend' ? fxRateFieldHTML(chosen ? chosen.currency : account.currency, true, fxVal) : '') +
-      (type === 'price' ? '<div class="info-banner" style="margin-top:12px">' + icon('info') + '<div>更新价格会同时写入价格曲线，并影响持仓市值与收益。</div></div>' : '');
+    if (type === 'dividend') {
+      fields = '<div class="form-grid">' + instSelect() +
+        '<div class="field full"><label>分红方式</label><div class="segmented field-seg" id="dividend-mode">' +
+          '<button type="button" class="seg ' + (dividendShare ? '' : 'active') + '" data-dividend-mode="cash">现金分红</button>' +
+          '<button type="button" class="seg ' + (dividendShare ? 'active' : '') + '" data-dividend-mode="share">份额分红</button>' +
+        '</div></div>' +
+        '<div class="field' + (dividendShare ? ' hidden' : '') + '" id="dividend-amount-field"><label>分红金额</label><div class="amount-input">' +
+          '<input class="input" id="record-amount" inputmode="decimal" placeholder="0.00" value="' + esc(valueOf('amount', '')) + '"><span class="unit">' + (chosen ? chosen.currency : account.currency) + '</span></div></div>' +
+        '<div class="field' + (dividendShare ? '' : ' hidden') + '" id="dividend-qty-field"><label>赠送份额 / 数量</label><div class="amount-input">' +
+          '<input class="input" id="record-qty" inputmode="decimal" placeholder="0" value="' + esc(valueOf('qty', '')) + '"><span class="unit">' + (chosen ? qtyUnit(chosen.cls) : '份') + '</span></div><div class="hint">份额分红不会改变账户现金</div></div>' +
+        fieldHTML({ id: 'record-date', label: '日期', type: 'date', value: dateVal, attrs: 'max="' + todayKey() + '"' }) +
+        fieldHTML({ id: 'record-note', label: '备注（可选）', value: noteVal, placeholder: '现金分红 / 份额分红', full: true }) + '</div>' +
+        fxRateFieldHTML(chosen ? chosen.currency : account.currency, true, fxVal);
+    } else {
+      fields = '<div class="form-grid">' + instSelect() +
+        fieldHTML({ id: 'record-price', label: '最新价格 / 净值', value: valueOf('price', ''), placeholder: '0.00', unit: chosen ? chosen.currency : account.currency, inputmode: 'decimal', full: true }) +
+        fieldHTML({ id: 'record-date', label: '日期', type: 'date', value: dateVal, attrs: 'max="' + todayKey() + '"' }) +
+        fieldHTML({ id: 'record-note', label: '备注（可选）', value: noteVal, placeholder: '收盘价 / 净值', full: true }) + '</div>' +
+        '<div class="info-banner" style="margin-top:12px">' + icon('info') + '<div>更新价格会同时写入价格曲线，并影响持仓市值与收益。</div></div>';
+    }
   } else if (type === 'interest' || type === 'fee') {
     fields = '<div class="form-grid">' + fieldHTML({ id: 'record-amount', label: type === 'interest' ? '利息金额' : '费用金额', value: valueOf('amount', ''), placeholder: '0.00', unit: account.currency, inputmode: 'decimal', full: true }) +
       fieldHTML({ id: 'record-date', label: '日期', type: 'date', value: dateVal, attrs: 'max="' + todayKey() + '"' }) +
@@ -383,6 +397,20 @@ function openRecordForm(accountId, type, instrumentId, editId, draft) {
     body, footer: '<button class="btn ghost" data-sheet-close>取消</button><button class="btn primary" data-record-save>' + (editRec ? '保存修改' : (type === 'price' ? '更新价格' : '保存记录')) + '</button>'
   });
   const form = wrap.querySelector('#record-form');
+  let dividendMode = dividendShare ? 'share' : 'cash';
+  const dividendModeEl = form.querySelector('#dividend-mode');
+  if (dividendModeEl) {
+    const amountField = form.querySelector('#dividend-amount-field');
+    const qtyField = form.querySelector('#dividend-qty-field');
+    const setDividendMode = (mode) => {
+      dividendMode = mode;
+      dividendModeEl.querySelectorAll('[data-dividend-mode]').forEach(b => b.classList.toggle('active', b.getAttribute('data-dividend-mode') === mode));
+      if (amountField) amountField.classList.toggle('hidden', mode !== 'cash');
+      if (qtyField) qtyField.classList.toggle('hidden', mode !== 'share');
+    };
+    dividendModeEl.querySelectorAll('[data-dividend-mode]').forEach(b => b.addEventListener('click', () => setDividendMode(b.getAttribute('data-dividend-mode'))));
+    setDividendMode(dividendMode);
+  }
   const typeSelect = form.querySelector('#record-type-edit');
   if (typeSelect) typeSelect.addEventListener('change', () => {
     const nextType = typeSelect.value;
@@ -535,9 +563,16 @@ function openRecordForm(accountId, type, instrumentId, editId, draft) {
     } else if (type === 'dividend') {
       if (!instSel || !instSel.value) { toast('请选择标的', 'error'); return; }
       const inst = instById(instSel.value);
-      const amount = parseNumber(form.querySelector('#record-amount').value);
-      if (!(amount > 0)) { toast('请输入分红金额', 'error'); return; }
-      baseRec.type = type; baseRec.instrumentId = inst.id; baseRec.amount = amount; baseRec.fxRate = fxInput > 0 ? fxInput : fxAt(inst.currency, date);
+      if (dividendMode === 'share') {
+        const qty = normalizeFundQty(parseNumber(form.querySelector('#record-qty') ? form.querySelector('#record-qty').value : 0), inst.cls);
+        if (!(qty > 0)) { toast('请输入赠送份额', 'error'); return; }
+        baseRec.type = type; baseRec.instrumentId = inst.id; baseRec.amount = 0; baseRec.qty = qty; baseRec.price = 0;
+        baseRec.fxRate = fxInput > 0 ? fxInput : fxAt(inst.currency, date);
+      } else {
+        const amount = parseNumber(form.querySelector('#record-amount').value);
+        if (!(amount > 0)) { toast('请输入分红金额', 'error'); return; }
+        baseRec.type = type; baseRec.instrumentId = inst.id; baseRec.amount = amount; baseRec.qty = 0; baseRec.fxRate = fxInput > 0 ? fxInput : fxAt(inst.currency, date);
+      }
     } else if (type === 'price') {
       if (!instSel || !instSel.value) { toast('请选择标的', 'error'); return; }
       const inst = instById(instSel.value);

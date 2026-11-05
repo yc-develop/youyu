@@ -520,6 +520,7 @@ function computeInstrumentMetrics(instId) {
       if (!lastTradeDate || rec.date > lastTradeDate) lastTradeDate = rec.date;
     } else if (rec.type === 'dividend') {
       dividendsNative += amount;
+      qty += Number(rec.qty) || 0;
       if (!lastTradeDate || rec.date > lastTradeDate) lastTradeDate = rec.date;
     }
   });
@@ -603,6 +604,7 @@ function instrumentProfitSeries(im) {
         costNative = Math.max(0, costNative - soldCost);
       } else if (rec.type === 'dividend') {
         dividendsNative += amount;
+        qty += Number(rec.qty) || 0;
       }
     }
   };
@@ -866,7 +868,7 @@ function buildDailyAnalytics() {
 
     const instComps = [];
     instrumentsOf(account).forEach(inst => {
-      const buySellRecs = accRecs.filter(r => r.instrumentId === inst.id && (r.type === 'buy' || r.type === 'sell'));
+      const buySellRecs = accRecs.filter(r => r.instrumentId === inst.id && (r.type === 'buy' || r.type === 'sell' || (r.type === 'dividend' && (Number(r.qty) || 0) > 0)));
       const events = {};
       buySellRecs.forEach(r => {
         if (!events[r.date]) events[r.date] = [];
@@ -884,6 +886,7 @@ function buildDailyAnalytics() {
         (events[d] || []).forEach(r => {
           if (r.type === 'buy') qty += Number(r.qty) || 0;
           else if (r.type === 'sell') qty = Math.max(0, qty - (Number(r.qty) || 0));
+          else if (r.type === 'dividend') qty += Number(r.qty) || 0;
         });
         const p = priceAt(inst.id, d);
         const pp = priceAt(inst.id, prevD);
@@ -1316,6 +1319,10 @@ function recordAmountHTML(rec) {
     return '<span class="' + cls + '">' + body + '</span>';
   }
   if (rec.type === 'fx') return '<span class="mono">' + fmtMoney(rec.fromAmount || 0, { currency: rec.fromCcy }) + ' → ' + fmtMoney(rec.toAmount || 0, { currency: rec.toCcy }) + '</span>';
+  if (rec.type === 'dividend' && (Number(rec.qty) || 0) > 0 && !(Number(rec.amount) > 0)) {
+    const unit = inst ? qtyUnit(inst.cls) : '份';
+    return '<span class="gain">' + fmtQty(rec.qty) + unit + '</span>';
+  }
   if (rec.type === 'cashProfit') {
     const v = Number(rec.amount) || 0;
     return '<span class="' + (v >= 0 ? 'gain' : 'loss') + '">' + (v >= 0 ? '+' : '-') + fmtMoney(Math.abs(v), { currency: ccy }) + '</span>';
@@ -1327,8 +1334,9 @@ function recordAmountHTML(rec) {
 }
 function recordSubHTML(rec) {
   const parts = [rec.date];
-  if (rec.type === 'buy' || rec.type === 'sell') {
-    parts.push('数量 ' + fmtQty(rec.qty));
+  if (rec.type === 'buy' || rec.type === 'sell' || rec.type === 'dividend') {
+    if (rec.type === 'dividend' && !(Number(rec.amount) > 0) && Number(rec.qty) > 0) parts.push('赠送份额 ' + fmtQty(rec.qty));
+    else if (rec.type !== 'dividend') parts.push('数量 ' + fmtQty(rec.qty));
     if (rec.price) parts.push('单价 ' + fmtPrice(rec.price, recordCurrency(rec)));
     if (rec.fee) parts.push('费用 ' + fmtMoney(rec.fee, { currency: recordCurrency(rec) }));
   } else if (rec.type === 'price') {
