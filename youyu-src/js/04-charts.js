@@ -256,7 +256,6 @@ function sankeyHTML(schemeId, mode) {
       const match = g.id === '__sankey_other' ? restGroupIds.has(compGroup) : compGroup === g.id;
       if (!match) return;
       const value = comp.values[last] || 0;
-      if (value <= 0) return;
       let key, label, sub;
       if (mode === 'instrument' && inst) {
         key = 'inst:' + inst.id;
@@ -274,7 +273,7 @@ function sankeyHTML(schemeId, mode) {
       if (!leafMap.has(key)) leafMap.set(key, { key, label, sub, value: 0, groupId: g.id, color: g.color });
       leafMap.get(key).value += value;
     });
-    let leaves = Array.from(leafMap.values()).sort((a, b) => b.value - a.value);
+    let leaves = Array.from(leafMap.values()).filter(l => l.value > 0).sort((a, b) => b.value - a.value);
     if (leaves.length > 6) {
       const rest = leaves.slice(5);
       leaves = leaves.slice(0, 5).concat([{ key: 'other:' + g.id, label: '其他 ' + rest.length + ' 项', sub: '', value: sum(rest, x => x.value), groupId: g.id, color: g.color }]);
