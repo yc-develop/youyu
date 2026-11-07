@@ -204,7 +204,7 @@ function renderInstrumentPage(instrumentId) {
         positionRow('持仓市值', fmtMoney(im.marketNative, { currency: inst.currency }), '账户币种计价') +
         positionRow('平均成本', fmtPrice(im.avgCost, inst.currency) + ' × ' + fmtQty(im.qty) + qtyUnit(inst.cls), '成本金额 ' + fmtMoney(im.costNative, { currency: inst.currency })) +
         positionRow('浮动盈亏', '<span class="' + pnlClass(im.unrealizedNativeInst) + '">' + pnlText(im.unrealizedNativeInst, { currency: inst.currency }) + '</span>', '价格变化') +
-        positionRow('累计已实现', '<span class="' + pnlClass(im.realized) + '">' + pnlText(im.realized, { currency: inst.currency }) + '</span>', '已卖出部分') +
+        positionRow('累计已实现', '<span class="' + pnlClass(im.realizedNative) + '">' + pnlText(im.realizedNative, { currency: inst.currency }) + '</span>', '已卖出部分') +
         (im.dividendNative > 0 ? positionRow('累计分红', '<span class="gain">' + pnlText(im.dividendNative, { currency: inst.currency }) + '</span>', '已计入收益') : '') +
         positionRow('持有天数', im.firstDate ? im.holdingDays + ' 天' : '—', im.firstDate ? '首次买入 ' + im.firstDate : '暂无交易') +
         (inst.market ? positionRow('行情来源', esc('腾讯行情 · ' + (inst.market.label || '') + ' ' + (inst.market.symbol || '')), inst.market.lastUpdated ? '最近同步 ' + inst.market.lastUpdated : '尚未同步，可点击刷新行情') : '') +
@@ -247,7 +247,7 @@ function instrumentChartCard(im) {
         '<div class="metric"><div class="lab">累计收益</div><div class="val ' + pnlClass(finalProfit) + '">' + fmtMoney(finalProfit, { currency: inst.currency }) + '</div><div class="sub">' + inst.currency + '</div></div>' +
         '<div class="metric"><div class="lab">最大回撤</div><div class="val loss">' + fmtMoney(maxDd, { currency: inst.currency }) + '</div><div class="sub">金额</div></div>' +
         '<div class="metric"><div class="lab">持仓收益</div><div class="val ' + pnlClass(im.unrealizedNativeInst) + '">' + fmtMoney(im.unrealizedNativeInst, { currency: inst.currency }) + '</div><div class="sub">未实现</div></div>' +
-        '<div class="metric"><div class="lab">累计已实现</div><div class="val ' + pnlClass(im.realized) + '">' + fmtMoney(im.realized, { currency: inst.currency }) + '</div><div class="sub">已落袋</div></div>' +
+        '<div class="metric"><div class="lab">累计已实现</div><div class="val ' + pnlClass(im.realizedNative) + '">' + fmtMoney(im.realizedNative, { currency: inst.currency }) + '</div><div class="sub">已落袋</div></div>' +
       '</div>';
     } else {
       chartHTML = chartEmptyHTML('还没有足够的累计收益数据', 174);
