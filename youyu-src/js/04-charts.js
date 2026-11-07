@@ -186,6 +186,7 @@ function flowDiagramHTML(flow, opts) {
   const editable = !!o.editable && scope && id;
   const isInstrument = !!o.isInstrument;
   const allTime = periodKey === 'all';
+  const hasFx = (o.currency || f.currency || baseCurrency()) !== baseCurrency();
   const flowLabels = isInstrument ? {
     in: allTime ? '累计买入金额' : '本期买入金额',
     out: allTime ? '累计卖出净额' : '本期卖出净额',
@@ -196,7 +197,7 @@ function flowDiagramHTML(flow, opts) {
     in: allTime ? '累计转入' : '本期转入',
     out: allTime ? '累计转出' : '本期转出',
     net: '净投入本金',
-    profit: allTime ? '含汇兑累计收益' : '含汇兑本期收益',
+    profit: hasFx ? (allTime ? '含汇兑累计收益' : '含汇兑本期收益') : (allTime ? '累计收益' : '本期收益'),
     opening: '期初资产', ending: '期末资产'
   };
   const showDividend = isInstrument && Number(f.dividend) > 0;

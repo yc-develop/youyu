@@ -1142,7 +1142,7 @@ function groupPeriodSummary(schemeId, days) {
 const FLOW_FIELD_META = {
   opening: { label: '期初资产', title: '期初资产调整' },
   ending:  { label: '期末资产', title: '期末资产调整' },
-  profit:  { label: '含汇兑收益', title: '含汇兑收益调整' },
+  profit:  { label: '本期收益', title: '本期收益调整' },
   in:      { label: '本期投入', title: '本期投入调整' },
   out:     { label: '本期转出', title: '本期转出调整' }
 };
