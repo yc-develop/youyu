@@ -246,7 +246,7 @@ function openInstrumentForm(accountId, instrumentId) {
 function openRecordPicker() {
   const rows = allAccountMetrics();
   const body = '<div class="check-list">' + (rows.length ? rows.map(m => '<button class="check-row" style="width:100%;text-align:left" data-pick-account="' + esc(m.account.id) + '">' +
-    accountIconHTML(m.account) + '<span class="check-name" style="margin-left:2px">' + esc(m.account.name) + '<span class="check-sub">' + m.account.currency + ' · ' + fmtMoney(m.marketBase, { compact: true }) + '</span></span>' + icon('chevronRight') + '</button>').join('') : '<div class="tiny" style="padding:20px;text-align:center">还没有账户</div>') + '</div>' +
+    accountIconHTML(m.account) + '<span class="check-name" style="margin-left:2px">' + esc(m.account.name) + '<span class="check-sub">' + m.account.currency + ' · ' + fmtMoney(m.marketNative != null ? m.marketNative : m.marketBase / (fxToBase(m.account.currency) || 1), { compact: true, currency: m.account.currency }) + '</span></span>' + icon('chevronRight') + '</button>').join('') : '<div class="tiny" style="padding:20px;text-align:center">还没有账户</div>') + '</div>' +
     '<button class="btn wide ghost" style="margin-top:14px" data-action="open-add-account">' + icon('plus') + '添加账户</button>';
   const wrap = openSheet({ title: '记一笔', sub: '先选择要记账的账户', body });
   wrap.querySelectorAll('[data-pick-account]').forEach(btn => btn.addEventListener('click', () => {
