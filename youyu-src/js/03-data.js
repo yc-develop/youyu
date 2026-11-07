@@ -491,6 +491,7 @@ function computeInstrumentMetrics(instId) {
   const recs = recordsForInstrument(instId).filter(r => r.type === 'buy' || r.type === 'sell' || r.type === 'dividend');
   let qty = 0, costNative = 0, costCNY = 0, realizedNative = 0, dividendsNative = 0;
   let totalBuyNative = 0, totalBuyCNY = 0, totalSellNative = 0, totalFeesNative = 0;
+  let cashDividendNative = 0, shareDividendQty = 0, buyCount = 0, sellCount = 0;
   let firstDate = null, lastTradeDate = null;
   recs.forEach(rec => {
     const rate = recordFx(rec, inst.currency);
@@ -504,6 +505,7 @@ function computeInstrumentMetrics(instId) {
       totalBuyNative += value;
       totalBuyCNY += value * rate;
       totalFeesNative += fee;
+      buyCount += 1;
       if (!firstDate || rec.date < firstDate) firstDate = rec.date;
       if (!lastTradeDate || rec.date > lastTradeDate) lastTradeDate = rec.date;
     } else if (rec.type === 'sell') {
@@ -517,9 +519,12 @@ function computeInstrumentMetrics(instId) {
       costCNY = Math.max(0, costCNY - soldCost * avgRate);
       totalSellNative += amount - fee;
       totalFeesNative += fee;
+      sellCount += 1;
       if (!lastTradeDate || rec.date > lastTradeDate) lastTradeDate = rec.date;
     } else if (rec.type === 'dividend') {
       dividendsNative += amount;
+      cashDividendNative += amount;
+      shareDividendQty += Number(rec.qty) || 0;
       qty += Number(rec.qty) || 0;
       if (!lastTradeDate || rec.date > lastTradeDate) lastTradeDate = rec.date;
     }
@@ -547,6 +552,15 @@ function computeInstrumentMetrics(instId) {
   const returnPctNative = totalBuyNative > 0 ? profitNativeInst / totalBuyNative : 0;
   const unrealizedNativeInst = instFx > 0 ? (pricePnlBase + (consider ? fxPnlBase : 0)) / instFx : pricePnlBase;
   const totalPnlNative = realizedNative + (marketNative - costNative) + dividendsNative;
+  const netInvestedNative = totalBuyNative - totalSellNative - cashDividendNative;
+  const dilutedCost = qty > 0 ? netInvestedNative / qty : 0;
+  const holdingDays = firstDate ? Math.max(0, daysBetween(firstDate)) : 0;
+  const annualizedNative = holdingDays > 0 && returnPctNative > -1
+    ? Math.pow(1 + returnPctNative, 365 / holdingDays) - 1
+    : null;
+  const floatingReturnPct = costNative > 0 ? unrealizedNativeInst / costNative : null;
+  const soldCostNative = Math.max(0, totalBuyNative - costNative);
+  const realizedReturnPct = soldCostNative > 0 ? realizedNative / soldCostNative : null;
   const prevFxBase = fxToBaseAt(inst.currency, addDays(todayKey(), -1));
   const dayPnl = consider ? qty * (price * curFx - prev * prevFxBase) : (price - prev) * qty * curFx;
   const dayPnlNative = instFx > 0 ? dayPnl / instFx : dayPnl;
@@ -563,10 +577,11 @@ function computeInstrumentMetrics(instId) {
     unrealized: pricePnlBase + (consider ? fxPnlBase : 0),
     totalPnlNative, returnPct, profitNativeInst, returnPctNative, unrealizedNativeInst, dayPnlNative, instFx,
     totalBuyNative, totalBuyBase: totalInvestedBase, totalSellNative,
-    totalFeesNative,
+    totalFeesNative, cashDividendNative, shareDividendQty, buyCount, sellCount,
+    netInvestedNative, dilutedCost, annualizedNative, floatingReturnPct, realizedReturnPct, soldCostNative,
     dayPnl, dayPct,
     firstDate, lastTradeDate,
-    holdingDays: firstDate ? Math.max(0, daysBetween(firstDate)) : 0,
+    holdingDays,
     curFx, avgFx
   };
   dataCache.metrics[instId] = out;
@@ -577,9 +592,11 @@ function instrumentListMetrics(account) {
   return instrumentsOf(account).map(i => computeInstrumentMetrics(i.id)).filter(Boolean);
 }
 
-function instrumentProfitSeries(im) {
+function instrumentProfitSeries(im, periodOverride) {
   const inst = im.inst;
-  const period = Number(ui && ui.instrumentPeriod == null ? 365 : ui.instrumentPeriod);
+  const period = periodOverride == null
+    ? Number(ui && ui.instrumentPeriod == null ? 365 : ui.instrumentPeriod)
+    : Number(periodOverride) || 0;
   const list = priceSeriesRange(inst.id, period || 0);
   if (!list.length) return [];
   const recs = recordsForInstrument(inst.id)
@@ -701,14 +718,26 @@ function computeAccountMetrics(accountId) {
   const consider = state.settings.considerFx;
   const profit = consider ? fullProfit : baseProfit;
   const unrealized = profit - realizedBase;
-  const costBasis = sum(insts, x => x.costBaseHist) + cashBase * 0; // 成本口径仅用于展示
   const accountFx = fxToBase(account.currency);
   const marketNative = accountFx > 0 ? marketBase / accountFx : marketBase;
   const holdingsNative = accountFx > 0 ? holdingsBase / accountFx : holdingsBase;
   const depositsNative = accountNetDepositsNative(account);
-  const profitNative = marketNative - depositsNative.net;
+  const profitNative = accountFx > 0 ? profit / accountFx : profit;
   const realizedNativeAccount = accountFx > 0 ? realizedBase / accountFx : realizedBase;
   const unrealizedNative = profitNative - realizedNativeAccount;
+  const costNative = sum(insts, x => x.costNative);
+  const netInvestedNative = sum(insts.filter(x => x.qty > 0.000001), x => x.netInvestedNative);
+  const costBasis = costNative * accountFx;
+  const incomeNative = accountFx > 0 ? income.income / accountFx : income.income;
+  const otherFeesNative = accountFx > 0 ? income.fees / accountFx : income.fees;
+  const tradeFeesNative = sum(insts, x => x.totalFeesNative);
+  const totalFeesNative = tradeFeesNative + otherFeesNative;
+  const tradingRealizedNative = realizedNativeAccount - incomeNative + otherFeesNative;
+  const holdingsReturnPct = costNative > 0 ? unrealizedNative / costNative : null;
+  const cashRatio = marketNative > 0 ? cashNative / marketNative : 0;
+  const holdingsRatio = marketNative > 0 ? holdingsNative / marketNative : 0;
+  const firstRecord = recordsForAccount(accountId)[0];
+  const recordDays = firstRecord && firstRecord.date ? Math.max(0, daysBetween(firstRecord.date)) : 0;
   const out = {
     account, accountId,
     cashNative, cashBase, holdingsBase, holdingsNative, marketNative, marketBase, value: marketBase,
@@ -722,7 +751,9 @@ function computeAccountMetrics(accountId) {
     profitPct: deposits.net > 0 ? profit / deposits.net : null,
     fullProfit, baseProfit,
     incomeBase: income.income, feesBase: income.fees,
-    costBasis,
+    incomeNative, otherFeesNative, tradeFeesNative, totalFeesNative,
+    tradingRealizedNative, costNative, netInvestedNative, costBasis, cashRatio, holdingsRatio, holdingsReturnPct, recordDays,
+    fxPnlNative: accountFx > 0 ? fxPnl / accountFx : fxPnl,
     instruments: insts,
     positions: insts.filter(x => x.qty > 0.0000001).length,
     recordCount: recordsForAccount(accountId).length,
@@ -1109,11 +1140,11 @@ function groupPeriodSummary(schemeId, days) {
 
 /* ---------- flow / waterfall ---------- */
 const FLOW_FIELD_META = {
-  opening: { label: '期初金额', title: '期初金额调整' },
-  ending:  { label: '期末余额', title: '期末金额调整' },
-  profit:  { label: '资产盈亏', title: '资产盈亏调整' },
-  in:      { label: '投入',     title: '存入金额调整' },
-  out:     { label: '转出',     title: '取出金额调整' }
+  opening: { label: '期初资产', title: '期初资产调整' },
+  ending:  { label: '期末资产', title: '期末资产调整' },
+  profit:  { label: '投资损益', title: '投资损益调整' },
+  in:      { label: '本期投入', title: '本期投入调整' },
+  out:     { label: '本期转出', title: '本期转出调整' }
 };
 
 function flowPeriodLabel(periodKey) {

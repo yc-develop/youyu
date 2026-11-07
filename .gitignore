@@ -1,25 +1,14 @@
 # macOS
 .DS_Store
 
-# 旧项目 / 与本应用无关的文件
-/build_mobile.py
-/icost-dashboard-mobile.html
-/src/
-
-# 构建与部署产物
-/youyu-netlify/
-/youyu-netlify.zip
-
 # 调试与测试临时文件
 /.tools/
 /.npm-cache/
 /shots/
 *.log
 
-# 发布凭据（不要提交）
-/.netlify-token
-/.netlify-site-id
-.ssh/
+# 本地 SSH 密钥
+/.ssh/
 
 # 个人账本备份（不要提交）
 /youyu-backup-*.json

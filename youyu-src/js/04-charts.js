@@ -184,6 +184,15 @@ function flowDiagramHTML(flow, opts) {
   const periods = o.periods || ['all'];
   const periodLabel = f.periodLabel || flowPeriodLabel(periodKey);
   const editable = !!o.editable && scope && id;
+  const isInstrument = !!o.isInstrument;
+  const allTime = periodKey === 'all';
+  const flowLabels = isInstrument ? {
+    in: allTime ? '累计买入' : '本期买入', out: allTime ? '累计卖出及分红' : '本期卖出及分红', opening: '期初市值',
+    net: '净投入', profit: '投资损益', ending: '期末市值'
+  } : {
+    in: '本期投入', out: '本期转出', opening: '期初资产',
+    net: '净投入', profit: '投资损益', ending: '期末资产'
+  };
   const node = (field, cls, label, valueHtml, extra) => {
     const attr = editable ? ' data-action="edit-flow-field" data-scope="' + esc(scope) + '" data-id="' + esc(id) + '" data-period="' + esc(periodKey) + '" data-field="' + esc(field) + '"' : '';
     const pen = editable ? '<span class="flow-edit">' + icon('pen') + '</span>' : '';
@@ -193,7 +202,7 @@ function flowDiagramHTML(flow, opts) {
     periods.map(p => '<button class="chip ' + (p === periodKey ? 'active' : '') + '" data-action="set-flow-period" data-scope="' + esc(scope) + '" data-id="' + esc(id) + '" data-period="' + esc(p) + '">' + flowPeriodLabel(p) + '</button>').join('') +
     '</div>' : '';
   return '<div class="flow-card card">' +
-    '<div class="card-head" style="padding:0"><div><h2>资金流 ' + (f.adjusted ? '<span class="flow-adjusted">已调整</span>' : '') + '</h2><div class="sub">' + esc(periodLabel) + ' · 期初 + 净投入 + 盈亏 = 期末' + (o.isInstrument ? ' · 转出含分红' : '') + '</div></div>' +
+    '<div class="card-head" style="padding:0"><div><h2>资金流 ' + (f.adjusted ? '<span class="flow-adjusted">已调整</span>' : '') + '</h2><div class="sub">' + esc(periodLabel) + ' · ' + (isInstrument ? '期初市值 + 净投入 + 投资损益 = 期末市值 · 买入含费用，卖出及分红为净额' : '期初资产 + 净投入 + 投资损益 = 期末资产') + '</div></div>' +
       (f.adjusted ? '<button class="text-btn" style="font-size:9px" data-action="reset-flow" data-scope="' + esc(scope) + '" data-id="' + esc(id) + '" data-period="' + esc(periodKey) + '">撤销调整</button>' : '<span class="pill-btn" style="height:26px;font-size:9px;padding:0 9px">' + icon('info') + '点击可校正</span>') + '</div>' +
     periodChips +
     '<div class="flow-diagram">' +
@@ -205,14 +214,14 @@ function flowDiagramHTML(flow, opts) {
         '<path d="M84 56 L84 64 Q84 69 77 69 L56 69 Q50 69 50 74" fill="none" stroke="rgba(255,255,255,.12)" stroke-width=".7" vector-effect="non-scaling-stroke"/>' +
         '<circle cx="50" cy="38" r=".8" fill="rgba(255,255,255,.35)"/><circle cx="50" cy="74" r=".8" fill="rgba(255,255,255,.35)"/>' +
       '</svg>' +
-      node('in', 'flow-top', '投入', ((f.in || 0) > 0 ? '+' : '') + money(f.in || 0)) +
-      node('out', 'flow-top right', '转出', ((f.out || 0) > 0 ? '−' : '') + money(f.out || 0)) +
-      node('opening', 'flow-mid a', '期初金额', money(f.beginning || 0)) +
-      '<div class="flow-node flow-mid b accent"><span class="l">净投入</span><span class="v">' + ((f.net || 0) > 0 ? '+' : (f.net || 0) < 0 ? '−' : '') + money(Math.abs(f.net || 0)) + '</span></div>' +
-      node('profit', 'flow-mid c ' + pnlCls, '资产盈亏', pnlSign + money(Math.abs(pnl))) +
-      node('ending', 'flow-end total', '期末金额', money(f.ending || 0)) +
+      node('in', 'flow-top', flowLabels.in, ((f.in || 0) > 0 ? '+' : '') + money(f.in || 0)) +
+      node('out', 'flow-top right', flowLabels.out, ((f.out || 0) > 0 ? '−' : '') + money(f.out || 0)) +
+      node('opening', 'flow-mid a', flowLabels.opening, money(f.beginning || 0)) +
+      '<div class="flow-node flow-mid b accent"><span class="l">' + flowLabels.net + '</span><span class="v">' + ((f.net || 0) > 0 ? '+' : (f.net || 0) < 0 ? '−' : '') + money(Math.abs(f.net || 0)) + '</span></div>' +
+      node('profit', 'flow-mid c ' + pnlCls, flowLabels.profit, pnlSign + money(Math.abs(pnl))) +
+      node('ending', 'flow-end total', flowLabels.ending, money(f.ending || 0)) +
     '</div>' +
-    '<div class="flow-legend"><span class="dot"></span>净投入 + 资产盈亏 = 期末 − 期初' + (editable ? ' · 点击金额可校正' : '') + '</div>' +
+    '<div class="flow-legend"><span class="dot"></span>净投入 + 投资损益 = 期末 − 期初' + (editable ? ' · 点击金额可校正' : '') + '</div>' +
     (f.adjusted ? '<div class="flow-adjusted-note">本周期已写入账本调整，资产统计已同步；可在更新记录中删除调整或撤销本周期调整。</div>' : '') +
   '</div>';
 }

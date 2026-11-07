@@ -721,11 +721,11 @@ function openFlowFieldEditor(scope, id, periodKey, field) {
   }
   const current = Number(flow[field]) || 0;
   const descriptions = {
-    opening: '调整期初金额会把差额写入该年份开始时的账本，并同步更新之后所有周期的资产统计。',
-    ending: '调整期末余额会把差额写入该周期末的账本，资产市值和资产盈亏会同步更新。',
-    profit: '调整资产盈亏会把差额写入该周期末的账本，期末余额和资产市值会同步更新。',
-    in: '调整投入总额会写入一笔账本资金调整，影响净投入和资产市值，不会改变真实交易记录。',
-    out: '调整取出总额会写入一笔账本资金调整，影响净投入和资产市值，不会改变真实交易记录。'
+    opening: '调整期初资产会把差额写入该年份开始时的账本，并同步更新之后所有周期的资产统计。',
+    ending: '调整期末资产会把差额写入该周期末的账本，资产市值和投资损益会同步更新。',
+    profit: '调整投资损益会把差额写入该周期末的账本，期末资产和资产市值会同步更新。',
+    in: '调整本期投入会写入一笔账本资金调整，影响净投入和资产市值，不会改变真实交易记录。',
+    out: '调整本期转出会写入一笔账本资金调整，影响净投入和资产市值，不会改变真实交易记录。'
   };
   const body = '<form id="flow-edit-form">' +
     '<div class="info-banner" style="margin-top:0">' + icon('pen') + '<div>' + esc(descriptions[field] || '') + '<br><span class="faint">保存后会写入一条「' + esc(meta.title) + '」账本调整记录，并立即更新资产统计。</span></div></div>' +

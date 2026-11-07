@@ -472,6 +472,22 @@ ul,ol{margin:0;padding:0;list-style:none}
 .flow-legend{display:flex;align-items:center;justify-content:center;gap:7px;font-size:8.5px;color:var(--faint);margin-top:4px}
 .flow-legend .dot{width:5px;height:5px;border-radius:50%;background:var(--accent)}
 
+.position-group-title{font-size:8px;letter-spacing:.12em;color:var(--faint);padding:13px 0 3px;font-weight:600}
+.position-group-title:first-child{padding-top:5px}
+.glossary{margin:16px 0 0;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.022);overflow:hidden}
+.glossary summary{list-style:none;display:flex;align-items:center;gap:7px;padding:12px 14px;font-size:10.5px;font-weight:600;cursor:pointer;color:var(--ink-2)}
+.glossary summary::-webkit-details-marker{display:none}
+.glossary summary svg{width:13px;height:13px;color:var(--faint)}
+.glossary-hint{margin-left:auto;font-size:8.5px;font-weight:400;color:var(--faint)}
+.glossary .when-open{display:none}
+.glossary[open] .when-open{display:inline}
+.glossary[open] .when-closed{display:none}
+.h-sub-cost{font-size:8px!important;margin-top:3px!important}
+.glossary-list{padding:0 14px 13px;display:flex;flex-direction:column;gap:10px}
+.glossary-item{display:flex;flex-direction:column;gap:3px;padding-top:10px;border-top:1px solid var(--line)}
+.glossary-name{font-size:9.5px;font-weight:650;color:var(--ink-2)}
+.glossary-desc{font-size:9px;line-height:1.55;color:var(--faint)}
+
 /* ---------- stat cards / misc ---------- */
 .mini-stats{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:10px}
 .mini-stat{background:var(--surface-2);border:1px solid var(--line);border-radius:15px;padding:12px 13px}
@@ -1044,7 +1060,10 @@ input[type="date"]{color-scheme:dark}
 
 body.has-overlay .toast-root{top:calc(var(--safe-top) + 14px);bottom:auto}
 
-.account-detail-stats{grid-template-columns:repeat(4,1fr)}
+.account-detail-stats{grid-template-columns:repeat(3,1fr)}
+.detail-stats.two-row{grid-template-columns:repeat(3,1fr)}
+.detail-stats.two-row > div:nth-child(4){border-left:0;padding-left:0}
+.detail-stats.two-row > div:nth-child(n+4){margin-top:12px;padding-top:11px;border-top:1px solid var(--line)}
 .account-detail-stats > div{padding-right:4px}
 .account-detail-stats > div + div{padding-left:8px}
 .account-detail-stats .l{font-size:7.5px}
@@ -1283,6 +1302,7 @@ html[data-theme="light"] .chart-tip{
   background:rgba(255,255,255,.98);border-color:rgba(16,24,40,.12);
   box-shadow:0 12px 28px -14px rgba(16,24,40,.3);
 }
+html[data-theme="light"] .glossary{background:#fff}
 html[data-theme="light"] .metrics{background:rgba(16,24,40,.08)}
 html[data-theme="light"] .metric{background:#fff}
 html[data-theme="light"] .rec-title .tag{background:rgba(16,24,40,.05)}

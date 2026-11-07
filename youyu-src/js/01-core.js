@@ -239,6 +239,10 @@ function fmtPrice(n, ccy) {
   const d = Math.abs(v) < 10 ? 4 : 2;
   return (ccy ? symbolFor(ccy) : '') + v.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: d });
 }
+function fmtCost(n, ccy) {
+  const v = Number(n) || 0;
+  return (ccy ? symbolFor(ccy) : '') + v.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+}
 function pnlClass(v) { return Number(v) > 0.000001 ? 'gain' : Number(v) < -0.000001 ? 'loss' : 'flat'; }
 function pnlText(v, opts) {
   const o = opts || {};
