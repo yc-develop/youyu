@@ -1435,13 +1435,40 @@ function rateForRecord(ccy, date) {
 }
 
 /* ---------- import / export ---------- */
+function stripNetworkHistory(obj) {
+  if (!obj || typeof obj !== 'object') return obj;
+  if (obj.prices && typeof obj.prices === 'object') {
+    Object.keys(obj.prices).forEach(id => {
+      const rows = Array.isArray(obj.prices[id]) ? obj.prices[id] : [];
+      const kept = rows.filter(row => !Array.isArray(row) || row[2] !== 'market');
+      if (kept.length) obj.prices[id] = kept;
+      else delete obj.prices[id];
+    });
+  }
+  (obj.accounts || []).forEach(account => {
+    (account.instruments || []).forEach(inst => {
+      if (!inst.market || typeof inst.market !== 'object') return;
+      delete inst.market.historyLoaded;
+      delete inst.market.historyCount;
+      delete inst.market.historySyncedAt;
+      delete inst.market.historyVersion;
+    });
+  });
+  if (obj.meta && typeof obj.meta === 'object') delete obj.meta.marketSyncedAt;
+  return obj;
+}
 function exportData() {
-  return JSON.stringify(state, null, 2);
+  // 备份只保留手工价格和交易记录生成的价格，不导出网络历史行情
+  const copy = JSON.parse(JSON.stringify(state));
+  stripNetworkHistory(copy);
+  return JSON.stringify(copy, null, 2);
 }
 function importData(text) {
   const obj = JSON.parse(text);
   if (!normalizeState(obj)) throw new Error('数据格式不正确');
   if (obj.version !== SCHEMA) obj.version = SCHEMA;
+  // 兼容旧备份：即使文件里带了网络历史行情，也不导入
+  stripNetworkHistory(obj);
   state = obj;
   saveState();
   return true;
