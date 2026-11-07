@@ -166,7 +166,7 @@ function accountRowHTML(m) {
       '<div class="acct-meta"><span>浮动盈亏 <b class="' + pnlClass(floating) + '">' + pnlText(floating, { compact: true, currency: ccy }) + '</b></span></div>' +
     '</div>' +
     '<div class="acct-value"><div class="v">' + fmtMoney(market, { compact: true, currency: ccy }) + '</div>' +
-      '<div class="p ' + pnlClass(pct) + '">' + (pct == null ? '—' : fmtPct(pct, 1)) + '</div>' +
+      '<div class="p ' + pnlClass(pct) + '">' + (pct == null ? '—' : fmtPct(pct, 2)) + '</div>' +
     '</div>' +
     '<span class="acct-chevron">' + icon('chevronRight') + '</span></a>';
 }
