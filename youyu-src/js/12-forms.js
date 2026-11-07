@@ -319,7 +319,7 @@ function openRecordForm(accountId, type, instrumentId, editId, draft) {
     const targetVal = round(before + signedOld, 2);
     const amountMode = ui.recordAmountMode === 'target' ? 'target' : 'delta';
     const amountLabel = type === 'interest' ? '利息金额' : type === 'fee' ? '费用金额' : type === 'cashProfit' ? '收益金额（可负）' : '变化金额';
-    const amountHint = type === 'interest' ? '利息会增加账户现金' : type === 'fee' ? '费用会减少账户现金' : type === 'cashProfit' ? '正数表示浮盈，负数表示浮亏' : '填写本次增加或减少的金额';
+    const amountHint = type === 'interest' ? '利息会增加账户可用现金' : type === 'fee' ? '费用会减少账户可用现金' : type === 'cashProfit' ? '正数表示浮盈，负数表示浮亏' : '填写本次增加或减少的金额';
     fields = '<div class="form-grid">' +
       '<div class="field full"><label>输入方式</label><div class="segmented field-seg" id="record-amount-mode">' +
         '<button type="button" class="seg ' + (amountMode === 'delta' ? 'active' : '') + '" data-amount-mode="delta">变化金额</button>' +
@@ -356,7 +356,7 @@ function openRecordForm(accountId, type, instrumentId, editId, draft) {
         '<div class="field' + (dividendShare ? ' hidden' : '') + '" id="dividend-amount-field"><label>分红金额</label><div class="amount-input">' +
           '<input class="input" id="record-amount" inputmode="decimal" placeholder="0.00" value="' + esc(valueOf('amount', '')) + '"><span class="unit">' + (chosen ? chosen.currency : account.currency) + '</span></div></div>' +
         '<div class="field' + (dividendShare ? '' : ' hidden') + '" id="dividend-qty-field"><label>赠送份额 / 数量</label><div class="amount-input">' +
-          '<input class="input" id="record-qty" inputmode="decimal" placeholder="0" value="' + esc(valueOf('qty', '')) + '"><span class="unit">' + (chosen ? qtyUnit(chosen.cls) : '份') + '</span></div><div class="hint">份额分红不会改变账户现金</div></div>' +
+          '<input class="input" id="record-qty" inputmode="decimal" placeholder="0" value="' + esc(valueOf('qty', '')) + '"><span class="unit">' + (chosen ? qtyUnit(chosen.cls) : '份') + '</span></div><div class="hint">份额分红不会改变账户可用现金</div></div>' +
         fieldHTML({ id: 'record-date', label: '日期', type: 'date', value: dateVal, attrs: 'max="' + todayKey() + '"' }) +
         fieldHTML({ id: 'record-note', label: '备注（可选）', value: noteVal, placeholder: '现金分红 / 份额分红', full: true }) + '</div>' +
         fxRateFieldHTML(chosen ? chosen.currency : account.currency, true, fxVal);
@@ -722,8 +722,8 @@ function openFlowFieldEditor(scope, id, periodKey, field) {
   const current = Number(flow[field]) || 0;
   const descriptions = {
     opening: '调整期初资产会把差额写入该年份开始时的账本，并同步更新之后所有周期的资产统计。',
-    ending: '调整期末资产会把差额写入该周期末的账本，资产市值和资产损益会同步更新。',
-    profit: '调整资产损益会把差额写入该周期末的账本，期末资产和资产市值会同步更新。',
+    ending: '调整期末资产会把差额写入该周期末的账本，资产市值和含汇兑收益会同步更新。',
+    profit: '调整含汇兑收益会把差额写入该周期末的账本，期末资产和资产市值会同步更新。',
     in: '调整本期投入会写入一笔账本资金调整，影响净投入和资产市值，不会改变真实交易记录。',
     out: '调整本期转出会写入一笔账本资金调整，影响净投入和资产市值，不会改变真实交易记录。'
   };

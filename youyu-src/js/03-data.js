@@ -224,7 +224,7 @@ function builtinSchemes() {
   accounts().forEach(a => {
     instGroups.push({
       id: '__auto_cash_' + a.id,
-      name: a.name + ' · 现金',
+      name: a.name + ' · 可用现金',
       color: autoGroupColor(instColorIndex++),
       target: 0,
       auto: true,
@@ -1142,7 +1142,7 @@ function groupPeriodSummary(schemeId, days) {
 const FLOW_FIELD_META = {
   opening: { label: '期初资产', title: '期初资产调整' },
   ending:  { label: '期末资产', title: '期末资产调整' },
-  profit:  { label: '资产损益', title: '资产损益调整' },
+  profit:  { label: '含汇兑收益', title: '含汇兑收益调整' },
   in:      { label: '本期投入', title: '本期投入调整' },
   out:     { label: '本期转出', title: '本期转出调整' }
 };
@@ -1287,7 +1287,7 @@ function groupComponents(schemeId, groupId) {
     const cashGroup = resolveGroupId(scheme, account, null);
     if (cashGroup === groupId) {
       const am = computeAccountMetrics(account.id);
-      out.push({ type: 'cash', account, name: account.name + ' · 现金', value: am.cashBase });
+      out.push({ type: 'cash', account, name: account.name + ' · 可用现金', value: am.cashBase });
     }
     instrumentsOf(account).forEach(inst => {
       const gid = resolveGroupId(scheme, account, inst);

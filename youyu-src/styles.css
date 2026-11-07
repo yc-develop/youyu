@@ -299,6 +299,7 @@ ul,ol{margin:0;padding:0;list-style:none}
 .acct-name{display:flex;align-items:center;gap:6px;font-size:13.5px;font-weight:600;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .acct-name .ccy{font-size:8px;font-weight:600;color:var(--faint);border:1px solid var(--line);border-radius:4px;padding:1px 3px;letter-spacing:.03em}
 .acct-meta{display:flex;align-items:center;gap:9px;margin-top:5px;font-size:9.5px;color:var(--faint);white-space:nowrap;overflow:hidden}
+.acct-meta + .acct-meta{margin-top:2px}
 .acct-meta b{font-weight:550;font-variant-numeric:tabular-nums}
 .acct-meta .sep{width:2px;height:2px;border-radius:50%;background:var(--faint);opacity:.55}
 .acct-value{text-align:right;flex:0 0 auto;min-width:77px}
@@ -708,6 +709,7 @@ ul,ol{margin:0;padding:0;list-style:none}
 .detail-stats .l{font-size:8px;color:var(--faint);white-space:nowrap}
 .detail-stats .v{font-size:11.5px;font-weight:650;margin-top:4px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .detail-stats .v small{font-size:8px;color:var(--faint);font-weight:400;margin-left:2px}
+.detail-stats .stat-note{font-size:7px;color:var(--faint);margin-top:2px;white-space:nowrap}
 .detail-section{margin:18px 0 0}
 .detail-section .section-head{margin:0 2px 8px}
 .detail-chart-card{margin:14px 0 0;padding:15px 14px 12px;border-radius:20px;background:var(--surface);border:1px solid var(--line)}

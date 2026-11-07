@@ -266,7 +266,7 @@ function openCalendarDaySheet(date) {
     });
   }
   const maxAbs = Math.max(1, ...groupRows.map(r => Math.abs(r.p)));
-  const body = '<div class="stat-hero" style="margin-bottom:0"><div><div class="eyebrow">' + esc(date) + ' · ' + weekdayCN(date) + '</div><div class="big ' + pnlClass(pnl) + '" style="font-size:27px">' + (pnl >= 0 ? '+' : '') + fmtMoney(pnl) + '</div><div class="cap">' + esc(series.name) + ' · ' + fmtPct(ret, 2) + ' 当日收益</div></div>' +
+  const body = '<div class="stat-hero" style="margin-bottom:0"><div><div class="eyebrow">' + esc(date) + ' · ' + weekdayCN(date) + '</div><div class="big ' + pnlClass(pnl) + '" style="font-size:27px">' + (pnl >= 0 ? '+' : '') + fmtMoney(pnl) + '</div><div class="cap">' + esc(series.name) + ' · ' + fmtPct(ret, 2) + ' 当日盈亏</div></div>' +
     '<div class="right">记录<b>' + dayRecords.length + ' 笔</b><span>当日</span></div></div>' +
     '<div class="bar-list" style="margin-top:18px">' + groupRows.map(r => '<div class="bar-row"><div class="bar-top"><span class="dot" style="background:' + r.color + '"></span><span class="name">' + esc(r.name) + '</span><span class="pct ' + pnlClass(r.p) + '">' + (r.p >= 0 ? '+' : '') + fmtMoney(r.p, { compact: true }) + '</span></div><div class="bar-track"><div class="bar-fill" style="width:' + (Math.abs(r.p) / maxAbs * 100).toFixed(1) + '%;background:' + r.color + '"></div></div></div>').join('') + '</div>' +
     '<div class="divider-line"></div>' +

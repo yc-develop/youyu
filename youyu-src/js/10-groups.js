@@ -94,7 +94,7 @@ function openGroupEditor(schemeId, groupId) {
     const accountNote = accountCoveredBy ? coveredMark(accountCoveredBy) : hasCoveredChild ? '<span class="covered-hint">部分成员已占用</span>' : '';
     const cashChecked = accountChecked || (g.includeCashAccounts || []).indexOf(a.id) >= 0;
     const cashRow = '<label class="check-row tree-inst tree-child tree-cash' + (cashCoveredBy ? ' covered' : '') + '"><input type="checkbox" name="cashAccounts" value="' + esc(a.id) + '" data-account="' + esc(a.id) + '" data-covered="' + (cashCoveredBy ? '1' : '0') + '"' + (cashChecked ? ' checked' : '') + (accountChecked || cashCoveredBy ? ' disabled' : '') + '><span class="checkbox ' + (cashChecked ? 'checked' : '') + '">' + icon('check') + '</span>' +
-      '<span class="check-name">账户现金' + (cashCoveredBy ? coveredMark(cashCoveredBy) : '') + '<span class="check-sub">' + a.currency + ' · 可用现金 ' + fmtMoney(computeAccountMetrics(a.id).cashBase, { compact: true }) + '</span></span></label>';
+      '<span class="check-name">账户可用现金' + (cashCoveredBy ? coveredMark(cashCoveredBy) : '') + '<span class="check-sub">' + a.currency + ' · 可用现金 ' + fmtMoney(computeAccountMetrics(a.id).cashBase, { compact: true }) + '</span></span></label>';
     const instrumentRows = a.instruments.map((inst, ii) => {
       const coveredBy = instrumentCoverage[ii];
       const checked = accountChecked || (g.includeInstruments || []).indexOf(inst.id) >= 0;
@@ -116,7 +116,7 @@ function openGroupEditor(schemeId, groupId) {
       '<div class="field"><label>分组颜色</label><div class="color-row">' + colors.map(c => '<button type="button" class="color-dot ' + (c === g.color ? 'active' : '') + '" style="background:' + c + '" data-color="' + c + '" aria-label="选择颜色"></button>').join('') + '</div><input type="hidden" name="group-color" id="group-color" value="' + g.color + '"></div>' +
     '</div>' +
     '<div class="form-section">选择账户与标的</div>' +
-    '<div class="form-hint">勾选账户会包含该账户现金和全部标的；若只选账户现金或部分标的，先取消勾选账户，再在下面单独勾选。已被其他分组选择的成员会置灰。</div>' +
+    '<div class="form-hint">勾选账户会包含该账户可用现金和全部标的；若只选账户可用现金或部分标的，先取消勾选账户，再在下面单独勾选。已被其他分组选择的成员会置灰。</div>' +
     '<div class="check-list account-tree">' + (tree || '<div class="tiny">还没有账户</div>') + '</div>' +
     '<div class="info-banner" style="margin-top:14px">' + icon('info') + '<div>保存后，符合本组条件的资产会从其他分组中移出；实际归属按分组列表顺序决定。</div></div>' +
     (editing ? '<button type="button" class="btn danger wide" style="margin-top:14px" data-group-delete>' + icon('trash') + '删除这个分组</button>' : '') +

@@ -196,7 +196,7 @@ function flowDiagramHTML(flow, opts) {
     in: allTime ? '累计转入' : '本期转入',
     out: allTime ? '累计转出' : '本期转出',
     net: '净投入本金',
-    profit: allTime ? '资产损益' : '本期资产损益',
+    profit: allTime ? '含汇兑累计收益' : '含汇兑本期收益',
     opening: '期初资产', ending: '期末资产'
   };
   const showDividend = isInstrument && Number(f.dividend) > 0;
@@ -280,12 +280,12 @@ function sankeyHTML(schemeId, mode) {
         sub = account.name;
       } else if (mode === 'instrument') {
         key = 'cash:' + account.id;
-        label = account.name + ' 现金';
+        label = account.name + ' 可用现金';
         sub = account.currency;
       } else {
         key = 'acc:' + account.id;
         label = account.name;
-        sub = account.currency + ' · ' + (inst ? inst.name : '现金');
+        sub = account.currency + ' · ' + (inst ? inst.name : '可用现金');
       }
       if (!leafMap.has(key)) leafMap.set(key, { key, label, sub, value: 0, groupId: g.id, color: g.color });
       leafMap.get(key).value += value;
@@ -398,7 +398,7 @@ function sankeyHTML(schemeId, mode) {
   });
   // nodes & labels
   nodesSvg += '<rect x="' + x0 + '" y="' + totalNodeY.toFixed(2) + '" width="' + nodeW + '" height="' + totalNodeH.toFixed(2) + '" rx="4" fill="url(#sankeyTotal)"/>';
-  labelsSvg += '<text class="sankey-head" x="' + x0 + '" y="15">总资产</text>' +
+  labelsSvg += '<text class="sankey-head" x="' + x0 + '" y="15">组合总资产</text>' +
     '<text class="sankey-total" x="' + x0 + '" y="34">' + esc(fmtMoney(layoutTotal, { compact: true, decimals: 2 })) + '</text>' +
     '<text class="sankey-head" x="' + x1 + '" y="15">分组</text>' +
     '<text class="sankey-head" x="' + x2 + '" y="15">' + (mode === 'instrument' ? '底层标的' : '账户') + '</text>';
