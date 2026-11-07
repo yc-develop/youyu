@@ -44,6 +44,7 @@ function renderSettingsPage() {
   '</div></div>' +
   '<div class="settings-group"><div class="label">数据</div><div class="settings-card">' +
     settingRowHTML('导出账本', 'JSON 备份', 'download', 'export-data', '保存账户、交易、价格与分组') +
+    settingRowHTML('复制备份 JSON', '导出无反应时使用', 'file', 'copy-data', '把完整备份复制到剪贴板，再粘贴保存为 .json') +
     settingRowHTML('导入账本', '从备份恢复', 'upload', 'import-data', '导入会覆盖当前账本') +
     '<a class="setting-row" href="#/import"><span class="setting-icon blue">' + icon('search') + '</span><span class="setting-main"><span class="t">截图导入</span><span class="s">从截图提取的交易文字</span></span><span class="setting-value">' + icon('chevronRight') + '</span></a>' +
     (demoMode ? settingRowHTML('退出演示', '回到我的账本', 'logout', 'switch-user', '演示账本与真实账本完全分离') : settingRowHTML('体验示例数据', '完整演示', 'sparkles', 'switch-demo', '切换到独立演示账本，不影响真实数据')) +
@@ -54,7 +55,7 @@ function renderSettingsPage() {
   '<div class="settings-group"><div class="label">关于</div><div class="settings-card">' +
     '<div class="setting-row"><span class="setting-icon accent">' + icon('shield') + '</span><span class="setting-main"><span class="t">本地存储</span><span class="s">所有数据保存在浏览器 localStorage，不上传服务器。清除浏览器数据会丢失账本，请定期导出备份。</span></span></div>' +
     '<div class="setting-row"><span class="setting-icon blue">' + icon('chart') + '</span><span class="setting-main"><span class="t">行情数据</span><span class="s">名称搜索来自新浪财经，最新报价来自腾讯行情；公开接口可能受网络影响，仅供估值参考。</span></span></div>' +
-    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v6.5.12</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
+    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v6.5.13</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
   '</div></div>' +
   '<div class="version">' + esc(APP_NAME) + ' · 投资组合<br>不构成投资建议 · 数据仅供参考</div>' +
   '<div style="height:8px"></div>';
@@ -146,6 +147,31 @@ function downloadBackup() {
   a.click();
   setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 400);
   toast('备份文件已生成', 'success');
+}
+function copyBackup() {
+  const text = exportData();
+  const fallback = () => openBackupCopySheet(text);
+  if (navigator.clipboard && navigator.clipboard.writeText && window.isSecureContext) {
+    navigator.clipboard.writeText(text)
+      .then(() => toast('备份 JSON 已复制，粘贴到文本文件保存', 'success'))
+      .catch(fallback);
+  } else {
+    fallback();
+  }
+}
+function openBackupCopySheet(text) {
+  const wrap = openSheet({
+    title: '复制备份 JSON',
+    sub: '全选复制后，粘贴到文本文件并保存为 .json',
+    body: '<textarea id="backup-copy-text" class="backup-copy-area" readonly spellcheck="false"></textarea>',
+    footer: '<button class="btn primary" data-action="copy-backup-text">全选并复制</button>' +
+      '<button class="btn ghost" data-sheet-close>关闭</button>'
+  });
+  const ta = wrap.querySelector('#backup-copy-text');
+  if (ta) {
+    ta.value = text;
+    setTimeout(() => { ta.focus(); ta.select(); }, 120);
+  }
 }
 function triggerImport() {
   const input = $('#import-file');

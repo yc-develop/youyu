@@ -168,6 +168,16 @@ function handleAction(action, el) {
     case 'open-rates': openRatesSheet(); return;
     case 'open-tolerance': openToleranceSheet(); return;
     case 'export-data': downloadBackup(); return;
+    case 'copy-data': copyBackup(); return;
+    case 'copy-backup-text': {
+      const ta = $('#backup-copy-text');
+      if (!ta) return;
+      ta.focus(); ta.select();
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+      toast(ok ? '已复制，粘贴到文本文件保存' : '请长按文本全选后复制', ok ? 'success' : 'error');
+      return;
+    }
     case 'import-data': triggerImport(); return;
     case 'reset-demo': closeAllSheets(); setTimeout(resetDemo, 50); return;
     case 'switch-demo': closeAllSheets(); setTimeout(() => switchDataMode(true), 50); return;
