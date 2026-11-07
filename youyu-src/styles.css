@@ -1434,3 +1434,7 @@ html[data-theme="light"] .acct-icon.brand{border-color:rgba(16,24,40,.1);box-sha
 .import-footer{margin-top:12px}
 
 .import-auto-target{padding:11px 12px;border:1px solid var(--line);border-radius:10px;color:var(--faint);font-size:11px;background:rgba(91,140,255,.05)}
+
+@media (max-width:520px){
+  .detail-chart-card .metrics{grid-template-columns:repeat(2,1fr)}
+}

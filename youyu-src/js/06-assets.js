@@ -261,9 +261,9 @@ function accountChartCard(am) {
     const psPnl = ps.pnl;
     metricsHTML = '<div class="metrics">' +
       '<div class="metric"><div class="lab">区间收益金额</div><div class="val ' + pnlClass(psPnl) + '">' + pnlText(psPnl, { compact: true, currency: a.currency }) + '</div><div class="sub">金额</div></div>' +
-      '<div class="metric"><div class="lab">区间收益率</div><div class="val ' + pnlClass(ps.returnPct) + '">' + fmtPct(ps.returnPct, 2) + '</div><div class="sub">时间加权</div></div>' +
+      '<div class="metric"><div class="lab">区间收益率（时间加权）</div><div class="val ' + pnlClass(tw.totalReturn) + '">' + fmtPct(tw.totalReturn, 2) + '</div><div class="sub">时间加权</div></div>' +
       '<div class="metric"><div class="lab">最大回撤率</div><div class="val loss">' + fmtPct(tw.maxDrawdown, 2) + '</div><div class="sub">回撤</div></div>' +
-      '<div class="metric"><div class="lab">年化收益率</div><div class="val ' + pnlClass(tw.annualized) + '">' + fmtPct(tw.annualized, 1) + '</div><div class="sub">时间加权</div></div>' +
+      '<div class="metric"><div class="lab">年化收益率（时间加权）</div><div class="val ' + pnlClass(tw.annualized) + '">' + fmtPct(tw.annualized, 1) + '</div><div class="sub">时间加权</div></div>' +
     '</div>';
   } else {
     chartHTML = chartEmptyHTML('还没有足够的历史数据', 174);

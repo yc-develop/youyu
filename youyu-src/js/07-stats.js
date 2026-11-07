@@ -118,7 +118,7 @@ function portfolioTrendCard(p, opts) {
     '<div class="metrics">' +
       '<div class="metric"><div class="lab">区间收益金额</div><div class="val ' + pnlClass(pnl) + '">' + pnlText(pnl, { compact: true }) + '</div><div class="sub">金额</div></div>' +
       '<div class="metric"><div class="lab">最大回撤率</div><div class="val loss">' + fmtPct(tw.maxDrawdown, 2) + '</div><div class="sub">时间加权</div></div>' +
-      '<div class="metric"><div class="lab">年化收益率</div><div class="val ' + pnlClass(tw.annualized) + '">' + fmtPct(tw.annualized, 2) + '</div><div class="sub">时间加权</div></div>' +
+      '<div class="metric"><div class="lab">年化收益率（时间加权）</div><div class="val ' + pnlClass(tw.annualized) + '">' + fmtPct(tw.annualized, 2) + '</div><div class="sub">时间加权</div></div>' +
       '<div class="metric"><div class="lab">正收益天数</div><div class="val">' + (tw.positiveRate * 100).toFixed(0) + '%</div><div class="sub">胜率</div></div>' +
     '</div>' +
     '<div class="period-row"><div class="segmented small">' + [30, 90, 365, 0].map(d => '<button class="seg ' + (days === d ? 'active' : '') + '" data-action="set-trend-period" data-value="' + d + '">' + labels[d] + '</button>').join('') + '</div>' +

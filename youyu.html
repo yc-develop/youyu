@@ -1453,6 +1453,10 @@ html[data-theme="light"] .acct-icon.brand{border-color:rgba(16,24,40,.1);box-sha
 
 .import-auto-target{padding:11px 12px;border:1px solid var(--line);border-radius:10px;color:var(--faint);font-size:11px;background:rgba(91,140,255,.05)}
 
+@media (max-width:520px){
+  .detail-chart-card .metrics{grid-template-columns:repeat(2,1fr)}
+}
+
 </style>
 </head>
 <body>
@@ -4871,9 +4875,9 @@ function accountChartCard(am) {
     const psPnl = ps.pnl;
     metricsHTML = '<div class="metrics">' +
       '<div class="metric"><div class="lab">区间收益金额</div><div class="val ' + pnlClass(psPnl) + '">' + pnlText(psPnl, { compact: true, currency: a.currency }) + '</div><div class="sub">金额</div></div>' +
-      '<div class="metric"><div class="lab">区间收益率</div><div class="val ' + pnlClass(ps.returnPct) + '">' + fmtPct(ps.returnPct, 2) + '</div><div class="sub">时间加权</div></div>' +
+      '<div class="metric"><div class="lab">区间收益率（时间加权）</div><div class="val ' + pnlClass(tw.totalReturn) + '">' + fmtPct(tw.totalReturn, 2) + '</div><div class="sub">时间加权</div></div>' +
       '<div class="metric"><div class="lab">最大回撤率</div><div class="val loss">' + fmtPct(tw.maxDrawdown, 2) + '</div><div class="sub">回撤</div></div>' +
-      '<div class="metric"><div class="lab">年化收益率</div><div class="val ' + pnlClass(tw.annualized) + '">' + fmtPct(tw.annualized, 1) + '</div><div class="sub">时间加权</div></div>' +
+      '<div class="metric"><div class="lab">年化收益率（时间加权）</div><div class="val ' + pnlClass(tw.annualized) + '">' + fmtPct(tw.annualized, 1) + '</div><div class="sub">时间加权</div></div>' +
     '</div>';
   } else {
     chartHTML = chartEmptyHTML('还没有足够的历史数据', 174);
@@ -5175,7 +5179,7 @@ function portfolioTrendCard(p, opts) {
     '<div class="metrics">' +
       '<div class="metric"><div class="lab">区间收益金额</div><div class="val ' + pnlClass(pnl) + '">' + pnlText(pnl, { compact: true }) + '</div><div class="sub">金额</div></div>' +
       '<div class="metric"><div class="lab">最大回撤率</div><div class="val loss">' + fmtPct(tw.maxDrawdown, 2) + '</div><div class="sub">时间加权</div></div>' +
-      '<div class="metric"><div class="lab">年化收益率</div><div class="val ' + pnlClass(tw.annualized) + '">' + fmtPct(tw.annualized, 2) + '</div><div class="sub">时间加权</div></div>' +
+      '<div class="metric"><div class="lab">年化收益率（时间加权）</div><div class="val ' + pnlClass(tw.annualized) + '">' + fmtPct(tw.annualized, 2) + '</div><div class="sub">时间加权</div></div>' +
       '<div class="metric"><div class="lab">正收益天数</div><div class="val">' + (tw.positiveRate * 100).toFixed(0) + '%</div><div class="sub">胜率</div></div>' +
     '</div>' +
     '<div class="period-row"><div class="segmented small">' + [30, 90, 365, 0].map(d => '<button class="seg ' + (days === d ? 'active' : '') + '" data-action="set-trend-period" data-value="' + d + '">' + labels[d] + '</button>').join('') + '</div>' +
@@ -5993,7 +5997,7 @@ function renderSettingsPage() {
   '<div class="settings-group"><div class="label">关于</div><div class="settings-card">' +
     '<div class="setting-row"><span class="setting-icon accent">' + icon('shield') + '</span><span class="setting-main"><span class="t">本地存储</span><span class="s">所有数据保存在浏览器 localStorage，不上传服务器。清除浏览器数据会丢失账本，请定期导出备份。</span></span></div>' +
     '<div class="setting-row"><span class="setting-icon blue">' + icon('chart') + '</span><span class="setting-main"><span class="t">行情数据</span><span class="s">名称搜索来自新浪财经，最新报价来自腾讯行情；公开接口可能受网络影响，仅供估值参考。</span></span></div>' +
-    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v6.5.10</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
+    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v6.5.11</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
   '</div></div>' +
   '<div class="version">' + esc(APP_NAME) + ' · 投资组合<br>不构成投资建议 · 数据仅供参考</div>' +
   '<div style="height:8px"></div>';
