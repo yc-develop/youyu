@@ -372,7 +372,9 @@ async function hydrateDemoLedger() {
     const pts = (state.prices[id] || []).filter(p => p[2] === 'market' && p[0] <= date);
     return pts.length ? Number(pts[pts.length - 1][1]) : null;
   };
+  const demoAccountIds = new Set(Object.keys(SEED_SPECS));
   state.records.forEach(rec => {
+    if (!demoAccountIds.has(rec.accountId)) return;
     if (!rec.instrumentId || (rec.type !== 'buy' && rec.type !== 'sell' && rec.type !== 'price')) return;
     const inst = instrumentById(rec.instrumentId);
     if (!inst || !inst.market) return;

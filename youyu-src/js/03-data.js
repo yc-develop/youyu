@@ -1470,6 +1470,9 @@ function importData(text) {
   // 兼容旧备份：即使文件里带了网络历史行情，也不导入
   stripNetworkHistory(obj);
   state = obj;
+  // 导入普通备份时必须退出演示模式，否则会写进演示账本
+  demoMode = !!obj.isDemo;
+  state.isDemo = demoMode;
   saveState();
   return true;
 }
