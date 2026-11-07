@@ -80,13 +80,11 @@ function positionGroupTitle(text) {
   return '<div class="position-group-title">' + esc(text) + '</div>';
 }
 function glossaryHTML(scope) {
-  const common = [
-    ['净投入（资金流）', '本期投入 − 本期转出。'],
-    ['投资损益（资金流）', '期末资产 − 期初资产 − 净投入；包含价格变动、分红、费用与汇兑影响。']
-  ];
   const instrumentItems = [
     ['持仓数量', '当前仍持有的份额或股数；份额分红会增加持仓数量。'],
     ['持仓市值', '持仓数量 × 最新价，按标的原币计价。'],
+    ['期初总价值', '期初持仓市值 + 期初前已收累计分红。'],
+    ['期末总价值', '期末持仓市值 + 截至期末已收累计分红；分红计入累计收益。'],
     ['移动加权平均成本', '买入成本（含费用）计入持仓成本；卖出时按卖出前的移动加权平均成本结转。剩余持仓成本 ÷ 持仓数量。'],
     ['移动加权平均成本金额', '剩余持仓尚未结转的成本合计，等于累计买入成本减累计卖出结转成本。'],
     ['摊薄成本', '净投入本金 ÷ 持仓数量。把已卖出收回的现金和现金分红从总投入中扣除，反映剩余持仓的净投入成本。'],
@@ -96,12 +94,13 @@ function glossaryHTML(scope) {
     ['累计已实现盈亏', '累计卖出净额 − 卖出结转成本；已落袋的买卖差价，已扣费用。'],
     ['已实现收益率', '累计已实现盈亏 ÷ 已卖出成本；已卖出成本 = 累计买入金额 − 剩余持仓成本。'],
     ['累计现金分红', '现金分红累计；份额分红按 0 元计入，并增加持仓数量。'],
-    ['累计收益', '浮动盈亏 + 累计已实现盈亏 + 累计现金分红。'],
+    ['累计收益', '浮动盈亏 + 累计已实现盈亏 + 累计现金分红；与资金流中的累计收益同一口径。'],
     ['累计收益率', '累计收益 ÷ 累计买入金额（含费用）。'],
     ['年化收益率', '按持有天数把累计收益率折算为年化，仅供参考；持有期不足一年时波动会被放大。'],
     ['最大回撤', '累计收益曲线从历史峰值到后续谷值的最大回落金额。'],
     ['累计买入金额', '所有买入成交金额加买入费用。'],
     ['累计卖出净额', '所有卖出成交金额减卖出费用。'],
+    ['累计净买入', '累计买入金额 − 累计卖出净额；不扣现金分红。'],
     ['累计交易费用', '买入费用 + 卖出费用。'],
     ['账户内仓位占比', '该标的持仓市值 ÷ 账户总资产。'],
     ['持有天数', '首次买入日至今的自然日天数。']
@@ -121,11 +120,12 @@ function glossaryHTML(scope) {
     ['累计交易费用', '买入、卖出产生的费用合计。'],
     ['累计其他费用', '单独记录的手续费、管理费等。'],
     ['汇兑损益', '外币资产按当前汇率与历史成本汇率折算的差额；可选择是否计入累计收益。'],
-    ['累计收益', '累计已实现盈亏 + 浮动盈亏。'],
+    ['累计收益', '累计已实现盈亏 + 浮动盈亏；汇兑损益未计入时不含汇兑。'],
     ['累计收益率', '累计收益 ÷ 净投入本金。'],
+    ['资产损益（资金流）', '期末资产 − 期初资产 − 净投入本金；包含汇兑损益。与账户概览的累计收益相差汇兑损益（当汇兑未计入时）。'],
     ['记账天数', '最早一条记录至今的自然日天数。']
   ];
-  const items = (scope === 'account' ? accountItems : instrumentItems).concat(common);
+  const items = scope === 'account' ? accountItems : instrumentItems;
   return '<details class="glossary"><summary>' + icon('info') + '<span>统计口径说明</span><span class="glossary-hint"><span class="when-closed">点击展开</span><span class="when-open">点击收起</span></span></summary>' +
     '<div class="glossary-list">' + items.map(([name, desc]) =>
       '<div class="glossary-item"><div class="glossary-name">' + esc(name) + '</div><div class="glossary-desc">' + esc(desc) + '</div></div>'
@@ -346,6 +346,7 @@ function instrumentOverviewHTML(im) {
       positionGroupTitle('交易统计') +
       positionRow('累计买入金额', money(im.totalBuyNative), '成交金额 + 买入费用') +
       positionRow('累计卖出净额', money(im.totalSellNative), '成交金额 − 卖出费用') +
+      positionRow('累计净买入', money(im.totalBuyNative - im.totalSellNative), '累计买入金额 − 累计卖出净额') +
       positionRow('累计交易费用', money(im.totalFeesNative), '买入费用 + 卖出费用 · 已计入已实现盈亏') +
       positionRow('买入 / 卖出笔数', im.buyCount + ' / ' + im.sellCount + ' 笔', '成交记录数量') +
       (weight == null ? '' : positionRow('账户内仓位占比', fmtPct(weight, 2, false), '持仓市值 ÷ 账户总资产')) +

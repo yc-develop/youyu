@@ -1142,7 +1142,7 @@ function groupPeriodSummary(schemeId, days) {
 const FLOW_FIELD_META = {
   opening: { label: '期初资产', title: '期初资产调整' },
   ending:  { label: '期末资产', title: '期末资产调整' },
-  profit:  { label: '投资损益', title: '投资损益调整' },
+  profit:  { label: '资产损益', title: '资产损益调整' },
   in:      { label: '本期投入', title: '本期投入调整' },
   out:     { label: '本期转出', title: '本期转出调整' }
 };
@@ -1251,19 +1251,29 @@ function instrumentFlow(instrumentId, periodKey) {
   }) : null;
   const beginning = bounds.start ? flowValueAt(series, addDays(bounds.start, -1)) : 0;
   const ending = flowValueAt(series, bounds.end);
-  let inAmt = 0, outAmt = 0;
+  let inAmt = 0, outAmt = 0, divAmt = 0, divBefore = 0;
   recordsForInstrument(instrumentId).forEach(r => {
+    const amount = Number(r.amount) || 0;
+    if (r.type === 'dividend' && bounds.start && r.date < bounds.start) {
+      divBefore += amount;
+      return;
+    }
     if (!flowInPeriod(r, bounds)) return;
     const fee = Number(r.fee) || 0;
-    if (r.type === 'buy') inAmt += (Number(r.amount) || 0) + fee;
-    else if (r.type === 'sell') outAmt += (Number(r.amount) || 0) - fee;
-    else if (r.type === 'dividend') outAmt += Number(r.amount) || 0;
+    if (r.type === 'buy') inAmt += amount + fee;
+    else if (r.type === 'sell') outAmt += amount - fee;
+    else if (r.type === 'dividend') divAmt += amount;
   });
+  // 分红计入累计收益，不作为资金流出；期末总价值 = 持仓市值 + 已收分红
+  const beginningTotal = beginning + divBefore;
+  const endingTotal = ending + divBefore + divAmt;
   const net = inAmt - outAmt;
-  const profit = ending - beginning - net;
+  const profit = endingTotal - beginningTotal - net;
   return {
     scope: 'instrument', periodKey: key, periodLabel: bounds.label, currency: inst.currency,
-    beginning, in: inAmt, out: outAmt, net, profit, ending,
+    beginning: beginningTotal, ending: endingTotal,
+    marketBeginning: beginning, marketEnding: ending, dividendBefore: divBefore,
+    in: inAmt, out: outAmt, dividend: divAmt, net, profit,
     label: bounds.label
   };
 }

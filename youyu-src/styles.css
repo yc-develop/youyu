@@ -466,6 +466,7 @@ ul,ol{margin:0;padding:0;list-style:none}
 .flow-node.total .v{font-size:13px}
 .flow-top{left:2%;top:0;width:46%}
 .flow-top.right{left:52%}
+.flow-node-sub{font-size:7.5px;color:var(--faint);margin-top:2px;white-space:nowrap}
 .flow-mid{top:110px;width:30%}
 .flow-mid.a{left:1%}.flow-mid.b{left:35%}.flow-mid.c{left:69%}
 .flow-end{left:26%;top:220px;width:48%}
