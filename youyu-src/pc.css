@@ -384,7 +384,7 @@ html[data-layout="desktop"] .info-banner{font-size:11px;padding:14px 16px}
 
 html[data-layout="desktop"] .page-account .detail-body > .detail-hero{order:0}
 html[data-layout="desktop"] .page-account .detail-body > .account-fx-banner{order:1}
-html[data-layout="desktop"] .page-account .detail-body > .account-overview{grid-column:span 5;order:2}
+html[data-layout="desktop"] .page-account .detail-body > .account-overview{grid-column:span 5;order:5}
 html[data-layout="desktop"] .page-account .account-overview .list-card{
   display:grid;
   grid-template-columns:repeat(2,minmax(0,1fr));
@@ -393,11 +393,11 @@ html[data-layout="desktop"] .page-account .account-overview .list-card{
 }
 html[data-layout="desktop"] .page-account .account-overview .position-group-title{grid-column:1/-1}
 html[data-layout="desktop"] .page-account .account-overview .position-row{padding:11px 0}
-html[data-layout="desktop"] .page-account .detail-body > .account-chart{grid-column:span 7;order:3}
-html[data-layout="desktop"] .page-account .detail-body > .glossary{order:4}
-html[data-layout="desktop"] .page-account .detail-body > .account-composition{grid-column:span 5;order:5}
-html[data-layout="desktop"] .page-account .detail-body > .account-flow{grid-column:span 7;order:6}
-html[data-layout="desktop"] .page-account .detail-body > .account-holdings{grid-column:1/-1;order:7}
+html[data-layout="desktop"] .page-account .detail-body > .account-chart{grid-column:span 7;order:2}
+html[data-layout="desktop"] .page-account .detail-body > .glossary{order:7}
+html[data-layout="desktop"] .page-account .detail-body > .account-composition{grid-column:span 5;order:3}
+html[data-layout="desktop"] .page-account .detail-body > .account-flow{grid-column:span 7;order:4}
+html[data-layout="desktop"] .page-account .detail-body > .account-holdings{grid-column:1/-1;order:6}
 html[data-layout="desktop"] .page-account .account-holdings{--hold-cols:40px minmax(220px,1.8fr) 96px 140px 120px 150px 20px}
 html[data-layout="desktop"] .page-account .account-holdings .holdings-head{
   display:grid;
@@ -434,7 +434,7 @@ html[data-layout="desktop"] .page-account .detail-body > .account-records{grid-c
 
 html[data-layout="desktop"] .page-instrument .detail-body > .detail-hero{order:0}
 html[data-layout="desktop"] .page-instrument .detail-body > .instrument-chart{grid-column:span 6;order:1}
-html[data-layout="desktop"] .page-instrument .detail-body > .instrument-overview{grid-column:span 6;order:2}
+html[data-layout="desktop"] .page-instrument .detail-body > .instrument-overview{grid-column:1/-1;order:3}
 html[data-layout="desktop"] .page-instrument .instrument-overview .list-card{
   display:grid;
   grid-template-columns:repeat(2,minmax(0,1fr));
@@ -443,9 +443,9 @@ html[data-layout="desktop"] .page-instrument .instrument-overview .list-card{
 }
 html[data-layout="desktop"] .page-instrument .instrument-overview .position-group-title{grid-column:1/-1}
 html[data-layout="desktop"] .page-instrument .instrument-overview .position-row{padding:11px 0}
-html[data-layout="desktop"] .page-instrument .detail-body > .glossary{order:3}
-html[data-layout="desktop"] .page-instrument .detail-body > .instrument-flow{grid-column:span 7;order:4}
-html[data-layout="desktop"] .page-instrument .detail-body > .instrument-fx-banner{grid-column:span 5;order:5}
+html[data-layout="desktop"] .page-instrument .detail-body > .glossary{grid-column:1/-1;order:4}
+html[data-layout="desktop"] .page-instrument .detail-body > .instrument-flow{grid-column:span 6;order:2}
+html[data-layout="desktop"] .page-instrument .detail-body > .instrument-fx-banner{grid-column:1/-1;order:5}
 html[data-layout="desktop"] .page-instrument .detail-body > .instrument-records{grid-column:1/-1;order:6}
 
 html[data-layout="desktop"] .detail-screen .actionbar{
@@ -546,11 +546,14 @@ html[data-layout="desktop"][data-theme="light"] .version{color:rgba(16,24,40,.32
 
 /* ---------- 中等宽度：详情概览改为单列，避免标签截断 ---------- */
 @media (max-width:1280px){
-  html[data-layout="desktop"] .page-account .account-overview{grid-column:span 7}
-  html[data-layout="desktop"] .page-account .account-chart{grid-column:span 5}
+  html[data-layout="desktop"] .page-account .account-chart,
+  html[data-layout="desktop"] .page-account .account-composition,
+  html[data-layout="desktop"] .page-account .account-flow,
+  html[data-layout="desktop"] .page-account .account-overview{grid-column:1/-1}
   html[data-layout="desktop"] .page-account .account-overview .list-card{grid-template-columns:1fr}
-  html[data-layout="desktop"] .page-instrument .instrument-overview{grid-column:span 7}
-  html[data-layout="desktop"] .page-instrument .instrument-chart{grid-column:span 5}
+  html[data-layout="desktop"] .page-instrument .instrument-chart,
+  html[data-layout="desktop"] .page-instrument .instrument-flow,
+  html[data-layout="desktop"] .page-instrument .instrument-overview{grid-column:1/-1}
   html[data-layout="desktop"] .page-instrument .instrument-overview .list-card{grid-template-columns:1fr}
 }
 

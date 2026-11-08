@@ -1844,7 +1844,7 @@ html[data-layout="desktop"] .info-banner{font-size:11px;padding:14px 16px}
 
 html[data-layout="desktop"] .page-account .detail-body > .detail-hero{order:0}
 html[data-layout="desktop"] .page-account .detail-body > .account-fx-banner{order:1}
-html[data-layout="desktop"] .page-account .detail-body > .account-overview{grid-column:span 5;order:2}
+html[data-layout="desktop"] .page-account .detail-body > .account-overview{grid-column:span 5;order:5}
 html[data-layout="desktop"] .page-account .account-overview .list-card{
   display:grid;
   grid-template-columns:repeat(2,minmax(0,1fr));
@@ -1853,11 +1853,11 @@ html[data-layout="desktop"] .page-account .account-overview .list-card{
 }
 html[data-layout="desktop"] .page-account .account-overview .position-group-title{grid-column:1/-1}
 html[data-layout="desktop"] .page-account .account-overview .position-row{padding:11px 0}
-html[data-layout="desktop"] .page-account .detail-body > .account-chart{grid-column:span 7;order:3}
-html[data-layout="desktop"] .page-account .detail-body > .glossary{order:4}
-html[data-layout="desktop"] .page-account .detail-body > .account-composition{grid-column:span 5;order:5}
-html[data-layout="desktop"] .page-account .detail-body > .account-flow{grid-column:span 7;order:6}
-html[data-layout="desktop"] .page-account .detail-body > .account-holdings{grid-column:1/-1;order:7}
+html[data-layout="desktop"] .page-account .detail-body > .account-chart{grid-column:span 7;order:2}
+html[data-layout="desktop"] .page-account .detail-body > .glossary{order:7}
+html[data-layout="desktop"] .page-account .detail-body > .account-composition{grid-column:span 5;order:3}
+html[data-layout="desktop"] .page-account .detail-body > .account-flow{grid-column:span 7;order:4}
+html[data-layout="desktop"] .page-account .detail-body > .account-holdings{grid-column:1/-1;order:6}
 html[data-layout="desktop"] .page-account .account-holdings{--hold-cols:40px minmax(220px,1.8fr) 96px 140px 120px 150px 20px}
 html[data-layout="desktop"] .page-account .account-holdings .holdings-head{
   display:grid;
@@ -1894,7 +1894,7 @@ html[data-layout="desktop"] .page-account .detail-body > .account-records{grid-c
 
 html[data-layout="desktop"] .page-instrument .detail-body > .detail-hero{order:0}
 html[data-layout="desktop"] .page-instrument .detail-body > .instrument-chart{grid-column:span 6;order:1}
-html[data-layout="desktop"] .page-instrument .detail-body > .instrument-overview{grid-column:span 6;order:2}
+html[data-layout="desktop"] .page-instrument .detail-body > .instrument-overview{grid-column:1/-1;order:3}
 html[data-layout="desktop"] .page-instrument .instrument-overview .list-card{
   display:grid;
   grid-template-columns:repeat(2,minmax(0,1fr));
@@ -1903,9 +1903,9 @@ html[data-layout="desktop"] .page-instrument .instrument-overview .list-card{
 }
 html[data-layout="desktop"] .page-instrument .instrument-overview .position-group-title{grid-column:1/-1}
 html[data-layout="desktop"] .page-instrument .instrument-overview .position-row{padding:11px 0}
-html[data-layout="desktop"] .page-instrument .detail-body > .glossary{order:3}
-html[data-layout="desktop"] .page-instrument .detail-body > .instrument-flow{grid-column:span 7;order:4}
-html[data-layout="desktop"] .page-instrument .detail-body > .instrument-fx-banner{grid-column:span 5;order:5}
+html[data-layout="desktop"] .page-instrument .detail-body > .glossary{grid-column:1/-1;order:4}
+html[data-layout="desktop"] .page-instrument .detail-body > .instrument-flow{grid-column:span 6;order:2}
+html[data-layout="desktop"] .page-instrument .detail-body > .instrument-fx-banner{grid-column:1/-1;order:5}
 html[data-layout="desktop"] .page-instrument .detail-body > .instrument-records{grid-column:1/-1;order:6}
 
 html[data-layout="desktop"] .detail-screen .actionbar{
@@ -2006,11 +2006,14 @@ html[data-layout="desktop"][data-theme="light"] .version{color:rgba(16,24,40,.32
 
 /* ---------- 中等宽度：详情概览改为单列，避免标签截断 ---------- */
 @media (max-width:1280px){
-  html[data-layout="desktop"] .page-account .account-overview{grid-column:span 7}
-  html[data-layout="desktop"] .page-account .account-chart{grid-column:span 5}
+  html[data-layout="desktop"] .page-account .account-chart,
+  html[data-layout="desktop"] .page-account .account-composition,
+  html[data-layout="desktop"] .page-account .account-flow,
+  html[data-layout="desktop"] .page-account .account-overview{grid-column:1/-1}
   html[data-layout="desktop"] .page-account .account-overview .list-card{grid-template-columns:1fr}
-  html[data-layout="desktop"] .page-instrument .instrument-overview{grid-column:span 7}
-  html[data-layout="desktop"] .page-instrument .instrument-chart{grid-column:span 5}
+  html[data-layout="desktop"] .page-instrument .instrument-chart,
+  html[data-layout="desktop"] .page-instrument .instrument-flow,
+  html[data-layout="desktop"] .page-instrument .instrument-overview{grid-column:1/-1}
   html[data-layout="desktop"] .page-instrument .instrument-overview .list-card{grid-template-columns:1fr}
 }
 
@@ -2074,7 +2077,7 @@ html[data-layout="desktop"][data-theme="light"] .version{color:rgba(16,24,40,.32
 'use strict';
 
 const APP_NAME = '有余';
-const APP_VERSION = '6.5.23';
+const APP_VERSION = '6.5.24';
 const IS_DESKTOP = document.documentElement.getAttribute('data-layout') === 'desktop';
 const PC_HREF = 'pc/index.html';
 const MOBILE_HREF = /\/pc\//.test(location.pathname) ? '../index.html' : 'index.html';
@@ -5439,8 +5442,6 @@ function renderAccountPage(accountId) {
       '</div>' +
     '</section>' +
     (a.currency !== baseCurrency() ? '<div class="info-banner account-fx-banner" style="margin-top:12px;margin-bottom:0">' + icon('swap') + '<div>账户统计以 <b>' + a.currency + '</b> 计价，不折算为 ' + baseCurrency() + '；组合总览仍按 ' + baseCurrency() + ' 汇总。参考汇率 1 ' + a.currency + ' = ' + fmtPrice(fxToBase(a.currency), baseCurrency()) + '。</div></div>' : '') +
-    accountOverviewHTML(am) +
-    glossaryHTML('account') +
     accountChartCard(am) +
     '<div class="detail-section account-composition"><div class="section-head"><div><h2>资产构成</h2><div class="sub">现金与持仓 · 按当前市值</div></div><span class="tiny">' + a.currency + '</span></div>' +
       '<div class="card pad" style="padding-top:12px;padding-bottom:14px"><div class="donut-layout">' + donutBoxHTML(composition.items, { size: 132, stroke: 15, centerValue: fmtMoney(am.marketNative, { compact: true, currency: a.currency }), centerLabel: '账户总资产' }) +
@@ -5450,6 +5451,8 @@ function renderAccountPage(accountId) {
       (am.instruments.length ? '<div class="desktop-table-head holdings-head"><span></span><span>标的</span><span>持仓数量</span><span>移动加权平均成本</span><span>摊薄成本</span><span>期末总金额</span><span></span></div><div class="list-card">' + am.instruments.slice().sort((x, y) => (y.endingTotalBase || y.marketBase) - (x.endingTotalBase || x.marketBase)).map(im => holdingRowHTML(im, { currency: a.currency })).join('') + '</div>' :
         '<div class="list-card">' + emptyBlock('这个账户还没有标的', '添加基金、股票或存单，记录买入与估值。', '<button class="btn primary sm" data-action="open-add-instrument" data-account="' + esc(a.id) + '">添加标的</button>', 'fund') + '</div>') +
     '</div>' +
+    accountOverviewHTML(am) +
+    glossaryHTML('account') +
     '<div class="detail-section account-records"><div class="section-head"><div><h2>更新记录</h2><div class="sub">买入、卖出、换汇与估值更新</div></div><button class="text-btn" data-action="open-records" data-scope="account" data-id="' + esc(a.id) + '">全部 ' + records.length + '</button></div>' +
       recordsCardHTML(records, { limit: 6, moreAction: 'open-records', moreScope: 'account', id: a.id }) + '</div>' +
     '<div style="height:12px"></div>' +
@@ -5579,9 +5582,9 @@ function renderInstrumentPage(instrumentId) {
       '</div>' +
     '</section>' +
     instrumentChartCard(im) +
+    '<div class="detail-section instrument-flow" style="margin-top:14px">' + flowDiagramHTML(instrumentFlow(instrumentId, flowPeriod), { isInstrument: true, scope: 'instrument', id: instrumentId, periodKey: flowPeriod, periods: flowPeriods('instrument', instrumentId), editable: false, currency: inst.currency }) + '</div>' +
     instrumentOverviewHTML(im) +
     glossaryHTML('instrument') +
-    '<div class="detail-section instrument-flow" style="margin-top:14px">' + flowDiagramHTML(instrumentFlow(instrumentId, flowPeriod), { isInstrument: true, scope: 'instrument', id: instrumentId, periodKey: flowPeriod, periods: flowPeriods('instrument', instrumentId), editable: false, currency: inst.currency }) + '</div>' +
     (isForeign ? '<div class="info-banner instrument-fx-banner">' + icon('swap') + '<div>以 ' + inst.currency + ' 计价，按当前汇率 <b>1 ' + inst.currency + ' = ' + fmtPrice(fxToBase(inst.currency), baseCurrency()) + '</b> 折算。汇兑损益 <b class="' + pnlClass(im.fxPnl) + '">' + pnlText(im.fxPnl) + '</b> ' + (state.settings.considerFx ? '已计入' : '未计入') + '累计收益。</div></div>' : '') +
     '<div class="detail-section instrument-records"><div class="section-head"><div><h2>更新记录</h2><div class="sub">买入、卖出、分红与估值更新</div></div><button class="text-btn" data-action="open-records" data-scope="instrument" data-id="' + esc(inst.id) + '">全部 ' + records.length + '</button></div>' +
       recordsCardHTML(records, { limit: 7, moreAction: 'open-records', moreScope: 'instrument', id: inst.id }) + '</div>' +
