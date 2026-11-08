@@ -1481,7 +1481,7 @@ html[data-theme="light"] .acct-icon.brand{border-color:rgba(16,24,40,.1);box-sha
 'use strict';
 
 const APP_NAME = '有余';
-const APP_VERSION = '6.5.22';
+const APP_VERSION = '6.5.23';
 const IS_DESKTOP = document.documentElement.getAttribute('data-layout') === 'desktop';
 const PC_HREF = 'pc/index.html';
 const MOBILE_HREF = /\/pc\//.test(location.pathname) ? '../index.html' : 'index.html';
@@ -6644,11 +6644,11 @@ function openRecordForm(accountId, type, instrumentId, editId, draft) {
       fieldHTML({ id: 'record-qty', label: '数量', value: valueOf('qty', ''), placeholder: '0', inputmode: 'decimal' }) +
       fieldHTML({ id: 'record-price', label: '成交价', value: valueOf('price', ''), placeholder: '0.00', unit: chosen ? chosen.currency : account.currency, inputmode: 'decimal' }) +
       fieldHTML({ id: 'record-fee', label: '费用（可选）', value: valueOf('fee', ''), placeholder: '0.00', unit: chosen ? chosen.currency : account.currency, inputmode: 'decimal' }) +
-      fieldHTML({ id: 'record-amount', label: type === 'sell' ? '卖出成交金额（未扣手续费）' : '买入成交金额（不含手续费）', value: valueOf('amount', ''), placeholder: '自动按数量 × 价格', unit: chosen ? chosen.currency : account.currency, inputmode: 'decimal', full: true, hint: type === 'sell' ? '填写扣手续费之前的毛额；实际到账 = 成交金额 − 手续费。手续费单独填写。修改数量或价格时，未手改的金额会自动更新' : '填写不含手续费的买入成交金额；实际支付 = 成交金额 + 手续费。手续费单独填写。修改数量或价格时，未手改的金额会自动更新' }) +
+      fieldHTML({ id: 'record-amount', label: type === 'sell' ? '卖出成交金额（未扣费用）' : '买入成交金额（不含费用）', value: valueOf('amount', ''), placeholder: '自动按数量 × 价格', unit: chosen ? chosen.currency : account.currency, inputmode: 'decimal', full: true, hint: type === 'sell' ? '填写扣除费用之前的毛额；实际到账 = 成交金额 − 费用。费用单独填写。修改数量或价格时，未手改的金额会自动更新' : '填写不含费用的买入成交金额；实际支付 = 成交金额 + 费用。费用单独填写。修改数量或价格时，未手改的金额会自动更新' }) +
       fieldHTML({ id: 'record-date', label: '日期', type: 'date', value: dateVal, attrs: 'max="' + todayKey() + '"' }) +
       fieldHTML({ id: 'record-note', label: '备注（可选）', value: noteVal, placeholder: '买入 / 卖出原因', full: true }) + '</div>' +
       fxRateFieldHTML(chosen ? chosen.currency : account.currency, true, fxVal) +
-      '<div class="record-preview" id="record-preview">' + (type === 'sell' ? '卖出成交金额（未扣手续费）' : '买入成交金额（不含手续费）') + ' <b>—</b></div>';
+      '<div class="record-preview" id="record-preview">' + (type === 'sell' ? '卖出成交金额（未扣费用）' : '买入成交金额（不含费用）') + ' <b>—</b></div>';
   } else if (type === 'dividend' || type === 'price') {
     if (type === 'dividend') {
       fields = '<div class="form-grid">' + instSelect() +
@@ -6746,7 +6746,7 @@ function openRecordForm(accountId, type, instrumentId, editId, draft) {
     const amount = tradeAmountInput ? parseNumber(tradeAmountInput.value) : autoAmount;
     const ccy = chosen ? chosen.currency : account.currency;
     const net = type === 'sell' ? amount - fee : amount + fee;
-    const amountLabel = type === 'sell' ? '卖出成交金额（未扣手续费）' : '买入成交金额（不含手续费）';
+    const amountLabel = type === 'sell' ? '卖出成交金额（未扣费用）' : '买入成交金额（不含费用）';
     preview.innerHTML = amountLabel + ' <b>' + fmtMoney(amount, { currency: ccy }) + '</b>' + (fee ? '<span> ' + (type === 'sell' ? '−' : '+') + ' 费用 ' + fmtMoney(fee, { currency: ccy }) + ' = ' + (type === 'sell' ? '实际到账 ' : '实际支付 ') + fmtMoney(net, { currency: ccy }) + '</span>' : '');
   };
   if (preview) {
