@@ -94,7 +94,8 @@ function glossaryHTML(scope) {
     ['累计已实现盈亏', '累计卖出净额 − 卖出结转成本；已落袋的买卖差价，已扣费用。'],
     ['累计已实现收益率', '累计已实现盈亏 ÷ 已卖出成本；已卖出成本 = 累计买入金额 − 剩余持仓成本。'],
     ['累计现金分红', '现金分红累计；份额分红按 0 元计入，并增加持仓数量。'],
-    ['累计收益', '浮动盈亏 + 累计已实现盈亏 + 累计现金分红；与资金流中的累计收益同一口径。'],
+    ['累计标的费用', '直接记在该标的上的费用；从标的累计收益中扣除，不影响持仓数量。'],
+    ['累计收益', '浮动盈亏 + 累计已实现盈亏 + 累计现金分红 − 累计标的费用；与资金流中的累计收益同一口径。'],
     ['累计收益率（按累计买入）', '累计收益 ÷ 累计买入金额（含费用）。'],
     ['年化收益率（持有期）', '按持有天数把累计收益率折算为年化，仅供参考；持有期不足一年时波动会被放大。'],
     ['最大回撤金额', '累计收益曲线从历史峰值到后续谷值的最大回落金额。'],
@@ -208,7 +209,7 @@ function accountOverviewHTML(am) {
       positionRow('净投入本金', money(am.netDepositsNative), '累计转入 − 累计转出') +
       positionRow('交易已实现盈亏', pnl(am.tradingRealizedNative), '买卖差价，已扣交易费用') +
       positionRow('累计分红及利息', '<span class="' + pnlClass(am.incomeNative) + '">' + money(am.incomeNative) + '</span>', '现金分红、利息与现金收益') +
-      positionRow('累计其他费用', money(am.otherFeesNative), '单独记录的手续费、管理费等') +
+      positionRow('累计其他费用', money(am.otherFeesNative), '标的费用 + 单独记录的手续费、管理费等') +
       positionRow('累计已实现盈亏', pnl(am.realizedNativeAccount), '交易已实现盈亏 + 分红及利息 − 其他费用') +
       positionRow('累计交易费用', money(am.tradeFeesNative), '买入费用 + 卖出费用 · 已计入交易已实现盈亏') +
       positionRow('浮动盈亏', pnl(am.unrealizedNative), '账户总资产 − 净投入本金 − 累计已实现盈亏') +
@@ -347,7 +348,8 @@ function instrumentOverviewHTML(im) {
       positionRow('累计已实现盈亏', pnl(im.realizedNative), '累计卖出净额 − 卖出结转成本') +
       positionRow('累计已实现收益率', im.realizedReturnPct == null ? '—' : '<span class="' + pnlClass(im.realizedReturnPct) + '">' + fmtPct(im.realizedReturnPct, 2) + '</span>', '累计已实现盈亏 ÷ 已卖出成本') +
       positionRow('累计现金分红', '<span class="' + pnlClass(im.cashDividendNative) + '">' + money(im.cashDividendNative) + '</span>', im.shareDividendQty > 0 ? '另有 ' + fmtQty(im.shareDividendQty) + ' 份份额分红，按 0 元计入' : '现金分红，已计入累计收益') +
-      positionRow('累计收益', pnl(im.profitNativeInst), '浮动盈亏 + 累计已实现盈亏 + 累计现金分红') +
+      positionRow('累计标的费用', money(im.feeNative), '单独记录的标的费用') +
+      positionRow('累计收益', pnl(im.profitNativeInst), '浮动盈亏 + 累计已实现盈亏 + 累计现金分红 − 累计标的费用') +
       positionRow('累计收益率（按累计买入）', '<span class="' + pnlClass(im.returnPctNative) + '">' + pctOrDash(im.returnPctNative, 2) + '</span>', '累计收益 ÷ 累计买入金额') +
       positionRow('年化收益率（持有期）', ann == null ? '—' : '<span class="' + pnlClass(ann) + '">' + fmtPct(ann, 2) + '</span>', '按持有天数折算 · 仅供参考') +
       positionRow('最大回撤金额', dd == null ? '—' : '<span class="' + pnlClass(dd) + '">' + money(dd) + '</span>', '累计收益曲线峰值回落') +

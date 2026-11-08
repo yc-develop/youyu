@@ -201,7 +201,12 @@ function flowDiagramHTML(flow, opts) {
     opening: '期初资产', ending: '期末资产'
   };
   const showDividend = isInstrument && Number(f.dividend) > 0;
-  const flowFormula = '期初' + (isInstrument ? '总价值' : '资产') + ' + ' + flowLabels.net + ' + ' + flowLabels.profit + ' = 期末' + (isInstrument ? '总价值 · 期末总价值 = 持仓市值 + 已收分红' : '资产');
+  const showFee = isInstrument && Number(f.fees) > 0;
+  const flowFormula = '期初' + (isInstrument ? '总价值' : '资产') + ' + ' + flowLabels.net + ' + ' + flowLabels.profit + ' = 期末' + (isInstrument ? '总价值 · 期末总价值 = 持仓市值 + 已收分红 − 标的费用' : '资产');
+  const profitSubParts = [];
+  if (showDividend) profitSubParts.push('含分红 ' + money(f.dividend));
+  if (showFee) profitSubParts.push('扣费用 ' + money(f.fees));
+  const profitSub = profitSubParts.length ? '<span class="flow-node-sub">' + profitSubParts.join(' · ') + '</span>' : '';
   const node = (field, cls, label, valueHtml, extra) => {
     const attr = editable ? ' data-action="edit-flow-field" data-scope="' + esc(scope) + '" data-id="' + esc(id) + '" data-period="' + esc(periodKey) + '" data-field="' + esc(field) + '"' : '';
     const pen = editable ? '<span class="flow-edit">' + icon('pen') + '</span>' : '';
@@ -227,10 +232,10 @@ function flowDiagramHTML(flow, opts) {
       node('out', 'flow-top right', flowLabels.out, ((f.out || 0) > 0 ? '−' : '') + money(f.out || 0)) +
       node('opening', 'flow-mid a', flowLabels.opening, money(f.beginning || 0)) +
       '<div class="flow-node flow-mid b accent"><span class="l">' + flowLabels.net + '</span><span class="v">' + ((f.net || 0) > 0 ? '+' : (f.net || 0) < 0 ? '−' : '') + money(Math.abs(f.net || 0)) + '</span></div>' +
-      node('profit', 'flow-mid c ' + pnlCls, flowLabels.profit, pnlSign + money(Math.abs(pnl)), showDividend ? '<span class="flow-node-sub">含分红 ' + money(f.dividend) + '</span>' : '') +
+      node('profit', 'flow-mid c ' + pnlCls, flowLabels.profit, pnlSign + money(Math.abs(pnl)), profitSub) +
       node('ending', 'flow-end total', flowLabels.ending, money(f.ending || 0)) +
     '</div>' +
-    '<div class="flow-legend"><span class="dot"></span>' + flowLabels.net + ' + ' + flowLabels.profit + ' = 期末 − 期初' + (showDividend ? ' · 分红已计入' + flowLabels.profit : '') + (editable ? ' · 点击金额可校正' : '') + '</div>' +
+    '<div class="flow-legend"><span class="dot"></span>' + flowLabels.net + ' + ' + flowLabels.profit + ' = 期末 − 期初' + ((showDividend || showFee) ? ' · 分红/费用已计入' + flowLabels.profit : '') + (editable ? ' · 点击金额可校正' : '') + '</div>' +
     (f.adjusted ? '<div class="flow-adjusted-note">本周期已写入账本调整，资产统计已同步；可在更新记录中删除调整或撤销本周期调整。</div>' : '') +
   '</div>';
 }

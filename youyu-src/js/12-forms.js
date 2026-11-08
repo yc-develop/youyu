@@ -259,7 +259,7 @@ function openRecordChooser(accountId, instrumentId) {
   const account = accountById(accountId);
   if (!account) return;
   let types;
-  if (instrumentId) types = ['buy', 'sell', 'dividend', 'price'];
+  if (instrumentId) types = ['buy', 'sell', 'dividend', 'price', 'fee'];
   else {
     types = ['deposit', 'withdraw'];
     if (account.instruments.length) types = types.concat(['buy', 'sell', 'dividend', 'price']);
@@ -282,7 +282,8 @@ function fxRateFieldHTML(ccy, full, value) {
   return fieldHTML({ id: 'record-fxrate', label: '成交汇率（可选）', value: value == null ? '' : value, placeholder: '留空则按日期自动取汇率', unit: 'CNY / ' + ccy, inputmode: 'decimal', full: !!full, hint: '用于计算这笔交易的汇兑损益' });
 }
 
-function editableRecordTypes(type) {
+function editableRecordTypes(type, instrumentId) {
+  if (type === 'fee' && instrumentId) return ['fee'];
   const cash = ['deposit', 'withdraw', 'interest', 'fee', 'cashProfit'];
   const trade = ['buy', 'sell'];
   if (cash.indexOf(type) >= 0) return cash;
@@ -300,6 +301,7 @@ function openRecordForm(accountId, type, instrumentId, editId, draft) {
   if (!account) return;
   const insts = account.instruments || [];
   const chosen = instrumentId ? insts.find(i => i.id === instrumentId) : (insts[0] || null);
+  const isInstrumentFee = type === 'fee' && !!instrumentId;
   const info = RECORD_TYPE_INFO[type] || RECORD_TYPE_INFO.deposit;
   const valueOf = (key, fallback) => draft && draft[key] != null ? draft[key] : (editRec && editRec[key] != null ? editRec[key] : (fallback == null ? '' : fallback));
   const dateVal = valueOf('date', todayKey());
@@ -312,7 +314,13 @@ function openRecordForm(accountId, type, instrumentId, editId, draft) {
     options: insts.map(i => ({ value: i.id, label: i.name + ' · ' + i.symbol }))
   });
   let fields = '';
-  if (type === 'deposit' || type === 'withdraw' || type === 'interest' || type === 'fee' || type === 'cashProfit') {
+  if (isInstrumentFee) {
+    fields = '<div class="form-grid">' + instSelect() +
+      fieldHTML({ id: 'record-amount', label: '费用金额', value: valueOf('amount', ''), placeholder: '0.00', unit: chosen ? chosen.currency : account.currency, inputmode: 'decimal' }) +
+      fieldHTML({ id: 'record-date', label: '日期', type: 'date', value: dateVal, attrs: 'max="' + todayKey() + '"' }) +
+      fieldHTML({ id: 'record-note', label: '备注（可选）', value: noteVal, placeholder: '管理费' }) +
+      fxRateFieldHTML(chosen ? chosen.currency : account.currency, true, fxVal) + '</div>';
+  } else if (type === 'deposit' || type === 'withdraw' || type === 'interest' || type === 'fee' || type === 'cashProfit') {
     const before = accountCashBefore(account.id, dateVal, editRec && editRec.id);
     const oldAmount = Number(valueOf('amount', 0)) || 0;
     const signedOld = (type === 'withdraw' || type === 'fee') ? -oldAmount : oldAmount;
@@ -382,7 +390,7 @@ function openRecordForm(accountId, type, instrumentId, editId, draft) {
       fieldHTML({ id: 'record-note', label: '备注（可选）', value: noteVal, placeholder: '银行换汇' }) + '</div>' +
       '<div class="info-banner" style="margin-top:12px">' + icon('info') + '<div>换汇记录用于保留成交汇率与操作痕迹，不会改变账户总资产。跨币种持仓按最新汇率折算。</div></div>';
   }
-  const allowedTypes = editRec ? editableRecordTypes(type) : [type];
+  const allowedTypes = editRec ? editableRecordTypes(type, editRec.instrumentId) : [type];
   const typeSelectorHTML = editRec && allowedTypes.length > 1
     ? '<div class="form-grid" style="margin-bottom:12px">' + fieldHTML({
         id: 'record-type-edit', label: '记录类型', type: 'select', full: true, value: type,
@@ -512,7 +520,14 @@ function openRecordForm(accountId, type, instrumentId, editId, draft) {
     const note = cleanText((form.querySelector('#record-note') || {}).value || '', 50);
     const baseRec = { date, note, accountId: account.id, instrumentId: null, amount: 0, qty: 0, price: 0, fee: 0, fxRate: 1, createdAt: nowISO() };
     const fxInput = form.querySelector('#record-fxrate') ? parseNumber(form.querySelector('#record-fxrate').value) : 0;
-    if (type === 'deposit' || type === 'withdraw' || type === 'interest' || type === 'fee' || type === 'cashProfit') {
+    if (isInstrumentFee) {
+      const inst = instSel && instSel.value ? instById(instSel.value) : chosen;
+      if (!inst) { toast('请选择标的', 'error'); return; }
+      const amount = parseNumber(form.querySelector('#record-amount') ? form.querySelector('#record-amount').value : 0);
+      if (!(amount > 0)) { toast('请输入费用金额', 'error'); return; }
+      baseRec.type = 'fee'; baseRec.instrumentId = inst.id; baseRec.amount = round(amount, 2);
+      baseRec.fxRate = fxInput > 0 ? fxInput : fxAt(inst.currency, date);
+    } else if (type === 'deposit' || type === 'withdraw' || type === 'interest' || type === 'fee' || type === 'cashProfit') {
       const targetField = form.querySelector('#record-target-field');
       const useTarget = targetField && !targetField.classList.contains('hidden');
       let amount = 0;

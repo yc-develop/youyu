@@ -2740,8 +2740,8 @@ function computeInstrumentMetrics(instId) {
   const found = instrumentById(instId);
   if (!found) return null;
   const inst = found;
-  const recs = recordsForInstrument(instId).filter(r => r.type === 'buy' || r.type === 'sell' || r.type === 'dividend');
-  let qty = 0, costNative = 0, costCNY = 0, realizedNative = 0, dividendsNative = 0;
+  const recs = recordsForInstrument(instId).filter(r => r.type === 'buy' || r.type === 'sell' || r.type === 'dividend' || r.type === 'fee');
+  let qty = 0, costNative = 0, costCNY = 0, realizedNative = 0, dividendsNative = 0, feeNative = 0;
   let totalBuyNative = 0, totalBuyCNY = 0, totalSellNative = 0, totalFeesNative = 0;
   let cashDividendNative = 0, shareDividendQty = 0, buyCount = 0, sellCount = 0;
   let firstDate = null, lastTradeDate = null;
@@ -2779,6 +2779,8 @@ function computeInstrumentMetrics(instId) {
       shareDividendQty += Number(rec.qty) || 0;
       qty += Number(rec.qty) || 0;
       if (!lastTradeDate || rec.date > lastTradeDate) lastTradeDate = rec.date;
+    } else if (rec.type === 'fee') {
+      feeNative += amount;
     }
   });
   const price = priceNow(instId);
@@ -2793,7 +2795,8 @@ function computeInstrumentMetrics(instId) {
   const fxPnlBase = costNative * (curFx - avgFx);
   const realizedBase = realizedNative * curFx;
   const dividendBase = dividendsNative * curFx;
-  const baseProfit = realizedBase + pricePnlBase + dividendBase;
+  const feeBase = feeNative * curFx;
+  const baseProfit = realizedBase + pricePnlBase + dividendBase - feeBase;
   const fullProfit = baseProfit + fxPnlBase;
   const consider = state.settings.considerFx;
   const displayProfit = consider ? fullProfit : baseProfit;
@@ -2803,7 +2806,7 @@ function computeInstrumentMetrics(instId) {
   const profitNativeInst = instFx > 0 ? displayProfit / instFx : displayProfit;
   const returnPctNative = totalBuyNative > 0 ? profitNativeInst / totalBuyNative : 0;
   const unrealizedNativeInst = instFx > 0 ? (pricePnlBase + (consider ? fxPnlBase : 0)) / instFx : pricePnlBase;
-  const totalPnlNative = realizedNative + (marketNative - costNative) + dividendsNative;
+  const totalPnlNative = realizedNative + (marketNative - costNative) + dividendsNative - feeNative;
   const netInvestedNative = totalBuyNative - totalSellNative - cashDividendNative;
   const dilutedCost = qty > 0 ? netInvestedNative / qty : 0;
   const holdingDays = firstDate ? Math.max(0, daysBetween(firstDate)) : 0;
@@ -2829,7 +2832,7 @@ function computeInstrumentMetrics(instId) {
     unrealized: pricePnlBase + (consider ? fxPnlBase : 0),
     totalPnlNative, returnPct, profitNativeInst, returnPctNative, unrealizedNativeInst, dayPnlNative, instFx,
     totalBuyNative, totalBuyBase: totalInvestedBase, totalSellNative,
-    totalFeesNative, cashDividendNative, shareDividendQty, buyCount, sellCount,
+    totalFeesNative, feeNative, cashDividendNative, shareDividendQty, buyCount, sellCount,
     netInvestedNative, dilutedCost, annualizedNative, floatingReturnPct, realizedReturnPct, soldCostNative,
     dayPnl, dayPct,
     firstDate, lastTradeDate,
@@ -2852,10 +2855,10 @@ function instrumentProfitSeries(im, periodOverride) {
   const list = priceSeriesRange(inst.id, period || 0);
   if (!list.length) return [];
   const recs = recordsForInstrument(inst.id)
-    .filter(r => r.type === 'buy' || r.type === 'sell' || r.type === 'dividend')
+    .filter(r => r.type === 'buy' || r.type === 'sell' || r.type === 'dividend' || r.type === 'fee')
     .slice()
     .sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
-  let ri = 0, qty = 0, costNative = 0, realizedNative = 0, dividendsNative = 0;
+  let ri = 0, qty = 0, costNative = 0, realizedNative = 0, dividendsNative = 0, feeNative = 0;
   const applyTo = date => {
     while (ri < recs.length && recs[ri].date <= date) {
       const rec = recs[ri++];
@@ -2874,6 +2877,8 @@ function instrumentProfitSeries(im, periodOverride) {
       } else if (rec.type === 'dividend') {
         dividendsNative += amount;
         qty += Number(rec.qty) || 0;
+      } else if (rec.type === 'fee') {
+        feeNative += amount;
       }
     }
   };
@@ -2881,12 +2886,12 @@ function instrumentProfitSeries(im, periodOverride) {
   list.forEach(([date, price]) => {
     applyTo(date);
     const marketNative = qty * Number(price);
-    out.push({ date, value: realizedNative + (marketNative - costNative) + dividendsNative });
+    out.push({ date, value: realizedNative + (marketNative - costNative) + dividendsNative - feeNative });
   });
   if (inst.market && out.length && out[out.length - 1].date < todayKey() && (!period || todayKey() >= addDays(todayKey(), -period))) {
     applyTo(todayKey());
     const marketNative = qty * priceNow(inst.id);
-    out.push({ date: todayKey(), value: realizedNative + (marketNative - costNative) + dividendsNative });
+    out.push({ date: todayKey(), value: realizedNative + (marketNative - costNative) + dividendsNative - feeNative });
   }
   if (out.length) out[out.length - 1].value = im.profitNativeInst;
   return out;
@@ -3503,11 +3508,15 @@ function instrumentFlow(instrumentId, periodKey) {
   }) : null;
   const beginning = bounds.start ? flowValueAt(series, addDays(bounds.start, -1)) : 0;
   const ending = flowValueAt(series, bounds.end);
-  let inAmt = 0, outAmt = 0, divAmt = 0, divBefore = 0;
+  let inAmt = 0, outAmt = 0, divAmt = 0, divBefore = 0, feeAmt = 0, feeBefore = 0;
   recordsForInstrument(instrumentId).forEach(r => {
     const amount = Number(r.amount) || 0;
     if (r.type === 'dividend' && bounds.start && r.date < bounds.start) {
       divBefore += amount;
+      return;
+    }
+    if (r.type === 'fee' && bounds.start && r.date < bounds.start) {
+      feeBefore += amount;
       return;
     }
     if (!flowInPeriod(r, bounds)) return;
@@ -3515,17 +3524,18 @@ function instrumentFlow(instrumentId, periodKey) {
     if (r.type === 'buy') inAmt += amount + fee;
     else if (r.type === 'sell') outAmt += amount - fee;
     else if (r.type === 'dividend') divAmt += amount;
+    else if (r.type === 'fee') feeAmt += amount;
   });
-  // 分红计入累计收益，不作为资金流出；期末总价值 = 持仓市值 + 已收分红
-  const beginningTotal = beginning + divBefore;
-  const endingTotal = ending + divBefore + divAmt;
+  // 分红计入累计收益，标的费用从累计收益扣除；期末总价值 = 持仓市值 + 已收分红 − 标的费用
+  const beginningTotal = beginning + divBefore - feeBefore;
+  const endingTotal = ending + divBefore + divAmt - feeBefore - feeAmt;
   const net = inAmt - outAmt;
   const profit = endingTotal - beginningTotal - net;
   return {
     scope: 'instrument', periodKey: key, periodLabel: bounds.label, currency: inst.currency,
     beginning: beginningTotal, ending: endingTotal,
-    marketBeginning: beginning, marketEnding: ending, dividendBefore: divBefore,
-    in: inAmt, out: outAmt, dividend: divAmt, net, profit,
+    marketBeginning: beginning, marketEnding: ending, dividendBefore: divBefore, feeBefore: feeBefore,
+    in: inAmt, out: outAmt, dividend: divAmt, fees: feeAmt, net, profit,
     label: bounds.label
   };
 }
@@ -3988,7 +3998,12 @@ function flowDiagramHTML(flow, opts) {
     opening: '期初资产', ending: '期末资产'
   };
   const showDividend = isInstrument && Number(f.dividend) > 0;
-  const flowFormula = '期初' + (isInstrument ? '总价值' : '资产') + ' + ' + flowLabels.net + ' + ' + flowLabels.profit + ' = 期末' + (isInstrument ? '总价值 · 期末总价值 = 持仓市值 + 已收分红' : '资产');
+  const showFee = isInstrument && Number(f.fees) > 0;
+  const flowFormula = '期初' + (isInstrument ? '总价值' : '资产') + ' + ' + flowLabels.net + ' + ' + flowLabels.profit + ' = 期末' + (isInstrument ? '总价值 · 期末总价值 = 持仓市值 + 已收分红 − 标的费用' : '资产');
+  const profitSubParts = [];
+  if (showDividend) profitSubParts.push('含分红 ' + money(f.dividend));
+  if (showFee) profitSubParts.push('扣费用 ' + money(f.fees));
+  const profitSub = profitSubParts.length ? '<span class="flow-node-sub">' + profitSubParts.join(' · ') + '</span>' : '';
   const node = (field, cls, label, valueHtml, extra) => {
     const attr = editable ? ' data-action="edit-flow-field" data-scope="' + esc(scope) + '" data-id="' + esc(id) + '" data-period="' + esc(periodKey) + '" data-field="' + esc(field) + '"' : '';
     const pen = editable ? '<span class="flow-edit">' + icon('pen') + '</span>' : '';
@@ -4014,10 +4029,10 @@ function flowDiagramHTML(flow, opts) {
       node('out', 'flow-top right', flowLabels.out, ((f.out || 0) > 0 ? '−' : '') + money(f.out || 0)) +
       node('opening', 'flow-mid a', flowLabels.opening, money(f.beginning || 0)) +
       '<div class="flow-node flow-mid b accent"><span class="l">' + flowLabels.net + '</span><span class="v">' + ((f.net || 0) > 0 ? '+' : (f.net || 0) < 0 ? '−' : '') + money(Math.abs(f.net || 0)) + '</span></div>' +
-      node('profit', 'flow-mid c ' + pnlCls, flowLabels.profit, pnlSign + money(Math.abs(pnl)), showDividend ? '<span class="flow-node-sub">含分红 ' + money(f.dividend) + '</span>' : '') +
+      node('profit', 'flow-mid c ' + pnlCls, flowLabels.profit, pnlSign + money(Math.abs(pnl)), profitSub) +
       node('ending', 'flow-end total', flowLabels.ending, money(f.ending || 0)) +
     '</div>' +
-    '<div class="flow-legend"><span class="dot"></span>' + flowLabels.net + ' + ' + flowLabels.profit + ' = 期末 − 期初' + (showDividend ? ' · 分红已计入' + flowLabels.profit : '') + (editable ? ' · 点击金额可校正' : '') + '</div>' +
+    '<div class="flow-legend"><span class="dot"></span>' + flowLabels.net + ' + ' + flowLabels.profit + ' = 期末 − 期初' + ((showDividend || showFee) ? ' · 分红/费用已计入' + flowLabels.profit : '') + (editable ? ' · 点击金额可校正' : '') + '</div>' +
     (f.adjusted ? '<div class="flow-adjusted-note">本周期已写入账本调整，资产统计已同步；可在更新记录中删除调整或撤销本周期调整。</div>' : '') +
   '</div>';
 }
@@ -4731,7 +4746,8 @@ function glossaryHTML(scope) {
     ['累计已实现盈亏', '累计卖出净额 − 卖出结转成本；已落袋的买卖差价，已扣费用。'],
     ['累计已实现收益率', '累计已实现盈亏 ÷ 已卖出成本；已卖出成本 = 累计买入金额 − 剩余持仓成本。'],
     ['累计现金分红', '现金分红累计；份额分红按 0 元计入，并增加持仓数量。'],
-    ['累计收益', '浮动盈亏 + 累计已实现盈亏 + 累计现金分红；与资金流中的累计收益同一口径。'],
+    ['累计标的费用', '直接记在该标的上的费用；从标的累计收益中扣除，不影响持仓数量。'],
+    ['累计收益', '浮动盈亏 + 累计已实现盈亏 + 累计现金分红 − 累计标的费用；与资金流中的累计收益同一口径。'],
     ['累计收益率（按累计买入）', '累计收益 ÷ 累计买入金额（含费用）。'],
     ['年化收益率（持有期）', '按持有天数把累计收益率折算为年化，仅供参考；持有期不足一年时波动会被放大。'],
     ['最大回撤金额', '累计收益曲线从历史峰值到后续谷值的最大回落金额。'],
@@ -4845,7 +4861,7 @@ function accountOverviewHTML(am) {
       positionRow('净投入本金', money(am.netDepositsNative), '累计转入 − 累计转出') +
       positionRow('交易已实现盈亏', pnl(am.tradingRealizedNative), '买卖差价，已扣交易费用') +
       positionRow('累计分红及利息', '<span class="' + pnlClass(am.incomeNative) + '">' + money(am.incomeNative) + '</span>', '现金分红、利息与现金收益') +
-      positionRow('累计其他费用', money(am.otherFeesNative), '单独记录的手续费、管理费等') +
+      positionRow('累计其他费用', money(am.otherFeesNative), '标的费用 + 单独记录的手续费、管理费等') +
       positionRow('累计已实现盈亏', pnl(am.realizedNativeAccount), '交易已实现盈亏 + 分红及利息 − 其他费用') +
       positionRow('累计交易费用', money(am.tradeFeesNative), '买入费用 + 卖出费用 · 已计入交易已实现盈亏') +
       positionRow('浮动盈亏', pnl(am.unrealizedNative), '账户总资产 − 净投入本金 − 累计已实现盈亏') +
@@ -4984,7 +5000,8 @@ function instrumentOverviewHTML(im) {
       positionRow('累计已实现盈亏', pnl(im.realizedNative), '累计卖出净额 − 卖出结转成本') +
       positionRow('累计已实现收益率', im.realizedReturnPct == null ? '—' : '<span class="' + pnlClass(im.realizedReturnPct) + '">' + fmtPct(im.realizedReturnPct, 2) + '</span>', '累计已实现盈亏 ÷ 已卖出成本') +
       positionRow('累计现金分红', '<span class="' + pnlClass(im.cashDividendNative) + '">' + money(im.cashDividendNative) + '</span>', im.shareDividendQty > 0 ? '另有 ' + fmtQty(im.shareDividendQty) + ' 份份额分红，按 0 元计入' : '现金分红，已计入累计收益') +
-      positionRow('累计收益', pnl(im.profitNativeInst), '浮动盈亏 + 累计已实现盈亏 + 累计现金分红') +
+      positionRow('累计标的费用', money(im.feeNative), '单独记录的标的费用') +
+      positionRow('累计收益', pnl(im.profitNativeInst), '浮动盈亏 + 累计已实现盈亏 + 累计现金分红 − 累计标的费用') +
       positionRow('累计收益率（按累计买入）', '<span class="' + pnlClass(im.returnPctNative) + '">' + pctOrDash(im.returnPctNative, 2) + '</span>', '累计收益 ÷ 累计买入金额') +
       positionRow('年化收益率（持有期）', ann == null ? '—' : '<span class="' + pnlClass(ann) + '">' + fmtPct(ann, 2) + '</span>', '按持有天数折算 · 仅供参考') +
       positionRow('最大回撤金额', dd == null ? '—' : '<span class="' + pnlClass(dd) + '">' + money(dd) + '</span>', '累计收益曲线峰值回落') +
@@ -6021,7 +6038,7 @@ function renderSettingsPage() {
   '<div class="settings-group"><div class="label">关于</div><div class="settings-card">' +
     '<div class="setting-row"><span class="setting-icon accent">' + icon('shield') + '</span><span class="setting-main"><span class="t">本地存储</span><span class="s">所有数据保存在浏览器 localStorage，不上传服务器。清除浏览器数据会丢失账本，请定期导出备份。</span></span></div>' +
     '<div class="setting-row"><span class="setting-icon blue">' + icon('chart') + '</span><span class="setting-main"><span class="t">行情数据</span><span class="s">名称搜索来自新浪财经，最新报价来自腾讯行情；公开接口可能受网络影响，仅供估值参考。</span></span></div>' +
-    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v6.5.16</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
+    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v6.5.17</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
   '</div></div>' +
   '<div class="version">' + esc(APP_NAME) + ' · 投资组合<br>不构成投资建议 · 数据仅供参考</div>' +
   '<div style="height:8px"></div>';
@@ -6505,7 +6522,7 @@ function openRecordChooser(accountId, instrumentId) {
   const account = accountById(accountId);
   if (!account) return;
   let types;
-  if (instrumentId) types = ['buy', 'sell', 'dividend', 'price'];
+  if (instrumentId) types = ['buy', 'sell', 'dividend', 'price', 'fee'];
   else {
     types = ['deposit', 'withdraw'];
     if (account.instruments.length) types = types.concat(['buy', 'sell', 'dividend', 'price']);
@@ -6528,7 +6545,8 @@ function fxRateFieldHTML(ccy, full, value) {
   return fieldHTML({ id: 'record-fxrate', label: '成交汇率（可选）', value: value == null ? '' : value, placeholder: '留空则按日期自动取汇率', unit: 'CNY / ' + ccy, inputmode: 'decimal', full: !!full, hint: '用于计算这笔交易的汇兑损益' });
 }
 
-function editableRecordTypes(type) {
+function editableRecordTypes(type, instrumentId) {
+  if (type === 'fee' && instrumentId) return ['fee'];
   const cash = ['deposit', 'withdraw', 'interest', 'fee', 'cashProfit'];
   const trade = ['buy', 'sell'];
   if (cash.indexOf(type) >= 0) return cash;
@@ -6546,6 +6564,7 @@ function openRecordForm(accountId, type, instrumentId, editId, draft) {
   if (!account) return;
   const insts = account.instruments || [];
   const chosen = instrumentId ? insts.find(i => i.id === instrumentId) : (insts[0] || null);
+  const isInstrumentFee = type === 'fee' && !!instrumentId;
   const info = RECORD_TYPE_INFO[type] || RECORD_TYPE_INFO.deposit;
   const valueOf = (key, fallback) => draft && draft[key] != null ? draft[key] : (editRec && editRec[key] != null ? editRec[key] : (fallback == null ? '' : fallback));
   const dateVal = valueOf('date', todayKey());
@@ -6558,7 +6577,13 @@ function openRecordForm(accountId, type, instrumentId, editId, draft) {
     options: insts.map(i => ({ value: i.id, label: i.name + ' · ' + i.symbol }))
   });
   let fields = '';
-  if (type === 'deposit' || type === 'withdraw' || type === 'interest' || type === 'fee' || type === 'cashProfit') {
+  if (isInstrumentFee) {
+    fields = '<div class="form-grid">' + instSelect() +
+      fieldHTML({ id: 'record-amount', label: '费用金额', value: valueOf('amount', ''), placeholder: '0.00', unit: chosen ? chosen.currency : account.currency, inputmode: 'decimal' }) +
+      fieldHTML({ id: 'record-date', label: '日期', type: 'date', value: dateVal, attrs: 'max="' + todayKey() + '"' }) +
+      fieldHTML({ id: 'record-note', label: '备注（可选）', value: noteVal, placeholder: '管理费' }) +
+      fxRateFieldHTML(chosen ? chosen.currency : account.currency, true, fxVal) + '</div>';
+  } else if (type === 'deposit' || type === 'withdraw' || type === 'interest' || type === 'fee' || type === 'cashProfit') {
     const before = accountCashBefore(account.id, dateVal, editRec && editRec.id);
     const oldAmount = Number(valueOf('amount', 0)) || 0;
     const signedOld = (type === 'withdraw' || type === 'fee') ? -oldAmount : oldAmount;
@@ -6628,7 +6653,7 @@ function openRecordForm(accountId, type, instrumentId, editId, draft) {
       fieldHTML({ id: 'record-note', label: '备注（可选）', value: noteVal, placeholder: '银行换汇' }) + '</div>' +
       '<div class="info-banner" style="margin-top:12px">' + icon('info') + '<div>换汇记录用于保留成交汇率与操作痕迹，不会改变账户总资产。跨币种持仓按最新汇率折算。</div></div>';
   }
-  const allowedTypes = editRec ? editableRecordTypes(type) : [type];
+  const allowedTypes = editRec ? editableRecordTypes(type, editRec.instrumentId) : [type];
   const typeSelectorHTML = editRec && allowedTypes.length > 1
     ? '<div class="form-grid" style="margin-bottom:12px">' + fieldHTML({
         id: 'record-type-edit', label: '记录类型', type: 'select', full: true, value: type,
@@ -6758,7 +6783,14 @@ function openRecordForm(accountId, type, instrumentId, editId, draft) {
     const note = cleanText((form.querySelector('#record-note') || {}).value || '', 50);
     const baseRec = { date, note, accountId: account.id, instrumentId: null, amount: 0, qty: 0, price: 0, fee: 0, fxRate: 1, createdAt: nowISO() };
     const fxInput = form.querySelector('#record-fxrate') ? parseNumber(form.querySelector('#record-fxrate').value) : 0;
-    if (type === 'deposit' || type === 'withdraw' || type === 'interest' || type === 'fee' || type === 'cashProfit') {
+    if (isInstrumentFee) {
+      const inst = instSel && instSel.value ? instById(instSel.value) : chosen;
+      if (!inst) { toast('请选择标的', 'error'); return; }
+      const amount = parseNumber(form.querySelector('#record-amount') ? form.querySelector('#record-amount').value : 0);
+      if (!(amount > 0)) { toast('请输入费用金额', 'error'); return; }
+      baseRec.type = 'fee'; baseRec.instrumentId = inst.id; baseRec.amount = round(amount, 2);
+      baseRec.fxRate = fxInput > 0 ? fxInput : fxAt(inst.currency, date);
+    } else if (type === 'deposit' || type === 'withdraw' || type === 'interest' || type === 'fee' || type === 'cashProfit') {
       const targetField = form.querySelector('#record-target-field');
       const useTarget = targetField && !targetField.classList.contains('hidden');
       let amount = 0;

@@ -479,8 +479,8 @@ function computeInstrumentMetrics(instId) {
   const found = instrumentById(instId);
   if (!found) return null;
   const inst = found;
-  const recs = recordsForInstrument(instId).filter(r => r.type === 'buy' || r.type === 'sell' || r.type === 'dividend');
-  let qty = 0, costNative = 0, costCNY = 0, realizedNative = 0, dividendsNative = 0;
+  const recs = recordsForInstrument(instId).filter(r => r.type === 'buy' || r.type === 'sell' || r.type === 'dividend' || r.type === 'fee');
+  let qty = 0, costNative = 0, costCNY = 0, realizedNative = 0, dividendsNative = 0, feeNative = 0;
   let totalBuyNative = 0, totalBuyCNY = 0, totalSellNative = 0, totalFeesNative = 0;
   let cashDividendNative = 0, shareDividendQty = 0, buyCount = 0, sellCount = 0;
   let firstDate = null, lastTradeDate = null;
@@ -518,6 +518,8 @@ function computeInstrumentMetrics(instId) {
       shareDividendQty += Number(rec.qty) || 0;
       qty += Number(rec.qty) || 0;
       if (!lastTradeDate || rec.date > lastTradeDate) lastTradeDate = rec.date;
+    } else if (rec.type === 'fee') {
+      feeNative += amount;
     }
   });
   const price = priceNow(instId);
@@ -532,7 +534,8 @@ function computeInstrumentMetrics(instId) {
   const fxPnlBase = costNative * (curFx - avgFx);
   const realizedBase = realizedNative * curFx;
   const dividendBase = dividendsNative * curFx;
-  const baseProfit = realizedBase + pricePnlBase + dividendBase;
+  const feeBase = feeNative * curFx;
+  const baseProfit = realizedBase + pricePnlBase + dividendBase - feeBase;
   const fullProfit = baseProfit + fxPnlBase;
   const consider = state.settings.considerFx;
   const displayProfit = consider ? fullProfit : baseProfit;
@@ -542,7 +545,7 @@ function computeInstrumentMetrics(instId) {
   const profitNativeInst = instFx > 0 ? displayProfit / instFx : displayProfit;
   const returnPctNative = totalBuyNative > 0 ? profitNativeInst / totalBuyNative : 0;
   const unrealizedNativeInst = instFx > 0 ? (pricePnlBase + (consider ? fxPnlBase : 0)) / instFx : pricePnlBase;
-  const totalPnlNative = realizedNative + (marketNative - costNative) + dividendsNative;
+  const totalPnlNative = realizedNative + (marketNative - costNative) + dividendsNative - feeNative;
   const netInvestedNative = totalBuyNative - totalSellNative - cashDividendNative;
   const dilutedCost = qty > 0 ? netInvestedNative / qty : 0;
   const holdingDays = firstDate ? Math.max(0, daysBetween(firstDate)) : 0;
@@ -568,7 +571,7 @@ function computeInstrumentMetrics(instId) {
     unrealized: pricePnlBase + (consider ? fxPnlBase : 0),
     totalPnlNative, returnPct, profitNativeInst, returnPctNative, unrealizedNativeInst, dayPnlNative, instFx,
     totalBuyNative, totalBuyBase: totalInvestedBase, totalSellNative,
-    totalFeesNative, cashDividendNative, shareDividendQty, buyCount, sellCount,
+    totalFeesNative, feeNative, cashDividendNative, shareDividendQty, buyCount, sellCount,
     netInvestedNative, dilutedCost, annualizedNative, floatingReturnPct, realizedReturnPct, soldCostNative,
     dayPnl, dayPct,
     firstDate, lastTradeDate,
@@ -591,10 +594,10 @@ function instrumentProfitSeries(im, periodOverride) {
   const list = priceSeriesRange(inst.id, period || 0);
   if (!list.length) return [];
   const recs = recordsForInstrument(inst.id)
-    .filter(r => r.type === 'buy' || r.type === 'sell' || r.type === 'dividend')
+    .filter(r => r.type === 'buy' || r.type === 'sell' || r.type === 'dividend' || r.type === 'fee')
     .slice()
     .sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
-  let ri = 0, qty = 0, costNative = 0, realizedNative = 0, dividendsNative = 0;
+  let ri = 0, qty = 0, costNative = 0, realizedNative = 0, dividendsNative = 0, feeNative = 0;
   const applyTo = date => {
     while (ri < recs.length && recs[ri].date <= date) {
       const rec = recs[ri++];
@@ -613,6 +616,8 @@ function instrumentProfitSeries(im, periodOverride) {
       } else if (rec.type === 'dividend') {
         dividendsNative += amount;
         qty += Number(rec.qty) || 0;
+      } else if (rec.type === 'fee') {
+        feeNative += amount;
       }
     }
   };
@@ -620,12 +625,12 @@ function instrumentProfitSeries(im, periodOverride) {
   list.forEach(([date, price]) => {
     applyTo(date);
     const marketNative = qty * Number(price);
-    out.push({ date, value: realizedNative + (marketNative - costNative) + dividendsNative });
+    out.push({ date, value: realizedNative + (marketNative - costNative) + dividendsNative - feeNative });
   });
   if (inst.market && out.length && out[out.length - 1].date < todayKey() && (!period || todayKey() >= addDays(todayKey(), -period))) {
     applyTo(todayKey());
     const marketNative = qty * priceNow(inst.id);
-    out.push({ date: todayKey(), value: realizedNative + (marketNative - costNative) + dividendsNative });
+    out.push({ date: todayKey(), value: realizedNative + (marketNative - costNative) + dividendsNative - feeNative });
   }
   if (out.length) out[out.length - 1].value = im.profitNativeInst;
   return out;
@@ -1242,11 +1247,15 @@ function instrumentFlow(instrumentId, periodKey) {
   }) : null;
   const beginning = bounds.start ? flowValueAt(series, addDays(bounds.start, -1)) : 0;
   const ending = flowValueAt(series, bounds.end);
-  let inAmt = 0, outAmt = 0, divAmt = 0, divBefore = 0;
+  let inAmt = 0, outAmt = 0, divAmt = 0, divBefore = 0, feeAmt = 0, feeBefore = 0;
   recordsForInstrument(instrumentId).forEach(r => {
     const amount = Number(r.amount) || 0;
     if (r.type === 'dividend' && bounds.start && r.date < bounds.start) {
       divBefore += amount;
+      return;
+    }
+    if (r.type === 'fee' && bounds.start && r.date < bounds.start) {
+      feeBefore += amount;
       return;
     }
     if (!flowInPeriod(r, bounds)) return;
@@ -1254,17 +1263,18 @@ function instrumentFlow(instrumentId, periodKey) {
     if (r.type === 'buy') inAmt += amount + fee;
     else if (r.type === 'sell') outAmt += amount - fee;
     else if (r.type === 'dividend') divAmt += amount;
+    else if (r.type === 'fee') feeAmt += amount;
   });
-  // 分红计入累计收益，不作为资金流出；期末总价值 = 持仓市值 + 已收分红
-  const beginningTotal = beginning + divBefore;
-  const endingTotal = ending + divBefore + divAmt;
+  // 分红计入累计收益，标的费用从累计收益扣除；期末总价值 = 持仓市值 + 已收分红 − 标的费用
+  const beginningTotal = beginning + divBefore - feeBefore;
+  const endingTotal = ending + divBefore + divAmt - feeBefore - feeAmt;
   const net = inAmt - outAmt;
   const profit = endingTotal - beginningTotal - net;
   return {
     scope: 'instrument', periodKey: key, periodLabel: bounds.label, currency: inst.currency,
     beginning: beginningTotal, ending: endingTotal,
-    marketBeginning: beginning, marketEnding: ending, dividendBefore: divBefore,
-    in: inAmt, out: outAmt, dividend: divAmt, net, profit,
+    marketBeginning: beginning, marketEnding: ending, dividendBefore: divBefore, feeBefore: feeBefore,
+    in: inAmt, out: outAmt, dividend: divAmt, fees: feeAmt, net, profit,
     label: bounds.label
   };
 }
