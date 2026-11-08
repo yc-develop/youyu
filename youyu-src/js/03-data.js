@@ -1343,7 +1343,7 @@ function recordTitle(rec) {
     return (inst ? inst.name : acc ? acc.name : '') + ' · ' + fm.title + ' · ' + flowPeriodLabel(rec.periodKey);
   }
   if (rec.type === 'price') return inst ? inst.name + ' · 估值更新' : '估值更新';
-  if (rec.type === 'buy' || rec.type === 'sell' || rec.type === 'dividend') {
+  if (rec.type === 'buy' || rec.type === 'sell' || rec.type === 'dividend' || rec.type === 'fee') {
     return (inst ? inst.name : acc ? acc.name : '') + ' · ' + meta.label;
   }
   return (acc ? acc.name : '') + ' · ' + meta.label;
