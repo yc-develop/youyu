@@ -349,11 +349,11 @@ function openRecordForm(accountId, type, instrumentId, editId, draft) {
       fieldHTML({ id: 'record-qty', label: '数量', value: valueOf('qty', ''), placeholder: '0', inputmode: 'decimal' }) +
       fieldHTML({ id: 'record-price', label: '成交价', value: valueOf('price', ''), placeholder: '0.00', unit: chosen ? chosen.currency : account.currency, inputmode: 'decimal' }) +
       fieldHTML({ id: 'record-fee', label: '费用（可选）', value: valueOf('fee', ''), placeholder: '0.00', unit: chosen ? chosen.currency : account.currency, inputmode: 'decimal' }) +
-      fieldHTML({ id: 'record-amount', label: '成交金额', value: valueOf('amount', ''), placeholder: '自动按数量 × 价格', unit: chosen ? chosen.currency : account.currency, inputmode: 'decimal', full: true, hint: '实际支付/到账金额，可手动修正；修改数量或价格时，未手改的金额会自动更新' }) +
+      fieldHTML({ id: 'record-amount', label: '成交金额（不含费用）', value: valueOf('amount', ''), placeholder: '自动按数量 × 价格', unit: chosen ? chosen.currency : account.currency, inputmode: 'decimal', full: true, hint: '不含手续费；手续费单独填写。修改数量或价格时，未手改的金额会自动更新' }) +
       fieldHTML({ id: 'record-date', label: '日期', type: 'date', value: dateVal, attrs: 'max="' + todayKey() + '"' }) +
       fieldHTML({ id: 'record-note', label: '备注（可选）', value: noteVal, placeholder: '买入 / 卖出原因', full: true }) + '</div>' +
       fxRateFieldHTML(chosen ? chosen.currency : account.currency, true, fxVal) +
-      '<div class="record-preview" id="record-preview">成交金额 <b>—</b></div>';
+      '<div class="record-preview" id="record-preview">成交金额（不含费用） <b>—</b></div>';
   } else if (type === 'dividend' || type === 'price') {
     if (type === 'dividend') {
       fields = '<div class="form-grid">' + instSelect() +
@@ -449,7 +449,9 @@ function openRecordForm(accountId, type, instrumentId, editId, draft) {
     const autoAmount = round(q * p, 2);
     if (tradeAmountInput && tradeAmountInput.dataset.manual !== '1') tradeAmountInput.value = autoAmount ? autoAmount.toFixed(2) : '';
     const amount = tradeAmountInput ? parseNumber(tradeAmountInput.value) : autoAmount;
-    preview.innerHTML = '成交金额 <b>' + fmtMoney(amount, { currency: chosen ? chosen.currency : account.currency }) + '</b>' + (fee ? '<span> + 费用 ' + fmtMoney(fee, { currency: chosen ? chosen.currency : account.currency }) + '</span>' : '');
+    const ccy = chosen ? chosen.currency : account.currency;
+    const net = type === 'sell' ? amount - fee : amount + fee;
+    preview.innerHTML = '成交金额（不含费用） <b>' + fmtMoney(amount, { currency: ccy }) + '</b>' + (fee ? '<span> ' + (type === 'sell' ? '−' : '+') + ' 费用 ' + fmtMoney(fee, { currency: ccy }) + ' = ' + (type === 'sell' ? '实际到账 ' : '实际支付 ') + fmtMoney(net, { currency: ccy }) + '</span>' : '');
   };
   if (preview) {
     form.querySelectorAll('input').forEach(inp => inp.addEventListener('input', updatePreview));
