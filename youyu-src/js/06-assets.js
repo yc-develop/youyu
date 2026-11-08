@@ -170,19 +170,19 @@ function renderAccountPage(accountId) {
         detailStat('累计收益率', pctOrDash(am.returnPctNative), pnlClass(am.returnPctNative), '按净投入') +
       '</div>' +
     '</section>' +
-    (a.currency !== baseCurrency() ? '<div class="info-banner" style="margin-top:12px;margin-bottom:0">' + icon('swap') + '<div>账户统计以 <b>' + a.currency + '</b> 计价，不折算为 ' + baseCurrency() + '；组合总览仍按 ' + baseCurrency() + ' 汇总。参考汇率 1 ' + a.currency + ' = ' + fmtPrice(fxToBase(a.currency), baseCurrency()) + '。</div></div>' : '') +
+    (a.currency !== baseCurrency() ? '<div class="info-banner account-fx-banner" style="margin-top:12px;margin-bottom:0">' + icon('swap') + '<div>账户统计以 <b>' + a.currency + '</b> 计价，不折算为 ' + baseCurrency() + '；组合总览仍按 ' + baseCurrency() + ' 汇总。参考汇率 1 ' + a.currency + ' = ' + fmtPrice(fxToBase(a.currency), baseCurrency()) + '。</div></div>' : '') +
     accountOverviewHTML(am) +
     glossaryHTML('account') +
     accountChartCard(am) +
-    '<div class="detail-section"><div class="section-head"><div><h2>资产构成</h2><div class="sub">现金与持仓 · 按当前市值</div></div><span class="tiny">' + a.currency + '</span></div>' +
+    '<div class="detail-section account-composition"><div class="section-head"><div><h2>资产构成</h2><div class="sub">现金与持仓 · 按当前市值</div></div><span class="tiny">' + a.currency + '</span></div>' +
       '<div class="card pad" style="padding-top:12px;padding-bottom:14px"><div class="donut-layout">' + donutBoxHTML(composition.items, { size: 132, stroke: 15, centerValue: fmtMoney(am.marketNative, { compact: true, currency: a.currency }), centerLabel: '账户总资产' }) +
       '<div class="donut-legend">' + donutLegendHTML(composition.items, { compact: true }) + '</div></div></div></div>' +
-    '<div class="detail-section" style="margin-top:14px">' + flowDiagramHTML(accountFlow(accountId, flowPeriod), { scope: 'account', id: accountId, periodKey: flowPeriod, periods: flowPeriods('account', accountId), editable: true, currency: a.currency }) + '</div>' +
-    '<div class="detail-section"><div class="section-head"><div><h2>持仓</h2><div class="sub">按期末总金额排序 · 点击查看标的</div></div><button class="text-btn" data-action="open-add-instrument" data-account="' + esc(a.id) + '">' + icon('plus') + '添加</button></div>' +
-      (am.instruments.length ? '<div class="list-card">' + am.instruments.slice().sort((x, y) => (y.endingTotalBase || y.marketBase) - (x.endingTotalBase || x.marketBase)).map(im => holdingRowHTML(im, { currency: a.currency })).join('') + '</div>' :
+    '<div class="detail-section account-flow" style="margin-top:14px">' + flowDiagramHTML(accountFlow(accountId, flowPeriod), { scope: 'account', id: accountId, periodKey: flowPeriod, periods: flowPeriods('account', accountId), editable: true, currency: a.currency }) + '</div>' +
+    '<div class="detail-section account-holdings"><div class="section-head"><div><h2>持仓</h2><div class="sub">按期末总金额排序 · 点击查看标的</div></div><button class="text-btn" data-action="open-add-instrument" data-account="' + esc(a.id) + '">' + icon('plus') + '添加</button></div>' +
+      (am.instruments.length ? '<div class="desktop-table-head holdings-head"><span></span><span>标的</span><span>持仓数量</span><span>移动加权平均成本</span><span>摊薄成本</span><span>期末总金额</span><span></span></div><div class="list-card">' + am.instruments.slice().sort((x, y) => (y.endingTotalBase || y.marketBase) - (x.endingTotalBase || x.marketBase)).map(im => holdingRowHTML(im, { currency: a.currency })).join('') + '</div>' :
         '<div class="list-card">' + emptyBlock('这个账户还没有标的', '添加基金、股票或存单，记录买入与估值。', '<button class="btn primary sm" data-action="open-add-instrument" data-account="' + esc(a.id) + '">添加标的</button>', 'fund') + '</div>') +
     '</div>' +
-    '<div class="detail-section"><div class="section-head"><div><h2>更新记录</h2><div class="sub">买入、卖出、换汇与估值更新</div></div><button class="text-btn" data-action="open-records" data-scope="account" data-id="' + esc(a.id) + '">全部 ' + records.length + '</button></div>' +
+    '<div class="detail-section account-records"><div class="section-head"><div><h2>更新记录</h2><div class="sub">买入、卖出、换汇与估值更新</div></div><button class="text-btn" data-action="open-records" data-scope="account" data-id="' + esc(a.id) + '">全部 ' + records.length + '</button></div>' +
       recordsCardHTML(records, { limit: 6, moreAction: 'open-records', moreScope: 'account', id: a.id }) + '</div>' +
     '<div style="height:12px"></div>' +
   '</div>' +
@@ -194,7 +194,7 @@ function accountOverviewHTML(am) {
   const a = am.account;
   const money = v => fmtMoney(v, { currency: a.currency });
   const pnl = v => '<span class="' + pnlClass(v) + '">' + pnlText(v, { currency: a.currency }) + '</span>';
-  return '<div class="detail-section" style="margin-top:14px">' +
+  return '<div class="detail-section account-overview" style="margin-top:14px">' +
     '<div class="section-head"><div><h2>账户概览</h2><div class="sub">资产结构与收益拆解</div></div><span class="tiny">' + a.currency + '</span></div>' +
     '<div class="list-card card-pad-sm" style="padding:4px 14px">' +
       positionGroupTitle('资产结构') +
@@ -269,7 +269,7 @@ function accountChartCard(am) {
   } else {
     chartHTML = chartEmptyHTML('还没有足够的历史数据', 174);
   }
-  return '<div class="detail-chart-card">' +
+  return '<div class="detail-chart-card account-chart">' +
     '<div class="chart-head"><div><h2>收益曲线</h2><div class="sub">' + (rangeText || '记账以来') + ' · ' + a.currency + ' 计价' + (a.currency === baseCurrency() ? '' : ' · 不折算') + '</div></div>' +
       '<div class="segmented small chart-toggle"><button class="seg ' + (mode === 'value' ? 'active' : '') + '" data-action="set-account-chart-mode" data-value="value">资产</button><button class="seg ' + (mode === 'return' ? 'active' : '') + '" data-action="set-account-chart-mode" data-value="return">收益率</button></div></div>' +
     chartHTML + metricsHTML +
@@ -313,9 +313,9 @@ function renderInstrumentPage(instrumentId) {
     instrumentChartCard(im) +
     instrumentOverviewHTML(im) +
     glossaryHTML('instrument') +
-    '<div class="detail-section" style="margin-top:14px">' + flowDiagramHTML(instrumentFlow(instrumentId, flowPeriod), { isInstrument: true, scope: 'instrument', id: instrumentId, periodKey: flowPeriod, periods: flowPeriods('instrument', instrumentId), editable: false, currency: inst.currency }) + '</div>' +
-    (isForeign ? '<div class="info-banner">' + icon('swap') + '<div>以 ' + inst.currency + ' 计价，按当前汇率 <b>1 ' + inst.currency + ' = ' + fmtPrice(fxToBase(inst.currency), baseCurrency()) + '</b> 折算。汇兑损益 <b class="' + pnlClass(im.fxPnl) + '">' + pnlText(im.fxPnl) + '</b> ' + (state.settings.considerFx ? '已计入' : '未计入') + '累计收益。</div></div>' : '') +
-    '<div class="detail-section"><div class="section-head"><div><h2>更新记录</h2><div class="sub">买入、卖出、分红与估值更新</div></div><button class="text-btn" data-action="open-records" data-scope="instrument" data-id="' + esc(inst.id) + '">全部 ' + records.length + '</button></div>' +
+    '<div class="detail-section instrument-flow" style="margin-top:14px">' + flowDiagramHTML(instrumentFlow(instrumentId, flowPeriod), { isInstrument: true, scope: 'instrument', id: instrumentId, periodKey: flowPeriod, periods: flowPeriods('instrument', instrumentId), editable: false, currency: inst.currency }) + '</div>' +
+    (isForeign ? '<div class="info-banner instrument-fx-banner">' + icon('swap') + '<div>以 ' + inst.currency + ' 计价，按当前汇率 <b>1 ' + inst.currency + ' = ' + fmtPrice(fxToBase(inst.currency), baseCurrency()) + '</b> 折算。汇兑损益 <b class="' + pnlClass(im.fxPnl) + '">' + pnlText(im.fxPnl) + '</b> ' + (state.settings.considerFx ? '已计入' : '未计入') + '累计收益。</div></div>' : '') +
+    '<div class="detail-section instrument-records"><div class="section-head"><div><h2>更新记录</h2><div class="sub">买入、卖出、分红与估值更新</div></div><button class="text-btn" data-action="open-records" data-scope="instrument" data-id="' + esc(inst.id) + '">全部 ' + records.length + '</button></div>' +
       recordsCardHTML(records, { limit: 7, moreAction: 'open-records', moreScope: 'instrument', id: inst.id }) + '</div>' +
     '<div style="height:12px"></div>' +
   '</div>' +
@@ -332,7 +332,7 @@ function instrumentOverviewHTML(im) {
   const weight = acct && acct.marketNative > 0 ? im.marketNative / acct.marketNative : null;
   const dd = instrumentDrawdown(im);
   const ann = im.annualizedNative;
-  return '<div class="detail-section">' +
+  return '<div class="detail-section instrument-overview">' +
     '<div class="section-head"><div><h2>持仓概览</h2><div class="sub">持仓成本、收益拆解与交易统计</div></div><span class="tiny">' + c + '</span></div>' +
     '<div class="list-card card-pad-sm" style="padding:4px 14px">' +
       positionGroupTitle('持仓与成本') +
@@ -437,7 +437,7 @@ function instrumentChartCard(im) {
   }
   const ccyLabel = mode === 'profit' ? inst.currency + ' 累计收益' : inst.currency + ' 原币计价';
   const sourceLabel = inst.market ? '行情自动同步' : '按记录生成';
-  return '<div class="detail-chart-card">' +
+  return '<div class="detail-chart-card instrument-chart">' +
     '<div class="chart-head"><div><h2>' + (mode === 'profit' ? '累计收益' : '价格走势') + '</h2><div class="sub">' + (rangeText || '暂无数据') + ' · ' + ccyLabel + ' · ' + sourceLabel + (mode === 'price' && recordsForInstrument(inst.id).some(r => r.type === 'buy' || r.type === 'sell') ? ' · B 买入 / S 卖出' : '') + '</div></div>' +
       '<div class="segmented small chart-toggle"><button class="seg ' + (mode === 'price' ? 'active' : '') + '" data-action="set-instrument-chart-mode" data-value="price">价格</button><button class="seg ' + (mode === 'profit' ? 'active' : '') + '" data-action="set-instrument-chart-mode" data-value="profit">累计收益</button></div></div>' +
     chartHTML + metricsHTML +

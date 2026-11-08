@@ -69,7 +69,7 @@ function renderImportPage() {
   if (!importInstrumentId || !(account.instruments || []).some(i => i.id === importInstrumentId)) importInstrumentId = (account.instruments || []).length === 1 ? account.instruments[0].id : '';
   return backHead('截图导入', '', '#/settings') +
     '<div class="detail-body">' +
-      '<div class="import-help">' + icon('search') + '<div><b>从截图导入</b><p>用 iPhone 相册或分享菜单提取文字，复制后回到这里读取。没有自动上传，截图不会离开手机。</p></div></div>' +
+      '<div class="import-help">' + icon('search') + '<div><b>从截图导入</b><p>用手机相册或分享菜单提取文字，复制后回到这里读取。没有自动上传，截图不会离开你的设备。</p></div></div>' +
       '<div class="form-grid" style="margin-top:14px">' +
         fieldHTML({ id: 'import-account', label: '导入到账户', type: 'select', value: importAccountId, options: list.map(a => ({ value: a.id, label: a.name + ' · ' + a.currency })) }) +
         '<div class="field"><label>标的</label><div class="import-auto-target">按每行文字自动识别，不需要选择</div></div>' +

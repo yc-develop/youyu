@@ -4,6 +4,10 @@
 'use strict';
 
 const APP_NAME = '有余';
+const APP_VERSION = '6.5.21';
+const IS_DESKTOP = document.documentElement.getAttribute('data-layout') === 'desktop';
+const PC_HREF = 'pc/index.html';
+const MOBILE_HREF = /\/pc\//.test(location.pathname) ? '../index.html' : 'index.html';
 // 沿用旧存储键，避免改名后已有本地账本丢失
 const STORE_KEY = 'yingji.portfolio.v1';
 const DEMO_STORE_KEY = 'yingji.demo.v1';

@@ -1,0 +1,595 @@
+/* =========================================================
+   有余 · 电脑版桌面布局
+   仅覆盖布局、字号与交互，不改变任何会计口径。
+   ========================================================= */
+html[data-layout="desktop"]{
+  --app-w:100%;
+  --side-w:236px;
+  --radius:20px;
+  --radius-sm:14px;
+  --safe-top:0px;
+  --safe-bottom:0px;
+}
+html[data-layout="desktop"] body{
+  min-height:100vh;
+  background:
+    radial-gradient(1200px 620px at 54% -12%,rgba(255,159,69,.05),transparent 62%),
+    radial-gradient(900px 620px at 102% 36%,rgba(91,140,255,.035),transparent 70%),
+    #050608;
+}
+html[data-layout="desktop"] #app{
+  width:100%;
+  max-width:none;
+  min-height:100vh;
+  overflow:visible;
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+}
+html[data-layout="desktop"] .screen{
+  margin-left:var(--side-w);
+  max-width:none;
+  min-height:100vh;
+  padding:30px 40px 64px;
+}
+html[data-layout="desktop"] .screen.detail-screen{
+  padding:0 40px 64px;
+}
+html[data-layout="desktop"] .page{
+  width:100%;
+  max-width:1440px;
+  margin:0 auto;
+  display:grid;
+  grid-template-columns:repeat(12,minmax(0,1fr));
+  gap:20px;
+  align-items:start;
+}
+html[data-layout="desktop"] .page > *{
+  grid-column:1/-1;
+  min-width:0;
+  margin-top:0!important;
+}
+html[data-layout="desktop"] .page > div:empty{display:none}
+
+/* ---------- 左侧导航 ---------- */
+html[data-layout="desktop"] .tabbar{
+  left:0;
+  right:auto;
+  top:0;
+  bottom:0;
+  transform:none;
+  width:var(--side-w);
+  max-width:var(--side-w);
+  height:100vh;
+  display:flex;
+  flex-direction:column;
+  padding:22px 14px 16px;
+  background:rgba(9,10,13,.94);
+  border-top:0;
+  border-right:1px solid var(--line);
+  backdrop-filter:blur(22px) saturate(150%);
+  -webkit-backdrop-filter:blur(22px) saturate(150%);
+  box-shadow:none;
+  z-index:60;
+}
+html[data-layout="desktop"] .side-brand{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:0 8px 20px;
+  border-bottom:1px solid var(--line);
+}
+html[data-layout="desktop"] .side-logo{
+  width:34px;
+  height:34px;
+  border-radius:11px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 34px;
+  color:#1a1208;
+  font-size:15px;
+  font-weight:800;
+  background:linear-gradient(145deg,#ffb15c,#ff7a2f);
+  box-shadow:0 10px 24px -14px rgba(255,159,69,.9);
+}
+html[data-layout="desktop"] .side-brand-text{display:flex;flex-direction:column;gap:2px;min-width:0}
+html[data-layout="desktop"] .side-brand-text b{font-size:15px;font-weight:700;letter-spacing:-.01em}
+html[data-layout="desktop"] .side-brand-text i{font-style:normal;font-size:9px;color:var(--faint);letter-spacing:.08em}
+html[data-layout="desktop"] .side-nav{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  margin-top:22px;
+}
+html[data-layout="desktop"] .tabbar .tab-item{
+  display:flex;
+  flex-direction:row;
+  align-items:center;
+  justify-content:flex-start;
+  gap:11px;
+  min-height:44px;
+  padding:10px 12px;
+  border-radius:11px;
+  font-size:13px;
+  font-weight:550;
+  color:var(--muted);
+  letter-spacing:.01em;
+  transition:background .16s,color .16s;
+}
+html[data-layout="desktop"] .tabbar .tab-item:hover{background:rgba(255,255,255,.045);color:var(--ink-2)}
+html[data-layout="desktop"] .tabbar .tab-item.active{background:rgba(255,159,69,.11);color:var(--accent)}
+html[data-layout="desktop"] .tabbar .tab-item .tab-ico{width:20px;height:20px;display:flex;align-items:center;justify-content:center}
+html[data-layout="desktop"] .tabbar .tab-item .icon{width:19px;height:19px;stroke-width:1.8}
+html[data-layout="desktop"] .tabbar .tab-item.active .tab-ico::before{display:none}
+html[data-layout="desktop"] .side-foot{
+  margin-top:auto;
+  padding:14px 8px 0;
+  border-top:1px solid var(--line);
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+html[data-layout="desktop"] .side-mobile-link{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  font-size:11.5px;
+  font-weight:550;
+  color:var(--muted);
+  padding:8px 7px;
+  margin:0 -7px;
+  border-radius:8px;
+  transition:background .16s,color .16s;
+}
+html[data-layout="desktop"] .side-mobile-link:hover{background:rgba(255,255,255,.045);color:var(--ink-2)}
+html[data-layout="desktop"] .side-mobile-link .icon{width:14px;height:14px}
+html[data-layout="desktop"] .side-meta{font-size:9.5px;line-height:1.6;color:rgba(255,255,255,.24)}
+
+/* ---------- 页头与基础字号 ---------- */
+html[data-layout="desktop"] .topbar{
+  align-items:flex-end;
+  padding:0 2px 2px;
+}
+html[data-layout="desktop"] .eyebrow{font-size:11px;letter-spacing:.14em}
+html[data-layout="desktop"] .page-title{font-size:38px;line-height:1.05;margin-top:8px;letter-spacing:-.035em}
+html[data-layout="desktop"] .page-sub{font-size:13px;line-height:1.5;margin-top:9px}
+html[data-layout="desktop"] .head-actions{gap:9px;padding-top:6px}
+html[data-layout="desktop"] .icon-btn{width:42px;height:42px}
+html[data-layout="desktop"] .icon-btn.sm{width:34px;height:34px}
+html[data-layout="desktop"] .back-head{
+  position:sticky;
+  top:0;
+  z-index:25;
+  max-width:1440px;
+  margin:0 auto;
+  padding:18px 0 14px;
+  background:linear-gradient(180deg,rgba(8,9,11,.96),rgba(8,9,11,.82) 72%,rgba(8,9,11,0));
+  backdrop-filter:blur(14px) saturate(140%);
+  -webkit-backdrop-filter:blur(14px) saturate(140%);
+}
+html[data-layout="desktop"] .back-head .title{font-size:19px;font-weight:650}
+html[data-layout="desktop"] .back-head .side{width:42px}
+html[data-layout="desktop"] .back-head .side.right{width:auto}
+
+/* ---------- 通用卡片与行 ---------- */
+html[data-layout="desktop"] .card,
+html[data-layout="desktop"] .list-card,
+html[data-layout="desktop"] .detail-chart-card,
+html[data-layout="desktop"] .settings-card{
+  border-radius:18px;
+}
+html[data-layout="desktop"] .section-head h2,
+html[data-layout="desktop"] .card-head h2{font-size:18px}
+html[data-layout="desktop"] .section-head .sub,
+html[data-layout="desktop"] .card-head .sub{font-size:11.5px;line-height:1.5}
+html[data-layout="desktop"] .section-head .text-btn{font-size:12px}
+html[data-layout="desktop"] .text-btn{font-size:12.5px}
+html[data-layout="desktop"] .account-row{padding:15px 18px;gap:14px}
+html[data-layout="desktop"] .account-row:hover{background:rgba(255,255,255,.035)}
+html[data-layout="desktop"] .acct-icon{width:44px;height:44px;flex-basis:44px;border-radius:14px}
+html[data-layout="desktop"] .acct-name{font-size:15px}
+html[data-layout="desktop"] .acct-meta{font-size:10.5px;margin-top:5px}
+html[data-layout="desktop"] .acct-value .v{font-size:16px}
+html[data-layout="desktop"] .acct-value .p{font-size:10.5px}
+html[data-layout="desktop"] .holding-row{padding:15px 18px;gap:14px}
+html[data-layout="desktop"] .holding-row:hover{background:rgba(255,255,255,.035)}
+html[data-layout="desktop"] .h-icon{width:38px;height:38px;flex-basis:38px;border-radius:12px;font-size:11.5px}
+html[data-layout="desktop"] .h-name{font-size:14px}
+html[data-layout="desktop"] .h-sub{font-size:10.5px;margin-top:4px}
+html[data-layout="desktop"] .h-value .v{font-size:14px}
+html[data-layout="desktop"] .h-value .h-label{font-size:8.5px}
+html[data-layout="desktop"] .h-value .p{font-size:10.5px}
+html[data-layout="desktop"] .record-row{padding:12px 18px;gap:12px}
+html[data-layout="desktop"] .record-row:hover{background:rgba(255,255,255,.03)}
+html[data-layout="desktop"] .rec-title{font-size:13px}
+html[data-layout="desktop"] .rec-sub{font-size:10px;margin-top:4px}
+html[data-layout="desktop"] .rec-val{font-size:12.5px;max-width:140px}
+html[data-layout="desktop"] .rec-val .small{font-size:9px}
+html[data-layout="desktop"] .rec-icon{width:32px;height:32px;flex-basis:32px;border-radius:10px}
+html[data-layout="desktop"] .stats-row{padding:13px 18px}
+html[data-layout="desktop"] .settings-card{border-radius:16px}
+html[data-layout="desktop"] .setting-row{padding:14px 18px;gap:12px}
+html[data-layout="desktop"] .setting-main .t{font-size:13px}
+html[data-layout="desktop"] .setting-main .s{font-size:10px;line-height:1.45}
+html[data-layout="desktop"] .setting-value{font-size:11px}
+html[data-layout="desktop"] .settings-group{margin-top:20px}
+html[data-layout="desktop"] .settings-group .label{font-size:10px;margin-bottom:8px}
+html[data-layout="desktop"] .scheme-manage-row{padding:13px 18px}
+
+/* ---------- 资产首页 ---------- */
+html[data-layout="desktop"] .page-assets > .hero{grid-column:span 8;padding:28px 30px 24px;border-radius:24px;min-height:286px}
+html[data-layout="desktop"] .page-assets > .quick-grid{
+  grid-column:span 4;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  margin-top:0;
+  align-self:stretch;
+}
+html[data-layout="desktop"] .quick-item{
+  flex:1;
+  min-height:64px;
+  justify-content:flex-start;
+  padding:0 20px;
+  gap:10px;
+  font-size:13.5px;
+  border-radius:14px;
+}
+html[data-layout="desktop"] .quick-item .icon{width:18px;height:18px}
+html[data-layout="desktop"] .hero-amount{font-size:52px;margin-top:16px}
+html[data-layout="desktop"] .hero-amount .cur{font-size:25px}
+html[data-layout="desktop"] .hero-label{font-size:13px}
+html[data-layout="desktop"] .hero-pnl-line{font-size:12px}
+html[data-layout="desktop"] .hero-pnl-line .k{font-size:10.5px;flex-basis:56px;min-width:56px}
+html[data-layout="desktop"] .hero-pnl-line .pct{font-size:11px}
+html[data-layout="desktop"] .hero-stats{margin-top:22px;padding-top:16px}
+html[data-layout="desktop"] .hero-stat .lab{font-size:10.5px}
+html[data-layout="desktop"] .hero-stat .val{font-size:15px;margin-top:6px}
+html[data-layout="desktop"] .hero-note{font-size:10.5px;margin-top:16px}
+html[data-layout="desktop"] .asset-toolbar{margin-top:0;font-size:11px}
+html[data-layout="desktop"] .asset-toolbar .left{font-size:11.5px}
+html[data-layout="desktop"] .page-assets .stack-8{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:16px;
+  align-items:start;
+}
+html[data-layout="desktop"] .page-assets .account-group-label{padding:11px 16px}
+html[data-layout="desktop"] .version{font-size:9.5px;margin-top:8px;text-align:left}
+html[data-layout="desktop"] .page-assets > .version{color:rgba(255,255,255,.2)}
+
+/* ---------- 统计 ---------- */
+html[data-layout="desktop"] .page-stats > .scheme-strip{margin-bottom:0;flex-wrap:wrap;overflow:visible}
+html[data-layout="desktop"] .page-stats > .stat-hero{margin-top:2px;margin-bottom:0;align-items:flex-end}
+html[data-layout="desktop"] .stat-hero .big{font-size:38px}
+html[data-layout="desktop"] .stat-hero .cap{font-size:10.5px;margin-top:7px}
+html[data-layout="desktop"] .stat-hero .right{font-size:11.5px}
+html[data-layout="desktop"] .stat-hero .right b{font-size:15px}
+html[data-layout="desktop"] .page-stats > .topbar{grid-row:1}
+html[data-layout="desktop"] .page-stats > .scheme-strip{grid-row:2}
+html[data-layout="desktop"] .page-stats > .stat-hero{grid-row:3}
+html[data-layout="desktop"] .page-stats > .card:nth-of-type(1){grid-column:span 5;grid-row:4;align-self:start}
+html[data-layout="desktop"] .page-stats > .card:nth-of-type(2){grid-column:span 7;grid-row:4 / span 2;align-self:stretch}
+html[data-layout="desktop"] .page-stats > .detail-section{grid-column:span 5;grid-row:5}
+html[data-layout="desktop"] .page-stats .card.pad{padding:22px}
+html[data-layout="desktop"] .stats-donut-layout{gap:22px}
+html[data-layout="desktop"] .donut-legend .name{font-size:12px}
+html[data-layout="desktop"] .donut-legend .amt{font-size:11px}
+html[data-layout="desktop"] .donut-legend .pct{font-size:10px}
+html[data-layout="desktop"] .sankey-hint{font-size:9.5px}
+
+/* ---------- 日历 ---------- */
+html[data-layout="desktop"] .page-calendar > .scheme-strip,
+html[data-layout="desktop"] .page-calendar > .chip-row{flex-wrap:wrap;overflow:visible;margin-bottom:0}
+html[data-layout="desktop"] .page-calendar > .cal-toolbar{margin:0;max-width:520px}
+html[data-layout="desktop"] .page-calendar > .cal-summary{grid-column:span 4;margin-top:0;padding:20px;display:flex;flex-direction:column;align-self:stretch}
+html[data-layout="desktop"] .page-calendar .cal-mini-stats{margin-top:auto}
+html[data-layout="desktop"] .page-calendar > .cal-board{grid-column:span 8;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:18px 20px 14px}
+html[data-layout="desktop"] .page-calendar > .detail-chart-card{grid-column:1/-1}
+html[data-layout="desktop"] .cal-summary .v{font-size:34px;margin-top:7px}
+html[data-layout="desktop"] .cal-summary .l{font-size:10px}
+html[data-layout="desktop"] .cal-summary .sub{font-size:10.5px;margin-top:7px}
+html[data-layout="desktop"] .cal-mini-stats{margin-top:17px;padding-top:14px}
+html[data-layout="desktop"] .cal-mini-stats .l{font-size:9px}
+html[data-layout="desktop"] .cal-mini-stats .n{font-size:13px;margin-top:5px}
+html[data-layout="desktop"] .cal-head{margin:0 0 12px}
+html[data-layout="desktop"] .cal-head .title{font-size:17px}
+html[data-layout="desktop"] .cal-head .nav .icon-btn{width:32px;height:32px}
+html[data-layout="desktop"] .weekdays{gap:7px;margin-bottom:7px}
+html[data-layout="desktop"] .weekdays span{font-size:10px}
+html[data-layout="desktop"] .cal-grid{gap:7px}
+html[data-layout="desktop"] .cal-cell{min-height:86px;border-radius:12px;padding:8px 8px 7px}
+html[data-layout="desktop"] .cal-day{font-size:11px}
+html[data-layout="desktop"] .cal-amt{font-size:10px}
+html[data-layout="desktop"] .cal-pct{font-size:8px}
+html[data-layout="desktop"] .cal-legend{font-size:9px;margin-top:12px}
+html[data-layout="desktop"] .cal-toolbar .mini-toggle{width:120px;flex-basis:120px}
+
+/* ---------- 再平衡 ---------- */
+html[data-layout="desktop"] .page-rebalance > .scheme-strip{flex-wrap:wrap;overflow:visible;margin-bottom:0}
+html[data-layout="desktop"] .page-rebalance > .card:nth-of-type(1),
+html[data-layout="desktop"] .page-rebalance > .card:nth-of-type(2){grid-column:span 6;align-self:stretch}
+html[data-layout="desktop"] .page-rebalance > .reb-actions{
+  grid-column:1/-1;
+  display:flex;
+  justify-content:flex-end;
+  gap:12px;
+  margin-top:0;
+}
+html[data-layout="desktop"] .reb-actions .btn{min-width:190px;height:44px}
+html[data-layout="desktop"] .reb-top .name{font-size:12.5px}
+html[data-layout="desktop"] .reb-top .val{font-size:12.5px}
+html[data-layout="desktop"] .reb-plan-main .t{font-size:12px}
+
+/* ---------- 设置 ---------- */
+html[data-layout="desktop"] .page-settings > .profile-card{grid-column:span 8;margin-top:0;padding:22px}
+html[data-layout="desktop"] .page-settings > .install-card{grid-column:span 4;margin-top:0;align-self:start}
+html[data-layout="desktop"] .page-settings > .settings-group{grid-column:span 6}
+html[data-layout="desktop"] .page-settings > .version{grid-column:1/-1;text-align:left;margin-top:4px}
+html[data-layout="desktop"] .profile-name{font-size:19px}
+html[data-layout="desktop"] .profile-sub{font-size:10.5px}
+html[data-layout="desktop"] .profile-stats .l{font-size:9px}
+html[data-layout="desktop"] .profile-stats .v{font-size:14px}
+html[data-layout="desktop"] .install-card .t{font-size:12px}
+html[data-layout="desktop"] .install-card .s{font-size:10px;line-height:1.6}
+
+/* ---------- 详情页 ---------- */
+html[data-layout="desktop"] .detail-body{
+  width:100%;
+  max-width:1440px;
+  margin:0;
+  padding:0;
+  display:grid;
+  grid-template-columns:repeat(12,minmax(0,1fr));
+  gap:20px;
+  align-items:start;
+}
+html[data-layout="desktop"] .detail-body > *{
+  grid-column:1/-1;
+  min-width:0;
+  margin-top:0!important;
+}
+html[data-layout="desktop"] .detail-body > div:empty{display:none}
+html[data-layout="desktop"] .detail-hero{padding:24px 26px;border-radius:22px}
+html[data-layout="desktop"] .detail-head .acct-icon{width:50px;height:50px;flex-basis:50px;border-radius:15px}
+html[data-layout="desktop"] .detail-head .dh-name{font-size:19px}
+html[data-layout="desktop"] .detail-head .dh-sub{font-size:10px}
+html[data-layout="desktop"] .detail-total{font-size:44px;margin-top:18px}
+html[data-layout="desktop"] .detail-total .cur{font-size:22px}
+html[data-layout="desktop"] .detail-pnl{font-size:11.5px;gap:9px;margin-top:9px}
+html[data-layout="desktop"] .detail-stats{margin-top:18px;padding-top:16px}
+html[data-layout="desktop"] .detail-stats .l{font-size:9.5px}
+html[data-layout="desktop"] .detail-stats .v{font-size:14px;margin-top:5px}
+html[data-layout="desktop"] .detail-stats.two-row{grid-template-columns:repeat(3,1fr)}
+html[data-layout="desktop"] .detail-chart-card{padding:20px 20px 16px;border-radius:18px}
+html[data-layout="desktop"] .detail-chart-card .chart-head h2{font-size:17px}
+html[data-layout="desktop"] .detail-chart-card .chart-head .sub{font-size:10.5px}
+html[data-layout="desktop"] .detail-chart-card .metric{padding:12px 10px}
+html[data-layout="desktop"] .detail-chart-card .metric .val{font-size:13px}
+html[data-layout="desktop"] .detail-chart-card .metric .lab{font-size:9.5px}
+html[data-layout="desktop"] .detail-section .section-head h2{font-size:18px}
+html[data-layout="desktop"] .detail-section .list-card{padding-left:18px!important;padding-right:18px!important}
+html[data-layout="desktop"] .position-row{padding:11px 0}
+html[data-layout="desktop"] .position-row .l{font-size:11px}
+html[data-layout="desktop"] .position-row .v{font-size:12px}
+html[data-layout="desktop"] .position-group-title{font-size:10px}
+html[data-layout="desktop"] .glossary{margin-top:0}
+html[data-layout="desktop"] .glossary summary{font-size:11.5px;padding:14px 18px}
+html[data-layout="desktop"] .glossary-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 26px;padding:0 18px 16px}
+html[data-layout="desktop"] .glossary-item{padding-top:11px}
+html[data-layout="desktop"] .glossary-name{font-size:10.5px}
+html[data-layout="desktop"] .glossary-desc{font-size:10px;line-height:1.6}
+html[data-layout="desktop"] .info-banner{font-size:11px;padding:14px 16px}
+
+html[data-layout="desktop"] .page-account .detail-body > .detail-hero{order:0}
+html[data-layout="desktop"] .page-account .detail-body > .account-fx-banner{order:1}
+html[data-layout="desktop"] .page-account .detail-body > .account-overview{grid-column:span 5;order:2}
+html[data-layout="desktop"] .page-account .account-overview .list-card{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  column-gap:26px;
+  align-content:start;
+}
+html[data-layout="desktop"] .page-account .account-overview .position-group-title{grid-column:1/-1}
+html[data-layout="desktop"] .page-account .account-overview .position-row{padding:11px 0}
+html[data-layout="desktop"] .page-account .detail-body > .account-chart{grid-column:span 7;order:3}
+html[data-layout="desktop"] .page-account .detail-body > .glossary{order:4}
+html[data-layout="desktop"] .page-account .detail-body > .account-composition{grid-column:span 5;order:5}
+html[data-layout="desktop"] .page-account .detail-body > .account-flow{grid-column:span 7;order:6}
+html[data-layout="desktop"] .page-account .detail-body > .account-holdings{grid-column:1/-1;order:7}
+html[data-layout="desktop"] .page-account .account-holdings{--hold-cols:40px minmax(220px,1.8fr) 96px 140px 120px 150px 20px}
+html[data-layout="desktop"] .page-account .account-holdings .holdings-head{
+  display:grid;
+  grid-template-columns:var(--hold-cols);
+  gap:14px;
+  align-items:center;
+  padding:0 18px 10px;
+  font-size:10px;
+  color:var(--faint);
+}
+html[data-layout="desktop"] .page-account .account-holdings .holdings-head span:nth-child(n+3){text-align:right}
+html[data-layout="desktop"] .page-account .account-holdings .holding-row{
+  display:grid;
+  grid-template-columns:var(--hold-cols);
+  gap:14px;
+  align-items:center;
+}
+html[data-layout="desktop"] .page-account .account-holdings .h-main{min-width:0}
+html[data-layout="desktop"] .page-account .account-holdings .h-sub-cost{display:none}
+html[data-layout="desktop"] .page-account .account-holdings .h-qty-inline{display:none}
+html[data-layout="desktop"] .page-account .account-holdings .h-value .h-label{display:none}
+html[data-layout="desktop"] .page-account .account-holdings .h-value{min-width:0}
+html[data-layout="desktop"] .page-account .account-holdings .h-cell{
+  display:block;
+  min-width:0;
+  font-size:12px;
+  color:var(--ink-2);
+  font-variant-numeric:tabular-nums;
+  white-space:nowrap;
+  text-align:right;
+}
+
+html[data-layout="desktop"] .page-account .detail-body > .account-records{grid-column:1/-1;order:8}
+
+html[data-layout="desktop"] .page-instrument .detail-body > .detail-hero{order:0}
+html[data-layout="desktop"] .page-instrument .detail-body > .instrument-chart{grid-column:span 6;order:1}
+html[data-layout="desktop"] .page-instrument .detail-body > .instrument-overview{grid-column:span 6;order:2}
+html[data-layout="desktop"] .page-instrument .instrument-overview .list-card{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  column-gap:26px;
+  align-content:start;
+}
+html[data-layout="desktop"] .page-instrument .instrument-overview .position-group-title{grid-column:1/-1}
+html[data-layout="desktop"] .page-instrument .instrument-overview .position-row{padding:11px 0}
+html[data-layout="desktop"] .page-instrument .detail-body > .glossary{order:3}
+html[data-layout="desktop"] .page-instrument .detail-body > .instrument-flow{grid-column:span 7;order:4}
+html[data-layout="desktop"] .page-instrument .detail-body > .instrument-fx-banner{grid-column:span 5;order:5}
+html[data-layout="desktop"] .page-instrument .detail-body > .instrument-records{grid-column:1/-1;order:6}
+
+html[data-layout="desktop"] .detail-screen .actionbar{
+  position:fixed;
+  left:auto;
+  right:40px;
+  bottom:32px;
+  transform:none;
+  width:auto;
+  max-width:none;
+  padding:0;
+  background:none;
+  border:0;
+  backdrop-filter:none;
+  -webkit-backdrop-filter:none;
+  box-shadow:none;
+  display:flex;
+  gap:10px;
+  z-index:50;
+}
+html[data-layout="desktop"] .detail-screen .actionbar .btn{
+  flex:0 0 auto;
+  height:46px;
+  padding:0 20px;
+  box-shadow:0 14px 34px -18px rgba(0,0,0,.8);
+}
+html[data-layout="desktop"] .detail-screen .actionbar .btn.ghost{background:rgba(24,25,30,.92)}
+
+/* ---------- 图表与弹层 ---------- */
+html[data-layout="desktop"] .chart-svg .axis-label{font-size:10px}
+html[data-layout="desktop"] .chart-tip{min-width:96px;padding:8px 10px}
+html[data-layout="desktop"] .chart-tip .v{font-size:12px}
+html[data-layout="desktop"] .overlay{align-items:center;padding:32px;background:rgba(0,0,0,.62)}
+html[data-layout="desktop"] .sheet{
+  max-width:640px;
+  max-height:86vh;
+  border-radius:20px;
+  border-bottom:1px solid rgba(255,255,255,.08);
+  transform:translateY(14px) scale(.98);
+  box-shadow:0 30px 80px rgba(0,0,0,.55);
+}
+html[data-layout="desktop"] .overlay.open .sheet{transform:none}
+html[data-layout="desktop"] .sheet-grab{display:none}
+html[data-layout="desktop"] .sheet-head{padding:18px 22px 14px}
+html[data-layout="desktop"] .sheet-head h2{font-size:18px}
+html[data-layout="desktop"] .sheet-body{padding:18px 22px}
+html[data-layout="desktop"] .sheet-foot{padding:14px 22px}
+html[data-layout="desktop"] .sheet-foot .btn{height:44px}
+html[data-layout="desktop"] .form-grid{gap:14px}
+html[data-layout="desktop"] .field label{font-size:10.5px}
+html[data-layout="desktop"] .field .hint{font-size:9px}
+html[data-layout="desktop"] .input,
+html[data-layout="desktop"] .select,
+html[data-layout="desktop"] .textarea{font-size:14px}
+html[data-layout="desktop"] .input[type="date"]{font-size:13px}
+html[data-layout="desktop"] .toast-root{
+  left:auto;
+  right:36px;
+  top:auto;
+  bottom:34px;
+  transform:none;
+  width:auto;
+  max-width:420px;
+  align-items:flex-end;
+}
+html[data-layout="desktop"] .toast{font-size:11.5px;padding:11px 18px;text-align:left}
+html[data-layout="desktop"] .page .info-banner{margin-top:0}
+
+/* ---------- 浅色主题 ---------- */
+html[data-layout="desktop"][data-theme="light"] body{
+  background:
+    radial-gradient(1200px 620px at 54% -12%,rgba(225,132,34,.08),transparent 62%),
+    radial-gradient(900px 620px at 102% 36%,rgba(65,105,216,.05),transparent 70%),
+    #eef1f5;
+}
+html[data-layout="desktop"][data-theme="light"] .tabbar{
+  background:rgba(255,255,255,.92);
+  border-right-color:rgba(16,24,40,.08);
+  border-top-color:transparent;
+}
+html[data-layout="desktop"][data-theme="light"] .side-brand,
+html[data-layout="desktop"][data-theme="light"] .side-foot{border-color:rgba(16,24,40,.08)}
+html[data-layout="desktop"][data-theme="light"] .tabbar .tab-item{color:var(--muted)}
+html[data-layout="desktop"][data-theme="light"] .tabbar .tab-item:hover{background:rgba(16,24,40,.045);color:var(--ink-2)}
+html[data-layout="desktop"][data-theme="light"] .tabbar .tab-item.active{background:rgba(225,132,34,.1);color:var(--accent)}
+html[data-layout="desktop"][data-theme="light"] .side-meta{color:rgba(16,24,40,.28)}
+html[data-layout="desktop"][data-theme="light"] .back-head{
+  background:linear-gradient(180deg,rgba(248,249,251,.97),rgba(248,249,251,.84) 72%,rgba(248,249,251,0));
+}
+html[data-layout="desktop"][data-theme="light"] .account-row:hover,
+html[data-layout="desktop"][data-theme="light"] .holding-row:hover,
+html[data-layout="desktop"][data-theme="light"] .record-row:hover,
+html[data-layout="desktop"][data-theme="light"] .stats-row:hover{background:rgba(16,24,40,.035)}
+html[data-layout="desktop"][data-theme="light"] .cal-board{background:#fff;border-color:var(--line)}
+html[data-layout="desktop"][data-theme="light"] .detail-screen .actionbar .btn.ghost{background:rgba(255,255,255,.94)}
+html[data-layout="desktop"][data-theme="light"] .page-assets > .version,
+html[data-layout="desktop"][data-theme="light"] .version{color:rgba(16,24,40,.32)}
+
+/* ---------- 中等宽度：详情概览改为单列，避免标签截断 ---------- */
+@media (max-width:1280px){
+  html[data-layout="desktop"] .page-account .account-overview{grid-column:span 7}
+  html[data-layout="desktop"] .page-account .account-chart{grid-column:span 5}
+  html[data-layout="desktop"] .page-account .account-overview .list-card{grid-template-columns:1fr}
+  html[data-layout="desktop"] .page-instrument .instrument-overview{grid-column:span 7}
+  html[data-layout="desktop"] .page-instrument .instrument-chart{grid-column:span 5}
+  html[data-layout="desktop"] .page-instrument .instrument-overview .list-card{grid-template-columns:1fr}
+}
+
+/* ---------- 窄屏仍可用 ---------- */
+@media (max-width:1180px){
+  html[data-layout="desktop"]{--side-w:214px}
+  html[data-layout="desktop"] .screen{padding-left:28px;padding-right:28px}
+  html[data-layout="desktop"] .page-title{font-size:34px}
+  html[data-layout="desktop"] .hero-amount{font-size:44px}
+  html[data-layout="desktop"] .page-calendar > .cal-summary{grid-column:1/-1}
+  html[data-layout="desktop"] .page-calendar > .cal-board{grid-column:1/-1}
+  html[data-layout="desktop"] .page-account .account-holdings{--hold-cols:36px minmax(150px,1.6fr) 82px 120px 100px 130px 18px}
+  html[data-layout="desktop"] .page-account .account-holdings .holdings-head,
+  html[data-layout="desktop"] .page-account .account-holdings .holding-row{gap:10px}
+}
+@media (max-width:960px){
+  html[data-layout="desktop"]{--side-w:78px}
+  html[data-layout="desktop"] .tabbar{padding:18px 10px 14px}
+  html[data-layout="desktop"] .side-brand{justify-content:center;padding:0 0 18px}
+  html[data-layout="desktop"] .side-brand-text,
+  html[data-layout="desktop"] .side-meta,
+  html[data-layout="desktop"] .side-mobile-link span,
+  html[data-layout="desktop"] .tabbar .tab-item > span:last-child{display:none}
+  html[data-layout="desktop"] .tabbar .tab-item{justify-content:center;padding:12px;font-size:0}
+  html[data-layout="desktop"] .side-mobile-link{justify-content:center;padding:9px}
+  html[data-layout="desktop"] .side-nav{margin-top:16px}
+  html[data-layout="desktop"] .screen{padding-left:24px;padding-right:24px}
+  html[data-layout="desktop"] .page-assets > .hero,
+  html[data-layout="desktop"] .page-assets > .quick-grid{grid-column:1/-1}
+  html[data-layout="desktop"] .page-assets > .quick-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));flex-direction:initial}
+  html[data-layout="desktop"] .page-assets > .quick-grid .quick-item{min-height:56px;flex:none}
+  html[data-layout="desktop"] .page-settings > .settings-group{grid-column:1/-1}
+  html[data-layout="desktop"] .page-stats > .topbar,
+  html[data-layout="desktop"] .page-stats > .scheme-strip,
+  html[data-layout="desktop"] .page-stats > .stat-hero,
+  html[data-layout="desktop"] .page-stats > .card:nth-of-type(1),
+  html[data-layout="desktop"] .page-stats > .card:nth-of-type(2),
+  html[data-layout="desktop"] .page-stats > .detail-section{grid-row:auto}
+  html[data-layout="desktop"] .page-stats > .card:nth-of-type(1),
+  html[data-layout="desktop"] .page-stats > .card:nth-of-type(2),
+  html[data-layout="desktop"] .page-stats > .detail-section{grid-column:1/-1}
+}

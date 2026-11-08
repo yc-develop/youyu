@@ -5,6 +5,10 @@ function renderSettingsPage() {
   const p = portfolioSummary();
   const base = baseCurrency();
   const foreign = Object.keys(CURRENCY_META).filter(c => c !== base);
+  const switchHref = (IS_DESKTOP ? MOBILE_HREF : PC_HREF) + (location.hash && location.hash.indexOf('#/') === 0 ? location.hash : '#/assets');
+  const deviceCard = IS_DESKTOP
+    ? '<div class="install-card desktop-note">' + icon('shield') + '<div><div class="t">电脑版 · 本地账本</div><div class="s">与手机版共用同一套数据格式；数据只保存在当前浏览器。跨设备请用导出/导入。</div></div></div>'
+    : '<div class="install-card">' + icon('sparkles') + '<div><div class="t">把这个页面装进主屏幕</div><div class="s">在 Safari 中点「分享」→「添加到主屏幕」，即可像 App 一样全屏使用。数据保存在当前浏览器。</div></div></div>';
   return pageTop({
     eyebrow: 'SETTINGS',
     title: '我的',
@@ -12,10 +16,10 @@ function renderSettingsPage() {
     actions: '<button class="icon-btn" data-action="toggle-hide" aria-label="隐藏金额">' + icon(state.settings.hideAmounts ? 'eyeOff' : 'eye') + '</button>'
   }) +
   '<section class="profile-card">' +
-    '<div class="profile-top"><div class="profile-logo">余</div><div><div class="profile-name">有余 · 投资组合</div><div class="profile-sub">iPhone 上的私人资产账本 · 无需登录</div></div></div>' +
+    '<div class="profile-top"><div class="profile-logo">余</div><div><div class="profile-name">有余 · 投资组合</div><div class="profile-sub">' + (IS_DESKTOP ? '桌面上的私人资产账本' : 'iPhone 上的私人资产账本') + ' · 无需登录</div></div></div>' +
     '<div class="profile-stats"><div><div class="l">组合总资产</div><div class="v">' + fmtMoney(p.totalMarket, { compact: true }) + '</div></div><div><div class="l">累计收益</div><div class="v ' + pnlClass(p.profit) + '">' + pnlText(p.profit, { compact: true }) + '</div></div><div><div class="l">账户</div><div class="v">' + p.accounts.length + ' <span style="font-size:8px;color:var(--faint)">个</span></div></div></div>' +
   '</section>' +
-  '<div class="install-card">' + icon('sparkles') + '<div><div class="t">把这个页面装进主屏幕</div><div class="s">在 Safari 中点「分享」→「添加到主屏幕」，即可像 App 一样全屏使用。数据保存在当前浏览器。</div></div></div>' +
+  deviceCard +
   '<div class="settings-group"><div class="label">记账偏好</div><div class="settings-card">' +
     settingRowHTML('记账本币', base + ' · ' + baseMeta().name, 'wallet', 'open-base-currency', '所有统计统一折算为本币') +
     settingRowHTML('日间模式', state.settings.theme === 'light' ? '已开启' : '已关闭', state.settings.theme === 'light' ? 'sun' : 'moon', 'toggle-theme', '切换浅色界面，适合白天使用', '<span class="switch ' + (state.settings.theme === 'light' ? 'on' : '') + '"></span>') +
@@ -53,9 +57,12 @@ function renderSettingsPage() {
     '<input type="file" id="import-file" accept=".json,application/json" style="display:none">' +
   '</div></div>' +
   '<div class="settings-group"><div class="label">关于</div><div class="settings-card">' +
+    (IS_DESKTOP
+      ? '<a class="setting-row" href="' + switchHref + '"><span class="setting-icon blue">' + icon('external') + '</span><span class="setting-main"><span class="t">切换到手机版</span><span class="s">打开为 iPhone 设计的紧凑界面</span></span><span class="setting-value">打开' + icon('chevronRight') + '</span></a>'
+      : '<a class="setting-row" href="' + switchHref + '"><span class="setting-icon blue">' + icon('grid') + '</span><span class="setting-main"><span class="t">切换到电脑版</span><span class="s">左侧导航、宽屏表格与双栏布局</span></span><span class="setting-value">打开' + icon('chevronRight') + '</span></a>') +
     '<div class="setting-row"><span class="setting-icon accent">' + icon('shield') + '</span><span class="setting-main"><span class="t">本地存储</span><span class="s">所有数据保存在浏览器 localStorage，不上传服务器。清除浏览器数据会丢失账本，请定期导出备份。</span></span></div>' +
     '<div class="setting-row"><span class="setting-icon blue">' + icon('chart') + '</span><span class="setting-main"><span class="t">行情数据</span><span class="s">名称搜索来自新浪财经，最新报价来自腾讯行情；公开接口可能受网络影响，仅供估值参考。</span></span></div>' +
-    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v6.5.20</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
+    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v' + APP_VERSION + '</span><span class="s">' + (IS_DESKTOP ? '为桌面打造' : '为 iPhone 打造') + ' · 纯 HTML 单文件 · 本地存储</span></span></div>' +
   '</div></div>' +
   '<div class="version">' + esc(APP_NAME) + ' · 投资组合<br>不构成投资建议 · 数据仅供参考</div>' +
   '<div style="height:8px"></div>';

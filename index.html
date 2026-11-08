@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-theme="dark">
+<html lang="zh-CN" data-theme="dark" data-layout="mobile">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
@@ -348,6 +348,7 @@ ul,ol{margin:0;padding:0;list-style:none}
 .h-value .h-label{font-size:7.5px;color:var(--faint);margin-bottom:2px;letter-spacing:.03em}
 .h-value .p{font-size:9.5px;margin-top:4px;font-variant-numeric:tabular-nums;font-weight:550}
 .h-chevron .icon{width:12px;height:12px;color:rgba(255,255,255,.2)}
+.h-cell,.desktop-table-head{display:none}
 
 /* ---------- segmented ---------- */
 .segmented{
@@ -1480,6 +1481,10 @@ html[data-theme="light"] .acct-icon.brand{border-color:rgba(16,24,40,.1);box-sha
 'use strict';
 
 const APP_NAME = '有余';
+const APP_VERSION = '6.5.21';
+const IS_DESKTOP = document.documentElement.getAttribute('data-layout') === 'desktop';
+const PC_HREF = 'pc/index.html';
+const MOBILE_HREF = /\/pc\//.test(location.pathname) ? '../index.html' : 'index.html';
 // 沿用旧存储键，避免改名后已有本地账本丢失
 const STORE_KEY = 'yingji.portfolio.v1';
 const DEMO_STORE_KEY = 'yingji.demo.v1';
@@ -4321,11 +4326,22 @@ function goBack(fallback) {
 function renderTabbar(active) {
   const el = $('#tabbar');
   if (!el) return;
-  el.innerHTML = TABS.map(t => {
+  const items = TABS.map(t => {
     const on = t.key === active;
     return '<a class="tab-item ' + (on ? 'active' : '') + '" href="' + t.href + '" aria-label="' + t.label + '"' + (on ? ' aria-current="page"' : '') + '>' +
       '<span class="tab-ico">' + icon(t.icon) + '</span><span>' + t.label + '</span></a>';
   }).join('');
+  if (IS_DESKTOP) {
+    const mobileHref = MOBILE_HREF + (location.hash && location.hash.indexOf('#/') === 0 ? location.hash : '#/assets');
+    el.innerHTML = '<div class="side-brand"><span class="side-logo">余</span><span class="side-brand-text"><b>有余</b><i>投资组合</i></span></div>' +
+      '<div class="side-nav">' + items + '</div>' +
+      '<div class="side-foot">' +
+        '<a class="side-mobile-link" href="' + mobileHref + '">' + icon('external') + '<span>手机版</span></a>' +
+        '<div class="side-meta">数据保存在本机浏览器<br>有余 · ' + APP_VERSION + '</div>' +
+      '</div>';
+    return;
+  }
+  el.innerHTML = items;
 }
 
 function renderPage(opts) {
@@ -4350,10 +4366,11 @@ function renderPage(opts) {
   else if (route.name === 'import') html = renderImportPage();
   if (!html) html = renderNotFound();
   screen.className = 'screen' + (isDetail ? ' detail-screen' : '');
-  screen.innerHTML = '<div class="page">' + html + '</div>';
+  screen.dataset.page = route.name;
+  screen.innerHTML = '<div class="page page-' + route.name + '">' + html + '</div>';
   if (route.name === 'import' && typeof bindImportPage === 'function') bindImportPage();
   const tabbar = $('#tabbar');
-  tabbar.style.display = isDetail ? 'none' : 'grid';
+  tabbar.style.display = IS_DESKTOP ? 'flex' : (isDetail ? 'none' : 'grid');
   renderTabbar(activeTabFor(route));
   bindCharts();
   if (typeof afterRenderPage === 'function') afterRenderPage(route);
@@ -4455,9 +4472,12 @@ function holdingRowHTML(im, opts) {
   return '<a class="holding-row" href="#/instrument/' + encodeURIComponent(im.inst.id) + '">' +
     instrumentIconHTML(im.inst) +
     '<div class="h-main"><div class="h-name">' + esc(im.inst.name) + '</div>' +
-      '<div class="h-sub">' + esc(im.inst.symbol) + ' · ' + (im.qty > 0.000001 ? fmtQty(im.qty) + qtyUnit(im.inst.cls) : '未建仓') + '</div>' +
+      '<div class="h-sub"><span class="h-sym">' + esc(im.inst.symbol) + '</span><span class="h-qty-inline"> · ' + (im.qty > 0.000001 ? fmtQty(im.qty) + qtyUnit(im.inst.cls) : '未建仓') + '</span></div>' +
       (im.qty > 0.000001 ? '<div class="h-sub h-sub-cost">移动加权平均成本 ' + fmtCost(im.avgCost, im.inst.currency) + '</div>' : '') +
       (im.qty > 0.000001 ? '<div class="h-sub h-sub-cost">摊薄成本 ' + fmtCost(im.dilutedCost, im.inst.currency) + '</div>' : '') + '</div>' +
+    '<span class="h-cell h-qty">' + (im.qty > 0.000001 ? fmtQty(im.qty) + qtyUnit(im.inst.cls) : '—') + '</span>' +
+    '<span class="h-cell h-avg">' + (im.qty > 0.000001 ? fmtCost(im.avgCost, im.inst.currency) : '—') + '</span>' +
+    '<span class="h-cell h-diluted">' + (im.qty > 0.000001 ? fmtCost(im.dilutedCost, im.inst.currency) : '—') + '</span>' +
     '<div class="h-value"><div class="h-label">期末总金额</div><div class="v">' + fmtMoney(displayValue, { compact: true, currency: displayCcy }) + '</div>' +
       '<div class="p ' + pnlClass(displayPnl) + '">' + pnlText(displayPnl, { compact: true, currency: displayCcy }) + '</div></div>' +
     '<span class="h-chevron">' + icon('chevronRight') + '</span></a>';
@@ -4825,19 +4845,19 @@ function renderAccountPage(accountId) {
         detailStat('累计收益率', pctOrDash(am.returnPctNative), pnlClass(am.returnPctNative), '按净投入') +
       '</div>' +
     '</section>' +
-    (a.currency !== baseCurrency() ? '<div class="info-banner" style="margin-top:12px;margin-bottom:0">' + icon('swap') + '<div>账户统计以 <b>' + a.currency + '</b> 计价，不折算为 ' + baseCurrency() + '；组合总览仍按 ' + baseCurrency() + ' 汇总。参考汇率 1 ' + a.currency + ' = ' + fmtPrice(fxToBase(a.currency), baseCurrency()) + '。</div></div>' : '') +
+    (a.currency !== baseCurrency() ? '<div class="info-banner account-fx-banner" style="margin-top:12px;margin-bottom:0">' + icon('swap') + '<div>账户统计以 <b>' + a.currency + '</b> 计价，不折算为 ' + baseCurrency() + '；组合总览仍按 ' + baseCurrency() + ' 汇总。参考汇率 1 ' + a.currency + ' = ' + fmtPrice(fxToBase(a.currency), baseCurrency()) + '。</div></div>' : '') +
     accountOverviewHTML(am) +
     glossaryHTML('account') +
     accountChartCard(am) +
-    '<div class="detail-section"><div class="section-head"><div><h2>资产构成</h2><div class="sub">现金与持仓 · 按当前市值</div></div><span class="tiny">' + a.currency + '</span></div>' +
+    '<div class="detail-section account-composition"><div class="section-head"><div><h2>资产构成</h2><div class="sub">现金与持仓 · 按当前市值</div></div><span class="tiny">' + a.currency + '</span></div>' +
       '<div class="card pad" style="padding-top:12px;padding-bottom:14px"><div class="donut-layout">' + donutBoxHTML(composition.items, { size: 132, stroke: 15, centerValue: fmtMoney(am.marketNative, { compact: true, currency: a.currency }), centerLabel: '账户总资产' }) +
       '<div class="donut-legend">' + donutLegendHTML(composition.items, { compact: true }) + '</div></div></div></div>' +
-    '<div class="detail-section" style="margin-top:14px">' + flowDiagramHTML(accountFlow(accountId, flowPeriod), { scope: 'account', id: accountId, periodKey: flowPeriod, periods: flowPeriods('account', accountId), editable: true, currency: a.currency }) + '</div>' +
-    '<div class="detail-section"><div class="section-head"><div><h2>持仓</h2><div class="sub">按期末总金额排序 · 点击查看标的</div></div><button class="text-btn" data-action="open-add-instrument" data-account="' + esc(a.id) + '">' + icon('plus') + '添加</button></div>' +
-      (am.instruments.length ? '<div class="list-card">' + am.instruments.slice().sort((x, y) => (y.endingTotalBase || y.marketBase) - (x.endingTotalBase || x.marketBase)).map(im => holdingRowHTML(im, { currency: a.currency })).join('') + '</div>' :
+    '<div class="detail-section account-flow" style="margin-top:14px">' + flowDiagramHTML(accountFlow(accountId, flowPeriod), { scope: 'account', id: accountId, periodKey: flowPeriod, periods: flowPeriods('account', accountId), editable: true, currency: a.currency }) + '</div>' +
+    '<div class="detail-section account-holdings"><div class="section-head"><div><h2>持仓</h2><div class="sub">按期末总金额排序 · 点击查看标的</div></div><button class="text-btn" data-action="open-add-instrument" data-account="' + esc(a.id) + '">' + icon('plus') + '添加</button></div>' +
+      (am.instruments.length ? '<div class="desktop-table-head holdings-head"><span></span><span>标的</span><span>持仓数量</span><span>移动加权平均成本</span><span>摊薄成本</span><span>期末总金额</span><span></span></div><div class="list-card">' + am.instruments.slice().sort((x, y) => (y.endingTotalBase || y.marketBase) - (x.endingTotalBase || x.marketBase)).map(im => holdingRowHTML(im, { currency: a.currency })).join('') + '</div>' :
         '<div class="list-card">' + emptyBlock('这个账户还没有标的', '添加基金、股票或存单，记录买入与估值。', '<button class="btn primary sm" data-action="open-add-instrument" data-account="' + esc(a.id) + '">添加标的</button>', 'fund') + '</div>') +
     '</div>' +
-    '<div class="detail-section"><div class="section-head"><div><h2>更新记录</h2><div class="sub">买入、卖出、换汇与估值更新</div></div><button class="text-btn" data-action="open-records" data-scope="account" data-id="' + esc(a.id) + '">全部 ' + records.length + '</button></div>' +
+    '<div class="detail-section account-records"><div class="section-head"><div><h2>更新记录</h2><div class="sub">买入、卖出、换汇与估值更新</div></div><button class="text-btn" data-action="open-records" data-scope="account" data-id="' + esc(a.id) + '">全部 ' + records.length + '</button></div>' +
       recordsCardHTML(records, { limit: 6, moreAction: 'open-records', moreScope: 'account', id: a.id }) + '</div>' +
     '<div style="height:12px"></div>' +
   '</div>' +
@@ -4849,7 +4869,7 @@ function accountOverviewHTML(am) {
   const a = am.account;
   const money = v => fmtMoney(v, { currency: a.currency });
   const pnl = v => '<span class="' + pnlClass(v) + '">' + pnlText(v, { currency: a.currency }) + '</span>';
-  return '<div class="detail-section" style="margin-top:14px">' +
+  return '<div class="detail-section account-overview" style="margin-top:14px">' +
     '<div class="section-head"><div><h2>账户概览</h2><div class="sub">资产结构与收益拆解</div></div><span class="tiny">' + a.currency + '</span></div>' +
     '<div class="list-card card-pad-sm" style="padding:4px 14px">' +
       positionGroupTitle('资产结构') +
@@ -4924,7 +4944,7 @@ function accountChartCard(am) {
   } else {
     chartHTML = chartEmptyHTML('还没有足够的历史数据', 174);
   }
-  return '<div class="detail-chart-card">' +
+  return '<div class="detail-chart-card account-chart">' +
     '<div class="chart-head"><div><h2>收益曲线</h2><div class="sub">' + (rangeText || '记账以来') + ' · ' + a.currency + ' 计价' + (a.currency === baseCurrency() ? '' : ' · 不折算') + '</div></div>' +
       '<div class="segmented small chart-toggle"><button class="seg ' + (mode === 'value' ? 'active' : '') + '" data-action="set-account-chart-mode" data-value="value">资产</button><button class="seg ' + (mode === 'return' ? 'active' : '') + '" data-action="set-account-chart-mode" data-value="return">收益率</button></div></div>' +
     chartHTML + metricsHTML +
@@ -4968,9 +4988,9 @@ function renderInstrumentPage(instrumentId) {
     instrumentChartCard(im) +
     instrumentOverviewHTML(im) +
     glossaryHTML('instrument') +
-    '<div class="detail-section" style="margin-top:14px">' + flowDiagramHTML(instrumentFlow(instrumentId, flowPeriod), { isInstrument: true, scope: 'instrument', id: instrumentId, periodKey: flowPeriod, periods: flowPeriods('instrument', instrumentId), editable: false, currency: inst.currency }) + '</div>' +
-    (isForeign ? '<div class="info-banner">' + icon('swap') + '<div>以 ' + inst.currency + ' 计价，按当前汇率 <b>1 ' + inst.currency + ' = ' + fmtPrice(fxToBase(inst.currency), baseCurrency()) + '</b> 折算。汇兑损益 <b class="' + pnlClass(im.fxPnl) + '">' + pnlText(im.fxPnl) + '</b> ' + (state.settings.considerFx ? '已计入' : '未计入') + '累计收益。</div></div>' : '') +
-    '<div class="detail-section"><div class="section-head"><div><h2>更新记录</h2><div class="sub">买入、卖出、分红与估值更新</div></div><button class="text-btn" data-action="open-records" data-scope="instrument" data-id="' + esc(inst.id) + '">全部 ' + records.length + '</button></div>' +
+    '<div class="detail-section instrument-flow" style="margin-top:14px">' + flowDiagramHTML(instrumentFlow(instrumentId, flowPeriod), { isInstrument: true, scope: 'instrument', id: instrumentId, periodKey: flowPeriod, periods: flowPeriods('instrument', instrumentId), editable: false, currency: inst.currency }) + '</div>' +
+    (isForeign ? '<div class="info-banner instrument-fx-banner">' + icon('swap') + '<div>以 ' + inst.currency + ' 计价，按当前汇率 <b>1 ' + inst.currency + ' = ' + fmtPrice(fxToBase(inst.currency), baseCurrency()) + '</b> 折算。汇兑损益 <b class="' + pnlClass(im.fxPnl) + '">' + pnlText(im.fxPnl) + '</b> ' + (state.settings.considerFx ? '已计入' : '未计入') + '累计收益。</div></div>' : '') +
+    '<div class="detail-section instrument-records"><div class="section-head"><div><h2>更新记录</h2><div class="sub">买入、卖出、分红与估值更新</div></div><button class="text-btn" data-action="open-records" data-scope="instrument" data-id="' + esc(inst.id) + '">全部 ' + records.length + '</button></div>' +
       recordsCardHTML(records, { limit: 7, moreAction: 'open-records', moreScope: 'instrument', id: inst.id }) + '</div>' +
     '<div style="height:12px"></div>' +
   '</div>' +
@@ -4987,7 +5007,7 @@ function instrumentOverviewHTML(im) {
   const weight = acct && acct.marketNative > 0 ? im.marketNative / acct.marketNative : null;
   const dd = instrumentDrawdown(im);
   const ann = im.annualizedNative;
-  return '<div class="detail-section">' +
+  return '<div class="detail-section instrument-overview">' +
     '<div class="section-head"><div><h2>持仓概览</h2><div class="sub">持仓成本、收益拆解与交易统计</div></div><span class="tiny">' + c + '</span></div>' +
     '<div class="list-card card-pad-sm" style="padding:4px 14px">' +
       positionGroupTitle('持仓与成本') +
@@ -5092,7 +5112,7 @@ function instrumentChartCard(im) {
   }
   const ccyLabel = mode === 'profit' ? inst.currency + ' 累计收益' : inst.currency + ' 原币计价';
   const sourceLabel = inst.market ? '行情自动同步' : '按记录生成';
-  return '<div class="detail-chart-card">' +
+  return '<div class="detail-chart-card instrument-chart">' +
     '<div class="chart-head"><div><h2>' + (mode === 'profit' ? '累计收益' : '价格走势') + '</h2><div class="sub">' + (rangeText || '暂无数据') + ' · ' + ccyLabel + ' · ' + sourceLabel + (mode === 'price' && recordsForInstrument(inst.id).some(r => r.type === 'buy' || r.type === 'sell') ? ' · B 买入 / S 卖出' : '') + '</div></div>' +
       '<div class="segmented small chart-toggle"><button class="seg ' + (mode === 'price' ? 'active' : '') + '" data-action="set-instrument-chart-mode" data-value="price">价格</button><button class="seg ' + (mode === 'profit' ? 'active' : '') + '" data-action="set-instrument-chart-mode" data-value="profit">累计收益</button></div></div>' +
     chartHTML + metricsHTML +
@@ -5355,8 +5375,10 @@ function renderCalendarPage() {
     '<button class="icon-btn" data-action="cal-prev" aria-label="上一页">' + icon('chevronLeft') + '</button>' +
     '<button class="icon-btn" data-action="cal-next" aria-label="下一页"' + (atLatest ? ' disabled' : '') + '>' + icon('chevronRight') + '</button></div></div>';
 
-  return header + controls + summaryHTML + nav + bodyHTML +
-    '<div class="cal-legend"><span>' + (mode === 'day' || mode === 'week' ? '当月每日盈亏' : mode === 'month' ? '本年每月盈亏' : '年度收益') + '</span><div class="scale"><span class="loss">亏</span><i class="l3"></i><i class="l2"></i><i class="l1"></i><i></i><i class="g1"></i><i class="g2"></i><i class="g3"></i><span class="gain">盈</span></div></div>' +
+  const boardHTML = nav + bodyHTML +
+    '<div class="cal-legend"><span>' + (mode === 'day' || mode === 'week' ? '当月每日盈亏' : mode === 'month' ? '本年每月盈亏' : '年度收益') + '</span><div class="scale"><span class="loss">亏</span><i class="l3"></i><i class="l2"></i><i class="l1"></i><i></i><i class="g1"></i><i class="g2"></i><i class="g3"></i><span class="gain">盈</span></div></div>';
+  return header + controls + summaryHTML +
+    '<div class="cal-board">' + boardHTML + '</div>' +
     '<div style="height:10px"></div>' +
     portfolioTrendCard(portfolioSummary(), { series, title: gid === 'all' ? '组合走势' : series.name + '走势', scopeName: series.name }) +
     '<div style="height:10px"></div>';
@@ -5991,6 +6013,10 @@ function renderSettingsPage() {
   const p = portfolioSummary();
   const base = baseCurrency();
   const foreign = Object.keys(CURRENCY_META).filter(c => c !== base);
+  const switchHref = (IS_DESKTOP ? MOBILE_HREF : PC_HREF) + (location.hash && location.hash.indexOf('#/') === 0 ? location.hash : '#/assets');
+  const deviceCard = IS_DESKTOP
+    ? '<div class="install-card desktop-note">' + icon('shield') + '<div><div class="t">电脑版 · 本地账本</div><div class="s">与手机版共用同一套数据格式；数据只保存在当前浏览器。跨设备请用导出/导入。</div></div></div>'
+    : '<div class="install-card">' + icon('sparkles') + '<div><div class="t">把这个页面装进主屏幕</div><div class="s">在 Safari 中点「分享」→「添加到主屏幕」，即可像 App 一样全屏使用。数据保存在当前浏览器。</div></div></div>';
   return pageTop({
     eyebrow: 'SETTINGS',
     title: '我的',
@@ -5998,10 +6024,10 @@ function renderSettingsPage() {
     actions: '<button class="icon-btn" data-action="toggle-hide" aria-label="隐藏金额">' + icon(state.settings.hideAmounts ? 'eyeOff' : 'eye') + '</button>'
   }) +
   '<section class="profile-card">' +
-    '<div class="profile-top"><div class="profile-logo">余</div><div><div class="profile-name">有余 · 投资组合</div><div class="profile-sub">iPhone 上的私人资产账本 · 无需登录</div></div></div>' +
+    '<div class="profile-top"><div class="profile-logo">余</div><div><div class="profile-name">有余 · 投资组合</div><div class="profile-sub">' + (IS_DESKTOP ? '桌面上的私人资产账本' : 'iPhone 上的私人资产账本') + ' · 无需登录</div></div></div>' +
     '<div class="profile-stats"><div><div class="l">组合总资产</div><div class="v">' + fmtMoney(p.totalMarket, { compact: true }) + '</div></div><div><div class="l">累计收益</div><div class="v ' + pnlClass(p.profit) + '">' + pnlText(p.profit, { compact: true }) + '</div></div><div><div class="l">账户</div><div class="v">' + p.accounts.length + ' <span style="font-size:8px;color:var(--faint)">个</span></div></div></div>' +
   '</section>' +
-  '<div class="install-card">' + icon('sparkles') + '<div><div class="t">把这个页面装进主屏幕</div><div class="s">在 Safari 中点「分享」→「添加到主屏幕」，即可像 App 一样全屏使用。数据保存在当前浏览器。</div></div></div>' +
+  deviceCard +
   '<div class="settings-group"><div class="label">记账偏好</div><div class="settings-card">' +
     settingRowHTML('记账本币', base + ' · ' + baseMeta().name, 'wallet', 'open-base-currency', '所有统计统一折算为本币') +
     settingRowHTML('日间模式', state.settings.theme === 'light' ? '已开启' : '已关闭', state.settings.theme === 'light' ? 'sun' : 'moon', 'toggle-theme', '切换浅色界面，适合白天使用', '<span class="switch ' + (state.settings.theme === 'light' ? 'on' : '') + '"></span>') +
@@ -6039,9 +6065,12 @@ function renderSettingsPage() {
     '<input type="file" id="import-file" accept=".json,application/json" style="display:none">' +
   '</div></div>' +
   '<div class="settings-group"><div class="label">关于</div><div class="settings-card">' +
+    (IS_DESKTOP
+      ? '<a class="setting-row" href="' + switchHref + '"><span class="setting-icon blue">' + icon('external') + '</span><span class="setting-main"><span class="t">切换到手机版</span><span class="s">打开为 iPhone 设计的紧凑界面</span></span><span class="setting-value">打开' + icon('chevronRight') + '</span></a>'
+      : '<a class="setting-row" href="' + switchHref + '"><span class="setting-icon blue">' + icon('grid') + '</span><span class="setting-main"><span class="t">切换到电脑版</span><span class="s">左侧导航、宽屏表格与双栏布局</span></span><span class="setting-value">打开' + icon('chevronRight') + '</span></a>') +
     '<div class="setting-row"><span class="setting-icon accent">' + icon('shield') + '</span><span class="setting-main"><span class="t">本地存储</span><span class="s">所有数据保存在浏览器 localStorage，不上传服务器。清除浏览器数据会丢失账本，请定期导出备份。</span></span></div>' +
     '<div class="setting-row"><span class="setting-icon blue">' + icon('chart') + '</span><span class="setting-main"><span class="t">行情数据</span><span class="s">名称搜索来自新浪财经，最新报价来自腾讯行情；公开接口可能受网络影响，仅供估值参考。</span></span></div>' +
-    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v6.5.20</span><span class="s">为 iPhone 打造 · 纯 HTML 单文件 · 本地存储</span></span></div>' +
+    '<div class="setting-row"><span class="setting-icon">' + icon('info') + '</span><span class="setting-main"><span class="t">有余 v' + APP_VERSION + '</span><span class="s">' + (IS_DESKTOP ? '为桌面打造' : '为 iPhone 打造') + ' · 纯 HTML 单文件 · 本地存储</span></span></div>' +
   '</div></div>' +
   '<div class="version">' + esc(APP_NAME) + ' · 投资组合<br>不构成投资建议 · 数据仅供参考</div>' +
   '<div style="height:8px"></div>';
@@ -7677,7 +7706,7 @@ function renderImportPage() {
   if (!importInstrumentId || !(account.instruments || []).some(i => i.id === importInstrumentId)) importInstrumentId = (account.instruments || []).length === 1 ? account.instruments[0].id : '';
   return backHead('截图导入', '', '#/settings') +
     '<div class="detail-body">' +
-      '<div class="import-help">' + icon('search') + '<div><b>从截图导入</b><p>用 iPhone 相册或分享菜单提取文字，复制后回到这里读取。没有自动上传，截图不会离开手机。</p></div></div>' +
+      '<div class="import-help">' + icon('search') + '<div><b>从截图导入</b><p>用手机相册或分享菜单提取文字，复制后回到这里读取。没有自动上传，截图不会离开你的设备。</p></div></div>' +
       '<div class="form-grid" style="margin-top:14px">' +
         fieldHTML({ id: 'import-account', label: '导入到账户', type: 'select', value: importAccountId, options: list.map(a => ({ value: a.id, label: a.name + ' · ' + a.currency })) }) +
         '<div class="field"><label>标的</label><div class="import-auto-target">按每行文字自动识别，不需要选择</div></div>' +
