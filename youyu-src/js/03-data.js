@@ -535,6 +535,8 @@ function computeInstrumentMetrics(instId) {
   const realizedBase = realizedNative * curFx;
   const dividendBase = dividendsNative * curFx;
   const feeBase = feeNative * curFx;
+  const endingTotalBase = marketBase + dividendBase - feeBase;
+  const endingTotalNative = marketNative + dividendsNative - feeNative;
   const baseProfit = realizedBase + pricePnlBase + dividendBase - feeBase;
   const fullProfit = baseProfit + fxPnlBase;
   const consider = state.settings.considerFx;
@@ -567,7 +569,7 @@ function computeInstrumentMetrics(instId) {
     realizedNative, realized: realizedBase, realizedBase,
     dividendsNative, dividendBase, incomeBase: dividendBase,
     pricePnl: pricePnlBase, fxPnl: fxPnlBase,
-    baseProfit, fullProfit, profit: displayProfit, displayProfit,
+    endingTotalBase, endingTotalNative, baseProfit, fullProfit, profit: displayProfit, displayProfit,
     unrealized: pricePnlBase + (consider ? fxPnlBase : 0),
     totalPnlNative, returnPct, profitNativeInst, returnPctNative, unrealizedNativeInst, dayPnlNative, instFx,
     totalBuyNative, totalBuyBase: totalInvestedBase, totalSellNative,
