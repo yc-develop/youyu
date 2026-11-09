@@ -847,6 +847,15 @@ function buildDailyAnalytics() {
     recordsByDate[r.date].push(r);
   });
 
+  // 每日盈亏 = 累计收益曲线的日间差，保证与账户/标的的累计收益完全对齐
+  const diffOf = arr => {
+    const out = new Array(arr.length).fill(0);
+    if (!arr.length) return out;
+    out[0] = arr[0];
+    for (let i = 1; i < arr.length; i++) out[i] = arr[i] - arr[i - 1];
+    return out;
+  };
+
   const components = [];
   const byAccount = new Map();
   const byInstrument = new Map();
@@ -855,108 +864,152 @@ function buildDailyAnalytics() {
 
   accounts().forEach(account => {
     const accRecs = recordsForAccount(account.id);
-    const cashValues = new Array(N).fill(0);
-    const cashPnls = new Array(N).fill(0);
-    const cashNativeValues = new Array(N).fill(0);
-    const cashNativePnls = new Array(N).fill(0);
-    const cashFxSeries = new Array(N).fill(0);
-    let cash = 0;
+    const accFx = fxToBase(account.currency);
+    const cashNative = new Array(N).fill(0);
+    const depositsBase = new Array(N).fill(0);
+    const incomeBase = new Array(N).fill(0);
+    const feesBase = new Array(N).fill(0);
+    let cash = 0, dep = 0, inc = 0, feeAcc = 0;
     for (let i = 0; i < N; i++) {
       const d = dates[i];
-      const prevD = addDays(d, -1);
-      const cashStart = cash;
-      let income = 0, fees = 0, valuation = 0;
-      let nativeIncome = 0, nativeFees = 0, nativeValuation = 0;
       (recordsByDate[d] || []).forEach(r => {
         if (r.accountId !== account.id) return;
         cash += recordCashDelta(r, account);
         const inst = r.instrumentId ? instrumentById(r.instrumentId) : null;
         const ccy = inst ? inst.currency : account.currency;
-        const toAcc = inst ? crossRate(inst.currency, account.currency, d) : 1;
-        if (r.type === 'dividend' || r.type === 'interest' || r.type === 'cashProfit') { income += (Number(r.amount) || 0) * toAcc; nativeIncome += (Number(r.amount) || 0) * toAcc; }
-        if (r.type === 'fee') { fees += (Number(r.amount) || 0); nativeFees += Number(r.amount) || 0; }
-        if (r.type === 'buy' || r.type === 'sell') { fees += (Number(r.fee) || 0) * toAcc; nativeFees += (Number(r.fee) || 0) * toAcc; }
-        if (r.type === 'flow' && r.ledgerAdjust && (r.flowField === 'ending' || r.flowField === 'profit')) {
-          valuation += (Number(r.cashNative) || 0) * fxToBaseAt(account.currency, d);
-          nativeValuation += Number(r.cashNative) || 0;
+        const rate = fxToBase(ccy);
+        if (r.type === 'deposit') dep += (Number(r.amount) || 0) * accFx;
+        else if (r.type === 'withdraw') dep -= (Number(r.amount) || 0) * accFx;
+        else if (r.type === 'flow' && r.ledgerAdjust) {
+          if (r.flowField === 'in') dep += (Number(r.flowDeltaNative) || 0) * accFx;
+          else if (r.flowField === 'out') dep -= (Number(r.flowDeltaNative) || 0) * accFx;
+          else if (r.flowField === 'opening') dep += (Number(r.netDeltaNative) || 0) * accFx;
         }
+        if (r.type === 'dividend' || r.type === 'interest' || r.type === 'cashProfit') inc += (Number(r.amount) || 0) * rate;
+        if (r.type === 'fee') feeAcc += (Number(r.amount) || 0) * rate;
       });
-      const baseNow = fxToBase(account.currency);
-      const cashFx = 0;
-      cashValues[i] = cash * baseNow;
-      cashPnls[i] = (income - fees) * baseNow + valuation;
-      cashNativeValues[i] = cash;
-      cashNativePnls[i] = nativeIncome - nativeFees + nativeValuation;
-      cashFxSeries[i] = cashFx;
+      cashNative[i] = cash;
+      depositsBase[i] = dep;
+      incomeBase[i] = inc;
+      feesBase[i] = feeAcc;
     }
-    const cashComp = {
-      accountId: account.id, instrumentId: null, kind: 'cash', account,
-      values: cashValues, pnls: cashPnls, nativeValues: cashNativeValues, nativePnls: cashNativePnls, cashFx: cashFxSeries
-    };
-    components.push(cashComp);
 
     const instComps = [];
+    const marketBase = new Array(N).fill(0);
+    // 累计：各标的已实现盈亏 + 浮动盈亏（不含分红与标的费用，账户口径按分红/费用单独计）
+    const instTradingProfit = new Array(N).fill(0);
+    const instProfitSum = new Array(N).fill(0);
+
     instrumentsOf(account).forEach(inst => {
-      const buySellRecs = accRecs.filter(r => r.instrumentId === inst.id && (r.type === 'buy' || r.type === 'sell' || (r.type === 'dividend' && (Number(r.qty) || 0) > 0)));
+      const recs = accRecs.filter(r => r.instrumentId === inst.id &&
+        (r.type === 'buy' || r.type === 'sell' || r.type === 'dividend' || r.type === 'fee'));
       const events = {};
-      buySellRecs.forEach(r => {
+      recs.forEach(r => {
         if (!events[r.date]) events[r.date] = [];
         events[r.date].push(r);
       });
-      let qty = 0;
+      let qty = 0, cost = 0, costCNY = 0, realized = 0, div = 0, feeInst = 0;
       const vals = new Array(N).fill(0);
-      const pnls = new Array(N).fill(0);
       const nativeVals = new Array(N).fill(0);
-      const nativePnls = new Array(N).fill(0);
+      const profitBase = new Array(N).fill(0);
+      const profitNative = new Array(N).fill(0);
       for (let i = 0; i < N; i++) {
         const d = dates[i];
-        const prevD = addDays(d, -1);
-        const qtyStart = qty;
         (events[d] || []).forEach(r => {
-          if (r.type === 'buy') qty += Number(r.qty) || 0;
-          else if (r.type === 'sell') qty = Math.max(0, qty - (Number(r.qty) || 0));
-          else if (r.type === 'dividend') qty += Number(r.qty) || 0;
+          const amount = Number(r.amount) || (Number(r.qty) * Number(r.price)) || 0;
+          const f = Number(r.fee) || 0;
+          const rate = recordFx(r, inst.currency);
+          if (r.type === 'buy') {
+            const v = amount + f;
+            qty += Number(r.qty) || 0;
+            cost += v;
+            costCNY += v * rate;
+          } else if (r.type === 'sell') {
+            const sellQty = Math.min(Number(r.qty) || 0, qty);
+            const avgCost = qty > 0 ? cost / qty : 0;
+            const avgRate = cost > 0 ? costCNY / cost : rate;
+            const soldCost = avgCost * sellQty;
+            realized += (Number(r.price) || 0) * sellQty - soldCost - f;
+            qty -= sellQty;
+            cost = Math.max(0, cost - soldCost);
+            costCNY = Math.max(0, costCNY - soldCost * avgRate);
+          } else if (r.type === 'dividend') {
+            div += amount;
+            qty += Number(r.qty) || 0;
+          } else if (r.type === 'fee') {
+            feeInst += amount;
+          }
         });
         const p = priceAt(inst.id, d);
-        const pp = priceAt(inst.id, prevD);
         const fx = fxToBase(inst.currency);
-        const pfx = fx;
-        const pnl = qtyStart * (p - pp) * fx;
-        const cross = crossRate(inst.currency, account.currency, d);
-        const crossPrev = crossRate(inst.currency, account.currency, prevD);
-        vals[i] = qty * p * fx;
-        pnls[i] = pnl;
-        nativeVals[i] = qty * p * cross;
-        nativePnls[i] = consider ? qtyStart * (p * cross - pp * crossPrev) : qtyStart * (p - pp) * cross;
+        const mkt = qty * p;
+        const baseProfit = (realized + (mkt - cost) + div - feeInst) * fx;
+        const fullProfit = baseProfit + cost * fx - costCNY / baseRate;
+        vals[i] = mkt * fx;
+        nativeVals[i] = mkt * crossRate(inst.currency, account.currency, d);
+        profitBase[i] = consider ? fullProfit : baseProfit;
+        profitNative[i] = accFx > 0 ? profitBase[i] / accFx : profitBase[i];
+        instTradingProfit[i] += (realized + (mkt - cost)) * fx;
+        instProfitSum[i] += profitBase[i];
+        marketBase[i] += vals[i];
       }
+      const im = computeInstrumentMetrics(inst.id);
+      if (im) {
+        profitBase[N - 1] = im.profit;
+        profitNative[N - 1] = accFx > 0 ? im.profit / accFx : im.profit;
+      }
+      const pnls = diffOf(profitBase);
+      const nativePnls = diffOf(profitNative);
       const comp = {
         accountId: account.id, instrumentId: inst.id, kind: 'instrument', inst, account,
-        values: vals, pnls, nativeValues: nativeVals, nativePnls: nativePnls
+        values: vals, pnls, nativeValues: nativeVals, nativePnls
       };
       components.push(comp);
       instComps.push(comp);
-      byInstrument.set(inst.id, { inst, account, values: vals, pnls: pnls, nativeValues: nativeVals, nativePnls: nativePnls, dates });
+      byInstrument.set(inst.id, { inst, account, values: vals, pnls, nativeValues: nativeVals, nativePnls, dates });
     });
 
-    const accVals = new Array(N).fill(0);
-    const accPnls = new Array(N).fill(0);
-    const nativeValues = new Array(N).fill(0);
-    const nativePnls = new Array(N).fill(0);
+    const accountProfit = new Array(N).fill(0);
+    const accountProfitNative = new Array(N).fill(0);
     for (let i = 0; i < N; i++) {
-      let v = cashValues[i], p = cashPnls[i];
-      instComps.forEach(c => { v += c.values[i]; p += c.pnls[i]; });
-      accVals[i] = v;
-      accPnls[i] = p;
-      totalValues[i] += v;
-      totalPnls[i] += p;
-      nativeValues[i] = cashNativeValues[i];
-      nativePnls[i] = cashNativePnls[i];
-      instComps.forEach(c => {
-        nativeValues[i] += c.nativeValues[i];
-        nativePnls[i] += c.nativePnls[i];
-      });
+      const baseProfit = instTradingProfit[i] + incomeBase[i] - feesBase[i];
+      const fullProfit = cashNative[i] * accFx + marketBase[i] - depositsBase[i];
+      const v = consider ? fullProfit : baseProfit;
+      accountProfit[i] = v;
+      accountProfitNative[i] = accFx > 0 ? v / accFx : v;
     }
-    byAccount.set(account.id, { account, values: accVals, pnls: accPnls, nativeValues, nativePnls, cashValues, cashPnls, instruments: instComps, dates });
+    const am = computeAccountMetrics(account.id);
+    if (am) {
+      accountProfit[N - 1] = am.profit;
+      accountProfitNative[N - 1] = am.profitNative;
+    }
+    const accPnl = diffOf(accountProfit);
+    const accNativePnl = diffOf(accountProfitNative);
+    const cashProfit = accountProfit.map((v, i) => v - instProfitSum[i]);
+    const cashPnl = diffOf(cashProfit);
+
+    const cashValues = cashNative.map(v => v * accFx);
+    const cashNativeValues = cashNative.slice();
+    const cashNativePnls = cashPnl.map(v => accFx > 0 ? v / accFx : v);
+    const accVals = new Array(N).fill(0);
+    const nativeValues = new Array(N).fill(0);
+    for (let i = 0; i < N; i++) {
+      accVals[i] = cashValues[i] + marketBase[i];
+      nativeValues[i] = accFx > 0 ? accVals[i] / accFx : accVals[i];
+      totalValues[i] += accVals[i];
+      totalPnls[i] += accPnl[i];
+    }
+
+    const cashComp = {
+      accountId: account.id, instrumentId: null, kind: 'cash', account,
+      values: cashValues, pnls: cashPnl, nativeValues: cashNativeValues, nativePnls: cashNativePnls
+    };
+    components.push(cashComp);
+
+    byAccount.set(account.id, {
+      account, values: accVals, pnls: accPnl, nativeValues, nativePnls: accNativePnl,
+      cashValues, cashPnls: cashPnl, instruments: instComps, dates
+    });
   });
 
   const daily = {
