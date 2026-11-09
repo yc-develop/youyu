@@ -285,7 +285,7 @@ ul,ol{margin:0;padding:0;list-style:none}
 .hero-note b{color:var(--ink-2);font-weight:600}
 
 /* ---------- quick actions ---------- */
-.quick-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:12px}
+.quick-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;margin-top:12px}
 .quick-item{
   display:flex;align-items:center;justify-content:center;gap:6px;
   height:40px;border-radius:13px;background:rgba(255,255,255,.045);border:1px solid var(--line);
@@ -295,6 +295,10 @@ ul,ol{margin:0;padding:0;list-style:none}
 .quick-item .icon{width:15px;height:15px;color:var(--accent)}
 .quick-item.blue .icon{color:var(--blue)}
 .quick-item.violet .icon{color:var(--violet)}
+.quick-item.teal .icon{color:var(--teal)}
+.quick-item.busy{opacity:.75}
+.quick-item.busy .icon{animation:spin .9s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 
 /* ---------- account rows ---------- */
 .list-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
@@ -1481,7 +1485,7 @@ html[data-theme="light"] .acct-icon.brand{border-color:rgba(16,24,40,.1);box-sha
 'use strict';
 
 const APP_NAME = '有余';
-const APP_VERSION = '6.5.24';
+const APP_VERSION = '6.5.25';
 const IS_DESKTOP = document.documentElement.getAttribute('data-layout') === 'desktop';
 const PC_HREF = 'pc/index.html';
 const MOBILE_HREF = /\/pc\//.test(location.pathname) ? '../index.html' : 'index.html';
@@ -4734,6 +4738,7 @@ function renderAssetsPage() {
   '</section>' +
   '<div class="quick-grid">' +
     '<button class="quick-item" data-action="open-record-picker">' + icon('plus') + '记一笔</button>' +
+    '<button class="quick-item teal" data-action="refresh-all-quotes">' + icon('refresh') + '刷新全部行情</button>' +
     '<button class="quick-item blue" data-action="go" data-href="#/calendar">' + icon('calendar') + '收益日历</button>' +
     '<button class="quick-item violet" data-action="go" data-href="#/rebalance">' + icon('scale') + '再平衡</button>' +
   '</div>' +
@@ -7330,6 +7335,41 @@ async function refreshQuoteForInstrument(id, opts) {
     return false;
   }
 }
+let refreshAllRunning = false;
+async function refreshAllMarketQuotes(btn) {
+  if (refreshAllRunning) return;
+  const ids = [];
+  accounts().forEach(a => (a.instruments || []).forEach(i => {
+    if (i.market && i.market.code && Number(i.qty) > 0.000001) ids.push(i.id);
+  }));
+  if (!ids.length) {
+    toast('当前没有需要刷新的行情标的', 'error');
+    return;
+  }
+  refreshAllRunning = true;
+  const setLabel = t => { if (btn && btn.isConnected) btn.innerHTML = icon('refresh') + esc(t); };
+  if (btn) { btn.classList.add('busy'); btn.disabled = true; }
+  setLabel('刷新中 0/' + ids.length);
+  let ok = 0;
+  try {
+    for (let k = 0; k < ids.length; k++) {
+      const done = await refreshQuoteForInstrument(ids[k], { silent: true });
+      if (done) ok++;
+      setLabel('刷新中 ' + (k + 1) + '/' + ids.length);
+      await new Promise(resolve => setTimeout(resolve, 160));
+    }
+    state.meta = state.meta || {};
+    state.meta.marketSyncedAt = nowISO();
+    saveState();
+  } finally {
+    refreshAllRunning = false;
+    if (btn) { btn.classList.remove('busy'); btn.disabled = false; }
+  }
+  const failed = ids.length - ok;
+  toast(failed ? '行情已刷新 · 成功 ' + ok + ' 个，失败 ' + failed + ' 个' : '行情已刷新 · 共 ' + ok + ' 个标的', failed ? 'error' : 'success');
+  refreshPage();
+}
+
 async function autoRefreshMarketQuotes() {
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
   const last = Date.parse((state.meta && state.meta.marketSyncedAt) || '');
@@ -8032,6 +8072,8 @@ function handleAction(action, el) {
       closeAllSheets(); setTimeout(() => openInstrumentMenu(d.id), 50); return;
     case 'refresh-quote':
       closeAllSheets(); setTimeout(() => refreshQuoteForInstrument(d.id), 50); return;
+    case 'refresh-all-quotes':
+      closeAllSheets(); setTimeout(() => refreshAllMarketQuotes(el), 50); return;
     case 'match-market': {
       const im = instrumentById(d.id);
       if (!im) return;

@@ -67,6 +67,8 @@ function handleAction(action, el) {
       closeAllSheets(); setTimeout(() => openInstrumentMenu(d.id), 50); return;
     case 'refresh-quote':
       closeAllSheets(); setTimeout(() => refreshQuoteForInstrument(d.id), 50); return;
+    case 'refresh-all-quotes':
+      closeAllSheets(); setTimeout(() => refreshAllMarketQuotes(el), 50); return;
     case 'match-market': {
       const im = instrumentById(d.id);
       if (!im) return;

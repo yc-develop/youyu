@@ -218,6 +218,41 @@ async function refreshQuoteForInstrument(id, opts) {
     return false;
   }
 }
+let refreshAllRunning = false;
+async function refreshAllMarketQuotes(btn) {
+  if (refreshAllRunning) return;
+  const ids = [];
+  accounts().forEach(a => (a.instruments || []).forEach(i => {
+    if (i.market && i.market.code && Number(i.qty) > 0.000001) ids.push(i.id);
+  }));
+  if (!ids.length) {
+    toast('当前没有需要刷新的行情标的', 'error');
+    return;
+  }
+  refreshAllRunning = true;
+  const setLabel = t => { if (btn && btn.isConnected) btn.innerHTML = icon('refresh') + esc(t); };
+  if (btn) { btn.classList.add('busy'); btn.disabled = true; }
+  setLabel('刷新中 0/' + ids.length);
+  let ok = 0;
+  try {
+    for (let k = 0; k < ids.length; k++) {
+      const done = await refreshQuoteForInstrument(ids[k], { silent: true });
+      if (done) ok++;
+      setLabel('刷新中 ' + (k + 1) + '/' + ids.length);
+      await new Promise(resolve => setTimeout(resolve, 160));
+    }
+    state.meta = state.meta || {};
+    state.meta.marketSyncedAt = nowISO();
+    saveState();
+  } finally {
+    refreshAllRunning = false;
+    if (btn) { btn.classList.remove('busy'); btn.disabled = false; }
+  }
+  const failed = ids.length - ok;
+  toast(failed ? '行情已刷新 · 成功 ' + ok + ' 个，失败 ' + failed + ' 个' : '行情已刷新 · 共 ' + ok + ' 个标的', failed ? 'error' : 'success');
+  refreshPage();
+}
+
 async function autoRefreshMarketQuotes() {
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
   const last = Date.parse((state.meta && state.meta.marketSyncedAt) || '');

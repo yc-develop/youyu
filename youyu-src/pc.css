@@ -583,7 +583,7 @@ html[data-layout="desktop"][data-theme="light"] .version{color:rgba(16,24,40,.32
   html[data-layout="desktop"] .screen{padding-left:24px;padding-right:24px}
   html[data-layout="desktop"] .page-assets > .hero,
   html[data-layout="desktop"] .page-assets > .quick-grid{grid-column:1/-1}
-  html[data-layout="desktop"] .page-assets > .quick-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));flex-direction:initial}
+  html[data-layout="desktop"] .page-assets > .quick-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));flex-direction:initial}
   html[data-layout="desktop"] .page-assets > .quick-grid .quick-item{min-height:56px;flex:none}
   html[data-layout="desktop"] .page-settings > .settings-group{grid-column:1/-1}
   html[data-layout="desktop"] .page-stats > .topbar,

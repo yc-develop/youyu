@@ -267,7 +267,7 @@ ul,ol{margin:0;padding:0;list-style:none}
 .hero-note b{color:var(--ink-2);font-weight:600}
 
 /* ---------- quick actions ---------- */
-.quick-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:12px}
+.quick-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;margin-top:12px}
 .quick-item{
   display:flex;align-items:center;justify-content:center;gap:6px;
   height:40px;border-radius:13px;background:rgba(255,255,255,.045);border:1px solid var(--line);
@@ -277,6 +277,10 @@ ul,ol{margin:0;padding:0;list-style:none}
 .quick-item .icon{width:15px;height:15px;color:var(--accent)}
 .quick-item.blue .icon{color:var(--blue)}
 .quick-item.violet .icon{color:var(--violet)}
+.quick-item.teal .icon{color:var(--teal)}
+.quick-item.busy{opacity:.75}
+.quick-item.busy .icon{animation:spin .9s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 
 /* ---------- account rows ---------- */
 .list-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}

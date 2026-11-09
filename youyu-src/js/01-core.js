@@ -4,7 +4,7 @@
 'use strict';
 
 const APP_NAME = '有余';
-const APP_VERSION = '6.5.24';
+const APP_VERSION = '6.5.25';
 const IS_DESKTOP = document.documentElement.getAttribute('data-layout') === 'desktop';
 const PC_HREF = 'pc/index.html';
 const MOBILE_HREF = /\/pc\//.test(location.pathname) ? '../index.html' : 'index.html';

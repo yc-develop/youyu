@@ -59,6 +59,7 @@ function renderAssetsPage() {
   '</section>' +
   '<div class="quick-grid">' +
     '<button class="quick-item" data-action="open-record-picker">' + icon('plus') + '记一笔</button>' +
+    '<button class="quick-item teal" data-action="refresh-all-quotes">' + icon('refresh') + '刷新全部行情</button>' +
     '<button class="quick-item blue" data-action="go" data-href="#/calendar">' + icon('calendar') + '收益日历</button>' +
     '<button class="quick-item violet" data-action="go" data-href="#/rebalance">' + icon('scale') + '再平衡</button>' +
   '</div>' +
