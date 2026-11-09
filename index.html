@@ -7340,7 +7340,7 @@ async function refreshAllMarketQuotes(btn) {
   if (refreshAllRunning) return;
   const ids = [];
   accounts().forEach(a => (a.instruments || []).forEach(i => {
-    if (i.market && i.market.code && Number(i.qty) > 0.000001) ids.push(i.id);
+    if (i.market && i.market.code) ids.push(i.id);
   }));
   if (!ids.length) {
     toast('当前没有需要刷新的行情标的', 'error');
