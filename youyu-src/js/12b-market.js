@@ -244,6 +244,8 @@ async function refreshAllMarketQuotes(btn) {
     state.meta = state.meta || {};
     state.meta.marketSyncedAt = nowISO();
     saveState();
+  } catch (e) {
+    console.warn('批量刷新行情失败', e);
   } finally {
     refreshAllRunning = false;
     if (btn) { btn.classList.remove('busy'); btn.disabled = false; }
