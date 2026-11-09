@@ -143,13 +143,17 @@ function openToleranceSheet() {
 }
 
 /* ---------- data actions ---------- */
+function backupFileStamp() {
+  const d = new Date();
+  return todayKey() + '_' + pad2(d.getHours()) + '-' + pad2(d.getMinutes()) + '-' + pad2(d.getSeconds());
+}
 function downloadBackup() {
   const text = exportData();
   const blob = new Blob([text], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'youyu-backup-' + todayKey() + '.json';
+  a.download = 'youyu-backup-' + backupFileStamp() + '.json';
   document.body.appendChild(a);
   a.click();
   setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 400);

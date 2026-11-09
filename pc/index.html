@@ -2081,7 +2081,7 @@ html[data-layout="desktop"][data-theme="light"] .version{color:rgba(16,24,40,.32
 'use strict';
 
 const APP_NAME = '有余';
-const APP_VERSION = '6.5.26';
+const APP_VERSION = '6.5.27';
 const IS_DESKTOP = document.documentElement.getAttribute('data-layout') === 'desktop';
 const PC_HREF = 'pc/index.html';
 const MOBILE_HREF = /\/pc\//.test(location.pathname) ? '../index.html' : 'index.html';
@@ -6805,13 +6805,17 @@ function openToleranceSheet() {
 }
 
 /* ---------- data actions ---------- */
+function backupFileStamp() {
+  const d = new Date();
+  return todayKey() + '_' + pad2(d.getHours()) + '-' + pad2(d.getMinutes()) + '-' + pad2(d.getSeconds());
+}
 function downloadBackup() {
   const text = exportData();
   const blob = new Blob([text], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'youyu-backup-' + todayKey() + '.json';
+  a.download = 'youyu-backup-' + backupFileStamp() + '.json';
   document.body.appendChild(a);
   a.click();
   setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 400);
