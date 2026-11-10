@@ -171,11 +171,32 @@ function donutLegendHTML(items, opts) {
 }
 
 /* ---------- flow diagram ---------- */
+function flowSplitHTML(f, opts) {
+  const o = opts || {};
+  if (!o.isInstrument) return '';
+  const div = Number(f.dividend) || 0;
+  const fee = Number(f.fees) || 0;
+  if (div <= 0 && fee <= 0) return '';
+  const money = o.money || (v => fmtMoney(v, { currency: f.currency || baseCurrency() }));
+  const signed = v => (v > 0 ? '+' : v < 0 ? '−' : '') + money(Math.abs(v));
+  const profit = Number(f.profit) || 0;
+  const trade = Number(f.tradePnl) || 0;
+  const floatP = Number(f.floatPeriod) || 0;
+  const realized = Number(f.realizedPeriod) || 0;
+  return '<div class="flow-split">' +
+    '<div class="flow-split-head"><span>' + (o.allTime ? '累计收益' : '本期收益') + '</span><b class="' + pnlClass(profit) + '">' + signed(profit) + '</b></div>' +
+    '<div class="flow-split-rows">' +
+      '<div class="flow-split-row"><span>交易盈亏</span><i>浮动 ' + signed(floatP) + ' · 已实现 ' + signed(realized) + '</i><b>' + signed(trade) + '</b></div>' +
+      '<div class="flow-split-row"><span>现金分红</span><i>已转入账户现金</i><b>+' + money(div) + '</b></div>' +
+      '<div class="flow-split-row"><span>标的费用</span><i>已从账户现金扣除</i><b>−' + money(fee) + '</b></div>' +
+    '</div>' +
+  '</div>';
+}
 function flowDiagramHTML(flow, opts) {
   const o = opts || {};
   const f = flow || {};
   const money = v => fmtMoney(v, { currency: o.currency || f.currency || baseCurrency() });
-  const pnl = Number(f.profit) || 0;
+  const pnl = Number(o.isInstrument ? f.tradePnl : f.profit) || 0;
   const pnlCls = pnl > 0 ? 'gain' : pnl < 0 ? 'loss' : '';
   const pnlSign = pnl > 0 ? '+' : pnl < 0 ? '-' : '';
   const scope = o.scope || '';
@@ -191,8 +212,8 @@ function flowDiagramHTML(flow, opts) {
     in: allTime ? '累计买入金额' : '本期买入金额',
     out: allTime ? '累计卖出净额' : '本期卖出净额',
     net: allTime ? '累计净买入' : '本期净买入',
-    profit: allTime ? '累计收益' : '本期收益',
-    opening: '期初总价值', ending: '期末总价值'
+    profit: allTime ? '交易盈亏' : '本期交易盈亏',
+    opening: '期初市值', ending: '期末持仓市值'
   } : {
     in: allTime ? '累计转入' : '本期转入',
     out: allTime ? '累计转出' : '本期转出',
@@ -202,11 +223,10 @@ function flowDiagramHTML(flow, opts) {
   };
   const showDividend = isInstrument && Number(f.dividend) > 0;
   const showFee = isInstrument && Number(f.fees) > 0;
-  const flowFormula = '期初' + (isInstrument ? '总价值' : '资产') + ' + ' + flowLabels.net + ' + ' + flowLabels.profit + ' = 期末' + (isInstrument ? '总价值 · 期末总价值 = 持仓市值 + 已收分红 − 标的费用' : '资产');
-  const profitSubParts = [];
-  if (showDividend) profitSubParts.push('含分红 ' + money(f.dividend));
-  if (showFee) profitSubParts.push('扣费用 ' + money(f.fees));
-  const profitSub = profitSubParts.length ? '<span class="flow-node-sub">' + profitSubParts.join(' · ') + '</span>' : '';
+  const flowFormula = isInstrument
+    ? '期初市值 + ' + flowLabels.net + ' + ' + flowLabels.profit + ' = 期末市值'
+    : '期初资产 + ' + flowLabels.net + ' + ' + flowLabels.profit + ' = 期末资产';
+  const profitSub = '';
   const node = (field, cls, label, valueHtml, extra) => {
     const attr = editable ? ' data-action="edit-flow-field" data-scope="' + esc(scope) + '" data-id="' + esc(id) + '" data-period="' + esc(periodKey) + '" data-field="' + esc(field) + '"' : '';
     const pen = editable ? '<span class="flow-edit">' + icon('pen') + '</span>' : '';
@@ -235,7 +255,8 @@ function flowDiagramHTML(flow, opts) {
       node('profit', 'flow-mid c ' + pnlCls, flowLabels.profit, pnlSign + money(Math.abs(pnl)), profitSub) +
       node('ending', 'flow-end total', flowLabels.ending, money(f.ending || 0)) +
     '</div>' +
-    '<div class="flow-legend"><span class="dot"></span>' + flowLabels.net + ' + ' + flowLabels.profit + ' = 期末 − 期初' + ((showDividend || showFee) ? ' · 分红/费用已计入' + flowLabels.profit : '') + (editable ? ' · 点击金额可校正' : '') + '</div>' +
+    '<div class="flow-legend"><span class="dot"></span>' + flowLabels.net + ' + ' + flowLabels.profit + ' = 期末 − 期初' + (!isInstrument && (showDividend || showFee) ? ' · 分红/费用已计入' + flowLabels.profit : '') + (editable ? ' · 点击金额可校正' : '') + '</div>' +
+    flowSplitHTML(f, { isInstrument, allTime, money }) +
     (f.adjusted ? '<div class="flow-adjusted-note">本周期已写入账本调整，资产统计已同步；可在更新记录中删除调整或撤销本周期调整。</div>' : '') +
   '</div>';
 }

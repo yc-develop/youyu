@@ -1288,6 +1288,30 @@ function accountFlow(accountId, periodKey) {
     adjusted: recs.some(r => r.type === 'flow' && r.ledgerAdjust && (key === 'all' || r.periodKey === key))
   };
 }
+function instrumentRealizedUntil(inst, date) {
+  const recs = recordsForInstrument(inst.id)
+    .filter(r => (r.type === 'buy' || r.type === 'sell' || r.type === 'dividend') && r.date <= date)
+    .slice()
+    .sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+  let qty = 0, cost = 0, realized = 0;
+  recs.forEach(rec => {
+    const amount = Number(rec.amount) || (Number(rec.qty) * Number(rec.price)) || 0;
+    const fee = Number(rec.fee) || 0;
+    if (rec.type === 'buy') {
+      qty += Number(rec.qty) || 0;
+      cost += amount + fee;
+    } else if (rec.type === 'sell') {
+      const sellQty = Math.min(Number(rec.qty) || 0, qty);
+      const avgCost = qty > 0 ? cost / qty : 0;
+      realized += (Number(rec.price) || 0) * sellQty - avgCost * sellQty - fee;
+      qty -= sellQty;
+      cost = Math.max(0, cost - avgCost * sellQty);
+    } else if (rec.type === 'dividend') {
+      qty += Number(rec.qty) || 0;
+    }
+  });
+  return realized;
+}
 function instrumentFlow(instrumentId, periodKey) {
   const im = computeInstrumentMetrics(instrumentId);
   if (!im) return null;
@@ -1302,34 +1326,30 @@ function instrumentFlow(instrumentId, periodKey) {
   }) : null;
   const beginning = bounds.start ? flowValueAt(series, addDays(bounds.start, -1)) : 0;
   const ending = flowValueAt(series, bounds.end);
-  let inAmt = 0, outAmt = 0, divAmt = 0, divBefore = 0, feeAmt = 0, feeBefore = 0;
+  let inAmt = 0, outAmt = 0, divAmt = 0, feeAmt = 0;
   recordsForInstrument(instrumentId).forEach(r => {
-    const amount = Number(r.amount) || 0;
-    if (r.type === 'dividend' && bounds.start && r.date < bounds.start) {
-      divBefore += amount;
-      return;
-    }
-    if (r.type === 'fee' && bounds.start && r.date < bounds.start) {
-      feeBefore += amount;
-      return;
-    }
     if (!flowInPeriod(r, bounds)) return;
+    const amount = Number(r.amount) || 0;
     const fee = Number(r.fee) || 0;
     if (r.type === 'buy') inAmt += amount + fee;
     else if (r.type === 'sell') outAmt += amount - fee;
     else if (r.type === 'dividend') divAmt += amount;
     else if (r.type === 'fee') feeAmt += amount;
   });
-  // 分红计入累计收益，标的费用从累计收益扣除；期末总价值 = 持仓市值 + 已收分红 − 标的费用
-  const beginningTotal = beginning + divBefore - feeBefore;
-  const endingTotal = ending + divBefore + divAmt - feeBefore - feeAmt;
+  // 市值口径：期初市值 + 净买入 + 交易盈亏 = 期末市值
+  // 累计收益 = 交易盈亏 + 现金分红 − 标的费用（分红/费用已进出账户现金）
   const net = inAmt - outAmt;
-  const profit = endingTotal - beginningTotal - net;
+  const tradePnl = ending - beginning - net;
+  const endDate = bounds.end || todayKey();
+  const realizedBefore = bounds.start ? instrumentRealizedUntil(inst, addDays(bounds.start, -1)) : 0;
+  const realizedPeriod = instrumentRealizedUntil(inst, endDate) - realizedBefore;
+  const floatPeriod = tradePnl - realizedPeriod;
+  const profit = tradePnl + divAmt - feeAmt;
   return {
     scope: 'instrument', periodKey: key, periodLabel: bounds.label, currency: inst.currency,
-    beginning: beginningTotal, ending: endingTotal,
-    marketBeginning: beginning, marketEnding: ending, dividendBefore: divBefore, feeBefore: feeBefore,
-    in: inAmt, out: outAmt, dividend: divAmt, fees: feeAmt, net, profit,
+    beginning, ending, marketBeginning: beginning, marketEnding: ending,
+    in: inAmt, out: outAmt, dividend: divAmt, fees: feeAmt, net,
+    tradePnl, floatPeriod, realizedPeriod, profit,
     label: bounds.label
   };
 }

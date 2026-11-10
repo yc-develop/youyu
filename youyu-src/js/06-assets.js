@@ -84,8 +84,9 @@ function glossaryHTML(scope) {
   const instrumentItems = [
     ['持仓数量', '当前仍持有的份额或股数；份额分红会增加持仓数量。'],
     ['持仓市值', '持仓数量 × 最新价，按标的原币计价。'],
-    ['期初总价值', '期初持仓市值 + 期初前已收累计分红。'],
-    ['期末总价值', '期末持仓市值 + 截至期末已收累计分红；分红计入累计收益。'],
+    ['期初市值', '期初持仓数量 × 期初价格。'],
+    ['期末持仓市值', '期末持仓数量 × 期末价格；不含已收分红与标的费用。'],
+    ['交易盈亏', '浮动盈亏 + 累计已实现盈亏；不含现金分红与标的费用。'],
     ['移动加权平均成本', '买入成本（含费用）计入持仓成本；卖出时按卖出前的移动加权平均成本结转。剩余持仓成本 ÷ 持仓数量。'],
     ['移动加权平均成本金额', '剩余持仓尚未结转的成本合计，等于累计买入成本减累计卖出结转成本。'],
     ['摊薄成本', '摊薄净投入 ÷ 持仓数量。把已卖出收回的现金和现金分红从总投入中扣除，反映剩余持仓的净投入成本。'],
@@ -177,8 +178,8 @@ function renderAccountPage(accountId) {
       '<div class="card pad" style="padding-top:12px;padding-bottom:14px"><div class="donut-layout">' + donutBoxHTML(composition.items, { size: 132, stroke: 15, centerValue: fmtMoney(am.marketNative, { compact: true, currency: a.currency }), centerLabel: '账户总资产' }) +
       '<div class="donut-legend">' + donutLegendHTML(composition.items, { compact: true }) + '</div></div></div></div>' +
     '<div class="detail-section account-flow" style="margin-top:14px">' + flowDiagramHTML(accountFlow(accountId, flowPeriod), { scope: 'account', id: accountId, periodKey: flowPeriod, periods: flowPeriods('account', accountId), editable: true, currency: a.currency }) + '</div>' +
-    '<div class="detail-section account-holdings"><div class="section-head"><div><h2>持仓</h2><div class="sub">按期末总金额排序 · 点击查看标的</div></div><button class="text-btn" data-action="open-add-instrument" data-account="' + esc(a.id) + '">' + icon('plus') + '添加</button></div>' +
-      (am.instruments.length ? '<div class="desktop-table-head holdings-head"><span></span><span>标的</span><span>持仓数量</span><span>移动加权平均成本</span><span>摊薄成本</span><span>期末总金额</span><span></span></div><div class="list-card">' + am.instruments.slice().sort((x, y) => (y.endingTotalBase || y.marketBase) - (x.endingTotalBase || x.marketBase)).map(im => holdingRowHTML(im, { currency: a.currency })).join('') + '</div>' :
+    '<div class="detail-section account-holdings"><div class="section-head"><div><h2>持仓</h2><div class="sub">按持仓市值排序 · 点击查看标的</div></div><button class="text-btn" data-action="open-add-instrument" data-account="' + esc(a.id) + '">' + icon('plus') + '添加</button></div>' +
+      (am.instruments.length ? '<div class="desktop-table-head holdings-head"><span></span><span>标的</span><span>持仓数量</span><span>移动加权平均成本</span><span>摊薄成本</span><span>持仓市值</span><span></span></div><div class="list-card">' + am.instruments.slice().sort((x, y) => (y.marketBase || 0) - (x.marketBase || 0)).map(im => holdingRowHTML(im, { currency: a.currency })).join('') + '</div>' :
         '<div class="list-card">' + emptyBlock('这个账户还没有标的', '添加基金、股票或存单，记录买入与估值。', '<button class="btn primary sm" data-action="open-add-instrument" data-account="' + esc(a.id) + '">添加标的</button>', 'fund') + '</div>') +
     '</div>' +
     accountOverviewHTML(am) +

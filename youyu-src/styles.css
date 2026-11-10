@@ -479,6 +479,14 @@ ul,ol{margin:0;padding:0;list-style:none}
 .flow-end{left:26%;top:220px;width:48%}
 .flow-legend{display:flex;align-items:center;justify-content:center;gap:7px;font-size:8.5px;color:var(--faint);margin-top:4px}
 .flow-legend .dot{width:5px;height:5px;border-radius:50%;background:var(--accent)}
+.flow-split{margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+.flow-split-head{display:flex;align-items:baseline;justify-content:space-between;font-size:10px;color:var(--muted)}
+.flow-split-head b{font-size:15px;font-weight:650;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.flow-split-rows{margin-top:10px;display:flex;flex-direction:column;gap:8px}
+.flow-split-row{display:flex;align-items:baseline;gap:8px;font-size:9px;color:var(--muted)}
+.flow-split-row > span{flex:0 0 52px}
+.flow-split-row > i{flex:1;min-width:0;font-style:normal;font-size:8px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.flow-split-row > b{flex:0 0 74px;text-align:right;font-size:10.5px;font-weight:600;color:var(--ink-2);font-variant-numeric:tabular-nums}
 
 .position-group-title{font-size:8px;letter-spacing:.12em;color:var(--faint);padding:13px 0 3px;font-weight:600}
 .position-group-title:first-child{padding-top:5px}

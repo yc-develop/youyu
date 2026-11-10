@@ -497,6 +497,14 @@ ul,ol{margin:0;padding:0;list-style:none}
 .flow-end{left:26%;top:220px;width:48%}
 .flow-legend{display:flex;align-items:center;justify-content:center;gap:7px;font-size:8.5px;color:var(--faint);margin-top:4px}
 .flow-legend .dot{width:5px;height:5px;border-radius:50%;background:var(--accent)}
+.flow-split{margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+.flow-split-head{display:flex;align-items:baseline;justify-content:space-between;font-size:10px;color:var(--muted)}
+.flow-split-head b{font-size:15px;font-weight:650;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.flow-split-rows{margin-top:10px;display:flex;flex-direction:column;gap:8px}
+.flow-split-row{display:flex;align-items:baseline;gap:8px;font-size:9px;color:var(--muted)}
+.flow-split-row > span{flex:0 0 52px}
+.flow-split-row > i{flex:1;min-width:0;font-style:normal;font-size:8px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.flow-split-row > b{flex:0 0 74px;text-align:right;font-size:10.5px;font-weight:600;color:var(--ink-2);font-variant-numeric:tabular-nums}
 
 .position-group-title{font-size:8px;letter-spacing:.12em;color:var(--faint);padding:13px 0 3px;font-weight:600}
 .position-group-title:first-child{padding-top:5px}
@@ -1485,7 +1493,7 @@ html[data-theme="light"] .acct-icon.brand{border-color:rgba(16,24,40,.1);box-sha
 'use strict';
 
 const APP_NAME = '有余';
-const APP_VERSION = '6.5.27';
+const APP_VERSION = '6.5.28';
 const IS_DESKTOP = document.documentElement.getAttribute('data-layout') === 'desktop';
 const PC_HREF = 'pc/index.html';
 const MOBILE_HREF = /\/pc\//.test(location.pathname) ? '../index.html' : 'index.html';
@@ -3559,6 +3567,30 @@ function accountFlow(accountId, periodKey) {
     adjusted: recs.some(r => r.type === 'flow' && r.ledgerAdjust && (key === 'all' || r.periodKey === key))
   };
 }
+function instrumentRealizedUntil(inst, date) {
+  const recs = recordsForInstrument(inst.id)
+    .filter(r => (r.type === 'buy' || r.type === 'sell' || r.type === 'dividend') && r.date <= date)
+    .slice()
+    .sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+  let qty = 0, cost = 0, realized = 0;
+  recs.forEach(rec => {
+    const amount = Number(rec.amount) || (Number(rec.qty) * Number(rec.price)) || 0;
+    const fee = Number(rec.fee) || 0;
+    if (rec.type === 'buy') {
+      qty += Number(rec.qty) || 0;
+      cost += amount + fee;
+    } else if (rec.type === 'sell') {
+      const sellQty = Math.min(Number(rec.qty) || 0, qty);
+      const avgCost = qty > 0 ? cost / qty : 0;
+      realized += (Number(rec.price) || 0) * sellQty - avgCost * sellQty - fee;
+      qty -= sellQty;
+      cost = Math.max(0, cost - avgCost * sellQty);
+    } else if (rec.type === 'dividend') {
+      qty += Number(rec.qty) || 0;
+    }
+  });
+  return realized;
+}
 function instrumentFlow(instrumentId, periodKey) {
   const im = computeInstrumentMetrics(instrumentId);
   if (!im) return null;
@@ -3573,34 +3605,30 @@ function instrumentFlow(instrumentId, periodKey) {
   }) : null;
   const beginning = bounds.start ? flowValueAt(series, addDays(bounds.start, -1)) : 0;
   const ending = flowValueAt(series, bounds.end);
-  let inAmt = 0, outAmt = 0, divAmt = 0, divBefore = 0, feeAmt = 0, feeBefore = 0;
+  let inAmt = 0, outAmt = 0, divAmt = 0, feeAmt = 0;
   recordsForInstrument(instrumentId).forEach(r => {
-    const amount = Number(r.amount) || 0;
-    if (r.type === 'dividend' && bounds.start && r.date < bounds.start) {
-      divBefore += amount;
-      return;
-    }
-    if (r.type === 'fee' && bounds.start && r.date < bounds.start) {
-      feeBefore += amount;
-      return;
-    }
     if (!flowInPeriod(r, bounds)) return;
+    const amount = Number(r.amount) || 0;
     const fee = Number(r.fee) || 0;
     if (r.type === 'buy') inAmt += amount + fee;
     else if (r.type === 'sell') outAmt += amount - fee;
     else if (r.type === 'dividend') divAmt += amount;
     else if (r.type === 'fee') feeAmt += amount;
   });
-  // 分红计入累计收益，标的费用从累计收益扣除；期末总价值 = 持仓市值 + 已收分红 − 标的费用
-  const beginningTotal = beginning + divBefore - feeBefore;
-  const endingTotal = ending + divBefore + divAmt - feeBefore - feeAmt;
+  // 市值口径：期初市值 + 净买入 + 交易盈亏 = 期末市值
+  // 累计收益 = 交易盈亏 + 现金分红 − 标的费用（分红/费用已进出账户现金）
   const net = inAmt - outAmt;
-  const profit = endingTotal - beginningTotal - net;
+  const tradePnl = ending - beginning - net;
+  const endDate = bounds.end || todayKey();
+  const realizedBefore = bounds.start ? instrumentRealizedUntil(inst, addDays(bounds.start, -1)) : 0;
+  const realizedPeriod = instrumentRealizedUntil(inst, endDate) - realizedBefore;
+  const floatPeriod = tradePnl - realizedPeriod;
+  const profit = tradePnl + divAmt - feeAmt;
   return {
     scope: 'instrument', periodKey: key, periodLabel: bounds.label, currency: inst.currency,
-    beginning: beginningTotal, ending: endingTotal,
-    marketBeginning: beginning, marketEnding: ending, dividendBefore: divBefore, feeBefore: feeBefore,
-    in: inAmt, out: outAmt, dividend: divAmt, fees: feeAmt, net, profit,
+    beginning, ending, marketBeginning: beginning, marketEnding: ending,
+    in: inAmt, out: outAmt, dividend: divAmt, fees: feeAmt, net,
+    tradePnl, floatPeriod, realizedPeriod, profit,
     label: bounds.label
   };
 }
@@ -4033,11 +4061,32 @@ function donutLegendHTML(items, opts) {
 }
 
 /* ---------- flow diagram ---------- */
+function flowSplitHTML(f, opts) {
+  const o = opts || {};
+  if (!o.isInstrument) return '';
+  const div = Number(f.dividend) || 0;
+  const fee = Number(f.fees) || 0;
+  if (div <= 0 && fee <= 0) return '';
+  const money = o.money || (v => fmtMoney(v, { currency: f.currency || baseCurrency() }));
+  const signed = v => (v > 0 ? '+' : v < 0 ? '−' : '') + money(Math.abs(v));
+  const profit = Number(f.profit) || 0;
+  const trade = Number(f.tradePnl) || 0;
+  const floatP = Number(f.floatPeriod) || 0;
+  const realized = Number(f.realizedPeriod) || 0;
+  return '<div class="flow-split">' +
+    '<div class="flow-split-head"><span>' + (o.allTime ? '累计收益' : '本期收益') + '</span><b class="' + pnlClass(profit) + '">' + signed(profit) + '</b></div>' +
+    '<div class="flow-split-rows">' +
+      '<div class="flow-split-row"><span>交易盈亏</span><i>浮动 ' + signed(floatP) + ' · 已实现 ' + signed(realized) + '</i><b>' + signed(trade) + '</b></div>' +
+      '<div class="flow-split-row"><span>现金分红</span><i>已转入账户现金</i><b>+' + money(div) + '</b></div>' +
+      '<div class="flow-split-row"><span>标的费用</span><i>已从账户现金扣除</i><b>−' + money(fee) + '</b></div>' +
+    '</div>' +
+  '</div>';
+}
 function flowDiagramHTML(flow, opts) {
   const o = opts || {};
   const f = flow || {};
   const money = v => fmtMoney(v, { currency: o.currency || f.currency || baseCurrency() });
-  const pnl = Number(f.profit) || 0;
+  const pnl = Number(o.isInstrument ? f.tradePnl : f.profit) || 0;
   const pnlCls = pnl > 0 ? 'gain' : pnl < 0 ? 'loss' : '';
   const pnlSign = pnl > 0 ? '+' : pnl < 0 ? '-' : '';
   const scope = o.scope || '';
@@ -4053,8 +4102,8 @@ function flowDiagramHTML(flow, opts) {
     in: allTime ? '累计买入金额' : '本期买入金额',
     out: allTime ? '累计卖出净额' : '本期卖出净额',
     net: allTime ? '累计净买入' : '本期净买入',
-    profit: allTime ? '累计收益' : '本期收益',
-    opening: '期初总价值', ending: '期末总价值'
+    profit: allTime ? '交易盈亏' : '本期交易盈亏',
+    opening: '期初市值', ending: '期末持仓市值'
   } : {
     in: allTime ? '累计转入' : '本期转入',
     out: allTime ? '累计转出' : '本期转出',
@@ -4064,11 +4113,10 @@ function flowDiagramHTML(flow, opts) {
   };
   const showDividend = isInstrument && Number(f.dividend) > 0;
   const showFee = isInstrument && Number(f.fees) > 0;
-  const flowFormula = '期初' + (isInstrument ? '总价值' : '资产') + ' + ' + flowLabels.net + ' + ' + flowLabels.profit + ' = 期末' + (isInstrument ? '总价值 · 期末总价值 = 持仓市值 + 已收分红 − 标的费用' : '资产');
-  const profitSubParts = [];
-  if (showDividend) profitSubParts.push('含分红 ' + money(f.dividend));
-  if (showFee) profitSubParts.push('扣费用 ' + money(f.fees));
-  const profitSub = profitSubParts.length ? '<span class="flow-node-sub">' + profitSubParts.join(' · ') + '</span>' : '';
+  const flowFormula = isInstrument
+    ? '期初市值 + ' + flowLabels.net + ' + ' + flowLabels.profit + ' = 期末市值'
+    : '期初资产 + ' + flowLabels.net + ' + ' + flowLabels.profit + ' = 期末资产';
+  const profitSub = '';
   const node = (field, cls, label, valueHtml, extra) => {
     const attr = editable ? ' data-action="edit-flow-field" data-scope="' + esc(scope) + '" data-id="' + esc(id) + '" data-period="' + esc(periodKey) + '" data-field="' + esc(field) + '"' : '';
     const pen = editable ? '<span class="flow-edit">' + icon('pen') + '</span>' : '';
@@ -4097,7 +4145,8 @@ function flowDiagramHTML(flow, opts) {
       node('profit', 'flow-mid c ' + pnlCls, flowLabels.profit, pnlSign + money(Math.abs(pnl)), profitSub) +
       node('ending', 'flow-end total', flowLabels.ending, money(f.ending || 0)) +
     '</div>' +
-    '<div class="flow-legend"><span class="dot"></span>' + flowLabels.net + ' + ' + flowLabels.profit + ' = 期末 − 期初' + ((showDividend || showFee) ? ' · 分红/费用已计入' + flowLabels.profit : '') + (editable ? ' · 点击金额可校正' : '') + '</div>' +
+    '<div class="flow-legend"><span class="dot"></span>' + flowLabels.net + ' + ' + flowLabels.profit + ' = 期末 − 期初' + (!isInstrument && (showDividend || showFee) ? ' · 分红/费用已计入' + flowLabels.profit : '') + (editable ? ' · 点击金额可校正' : '') + '</div>' +
+    flowSplitHTML(f, { isInstrument, allTime, money }) +
     (f.adjusted ? '<div class="flow-adjusted-note">本周期已写入账本调整，资产统计已同步；可在更新记录中删除调整或撤销本周期调整。</div>' : '') +
   '</div>';
 }
@@ -4524,7 +4573,7 @@ function holdingRowHTML(im, opts) {
   const o = opts || {};
   const displayCcy = o.currency || im.inst.currency;
   const displayFx = fxToBase(displayCcy) || 1;
-  const displayValue = (im.endingTotalBase != null ? im.endingTotalBase : im.marketBase) / displayFx;
+  const displayValue = im.marketBase / displayFx;
   const displayPnl = im.unrealized / displayFx;
   return '<a class="holding-row" href="#/instrument/' + encodeURIComponent(im.inst.id) + '">' +
     instrumentIconHTML(im.inst) +
@@ -4535,7 +4584,7 @@ function holdingRowHTML(im, opts) {
     '<span class="h-cell h-qty">' + (im.qty > 0.000001 ? fmtQty(im.qty) + qtyUnit(im.inst.cls) : '—') + '</span>' +
     '<span class="h-cell h-avg">' + (im.qty > 0.000001 ? fmtCost(im.avgCost, im.inst.currency) : '—') + '</span>' +
     '<span class="h-cell h-diluted">' + (im.qty > 0.000001 ? fmtCost(im.dilutedCost, im.inst.currency) : '—') + '</span>' +
-    '<div class="h-value"><div class="h-label">期末总金额</div><div class="v">' + fmtMoney(displayValue, { compact: true, currency: displayCcy }) + '</div>' +
+    '<div class="h-value"><div class="h-label">持仓市值</div><div class="v">' + fmtMoney(displayValue, { compact: true, currency: displayCcy }) + '</div>' +
       '<div class="p ' + pnlClass(displayPnl) + '">' + pnlText(displayPnl, { compact: true, currency: displayCcy }) + '</div></div>' +
     '<span class="h-chevron">' + icon('chevronRight') + '</span></a>';
 }
@@ -4816,8 +4865,9 @@ function glossaryHTML(scope) {
   const instrumentItems = [
     ['持仓数量', '当前仍持有的份额或股数；份额分红会增加持仓数量。'],
     ['持仓市值', '持仓数量 × 最新价，按标的原币计价。'],
-    ['期初总价值', '期初持仓市值 + 期初前已收累计分红。'],
-    ['期末总价值', '期末持仓市值 + 截至期末已收累计分红；分红计入累计收益。'],
+    ['期初市值', '期初持仓数量 × 期初价格。'],
+    ['期末持仓市值', '期末持仓数量 × 期末价格；不含已收分红与标的费用。'],
+    ['交易盈亏', '浮动盈亏 + 累计已实现盈亏；不含现金分红与标的费用。'],
     ['移动加权平均成本', '买入成本（含费用）计入持仓成本；卖出时按卖出前的移动加权平均成本结转。剩余持仓成本 ÷ 持仓数量。'],
     ['移动加权平均成本金额', '剩余持仓尚未结转的成本合计，等于累计买入成本减累计卖出结转成本。'],
     ['摊薄成本', '摊薄净投入 ÷ 持仓数量。把已卖出收回的现金和现金分红从总投入中扣除，反映剩余持仓的净投入成本。'],
@@ -4909,8 +4959,8 @@ function renderAccountPage(accountId) {
       '<div class="card pad" style="padding-top:12px;padding-bottom:14px"><div class="donut-layout">' + donutBoxHTML(composition.items, { size: 132, stroke: 15, centerValue: fmtMoney(am.marketNative, { compact: true, currency: a.currency }), centerLabel: '账户总资产' }) +
       '<div class="donut-legend">' + donutLegendHTML(composition.items, { compact: true }) + '</div></div></div></div>' +
     '<div class="detail-section account-flow" style="margin-top:14px">' + flowDiagramHTML(accountFlow(accountId, flowPeriod), { scope: 'account', id: accountId, periodKey: flowPeriod, periods: flowPeriods('account', accountId), editable: true, currency: a.currency }) + '</div>' +
-    '<div class="detail-section account-holdings"><div class="section-head"><div><h2>持仓</h2><div class="sub">按期末总金额排序 · 点击查看标的</div></div><button class="text-btn" data-action="open-add-instrument" data-account="' + esc(a.id) + '">' + icon('plus') + '添加</button></div>' +
-      (am.instruments.length ? '<div class="desktop-table-head holdings-head"><span></span><span>标的</span><span>持仓数量</span><span>移动加权平均成本</span><span>摊薄成本</span><span>期末总金额</span><span></span></div><div class="list-card">' + am.instruments.slice().sort((x, y) => (y.endingTotalBase || y.marketBase) - (x.endingTotalBase || x.marketBase)).map(im => holdingRowHTML(im, { currency: a.currency })).join('') + '</div>' :
+    '<div class="detail-section account-holdings"><div class="section-head"><div><h2>持仓</h2><div class="sub">按持仓市值排序 · 点击查看标的</div></div><button class="text-btn" data-action="open-add-instrument" data-account="' + esc(a.id) + '">' + icon('plus') + '添加</button></div>' +
+      (am.instruments.length ? '<div class="desktop-table-head holdings-head"><span></span><span>标的</span><span>持仓数量</span><span>移动加权平均成本</span><span>摊薄成本</span><span>持仓市值</span><span></span></div><div class="list-card">' + am.instruments.slice().sort((x, y) => (y.marketBase || 0) - (x.marketBase || 0)).map(im => holdingRowHTML(im, { currency: a.currency })).join('') + '</div>' :
         '<div class="list-card">' + emptyBlock('这个账户还没有标的', '添加基金、股票或存单，记录买入与估值。', '<button class="btn primary sm" data-action="open-add-instrument" data-account="' + esc(a.id) + '">添加标的</button>', 'fund') + '</div>') +
     '</div>' +
     accountOverviewHTML(am) +

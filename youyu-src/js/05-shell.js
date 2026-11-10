@@ -186,7 +186,7 @@ function holdingRowHTML(im, opts) {
   const o = opts || {};
   const displayCcy = o.currency || im.inst.currency;
   const displayFx = fxToBase(displayCcy) || 1;
-  const displayValue = (im.endingTotalBase != null ? im.endingTotalBase : im.marketBase) / displayFx;
+  const displayValue = im.marketBase / displayFx;
   const displayPnl = im.unrealized / displayFx;
   return '<a class="holding-row" href="#/instrument/' + encodeURIComponent(im.inst.id) + '">' +
     instrumentIconHTML(im.inst) +
@@ -197,7 +197,7 @@ function holdingRowHTML(im, opts) {
     '<span class="h-cell h-qty">' + (im.qty > 0.000001 ? fmtQty(im.qty) + qtyUnit(im.inst.cls) : '—') + '</span>' +
     '<span class="h-cell h-avg">' + (im.qty > 0.000001 ? fmtCost(im.avgCost, im.inst.currency) : '—') + '</span>' +
     '<span class="h-cell h-diluted">' + (im.qty > 0.000001 ? fmtCost(im.dilutedCost, im.inst.currency) : '—') + '</span>' +
-    '<div class="h-value"><div class="h-label">期末总金额</div><div class="v">' + fmtMoney(displayValue, { compact: true, currency: displayCcy }) + '</div>' +
+    '<div class="h-value"><div class="h-label">持仓市值</div><div class="v">' + fmtMoney(displayValue, { compact: true, currency: displayCcy }) + '</div>' +
       '<div class="p ' + pnlClass(displayPnl) + '">' + pnlText(displayPnl, { compact: true, currency: displayCcy }) + '</div></div>' +
     '<span class="h-chevron">' + icon('chevronRight') + '</span></a>';
 }
