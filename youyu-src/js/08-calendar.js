@@ -224,8 +224,6 @@ function openCalendarRangeSheet(kind, start, end) {
     for (let i = sIdx; i <= eIdx; i++) p += g.pnls[i] || 0;
     return { name: g.name, color: g.color, p };
   }).filter(r => Math.abs(r.p) > 0.005)
-    .sort((a, b) => Math.abs(b.p) - Math.abs(a.p))
-    .slice(0, 5)
     .sort((a, b) => b.p - a.p);
   const maxAbs = Math.max(1, ...groupRows.map(r => Math.abs(r.p)));
   const titles = { week: '周收益', month: '月收益', year: '年收益', all: '投资以来' };
