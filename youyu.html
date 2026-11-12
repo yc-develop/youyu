@@ -712,20 +712,22 @@ html[data-theme="light"] .backup-copy-area{background:#fff}
 .cal-legend .scale i.l1{background:rgba(53,211,154,.12)}
 .cal-legend .scale i.l2{background:rgba(53,211,154,.2)}
 .cal-legend .scale i.l3{background:rgba(53,211,154,.32)}
-.week-list{display:flex;flex-direction:column;gap:7px}
-.week-row{
-  display:flex;align-items:center;gap:11px;padding:12px 13px;border-radius:14px;
+.week-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.week-tile{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+  min-height:80px;padding:10px 6px;border-radius:13px;text-align:center;
   background:rgba(255,255,255,.03);border:1px solid var(--line);
+  transition:transform .15s,background .15s;
 }
-.week-row .wk{width:31px;flex:0 0 31px;text-align:center}
-.week-row .wk b{display:block;font-size:12px;font-weight:650}
-.week-row .wk span{display:block;font-size:7.5px;color:var(--faint);margin-top:2px}
-.week-row .wk-main{flex:1;min-width:0}
-.week-row .wk-main .r{font-size:8.5px;color:var(--faint)}
-.week-bar{height:4px;border-radius:2px;background:rgba(255,255,255,.06);margin-top:6px;overflow:hidden}
-.week-bar i{display:block;height:100%;border-radius:2px}
-.week-row .wk-val{text-align:right;font-size:11px;font-weight:650;font-variant-numeric:tabular-nums;white-space:nowrap}
-.week-row .wk-val span{display:block;font-size:8px;color:var(--faint);margin-top:3px;font-weight:500}
+.week-tile:active{transform:scale(.97)}
+.week-tile.gain{background:rgba(255,93,108,.09);border-color:rgba(255,93,108,.14)}
+.week-tile.loss{background:rgba(53,211,154,.08);border-color:rgba(53,211,154,.12)}
+.week-tile.current{border-color:rgba(255,159,69,.4);box-shadow:0 0 0 1px rgba(255,159,69,.14) inset}
+.week-tile .wr{font-size:9px;color:var(--muted);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.week-tile .wa{font-size:11.5px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.02em;white-space:nowrap}
+.week-tile.gain .wa{color:var(--gain)}
+.week-tile.loss .wa{color:var(--loss)}
+.week-tile .wp{font-size:8px;color:var(--faint);font-variant-numeric:tabular-nums}
 .month-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
 .month-cell{position:relative;padding:12px 10px 11px;border-radius:13px;background:rgba(255,255,255,.03);border:1px solid var(--line);min-height:75px;display:flex;flex-direction:column;justify-content:space-between}
 .month-cell .m{font-size:10.5px;color:var(--ink-2);font-weight:600}
@@ -733,7 +735,7 @@ html[data-theme="light"] .backup-copy-area{background:#fff}
 .month-cell .p{font-size:8px;color:var(--faint);margin-top:2px}
 .month-cell.active{border-color:rgba(255,159,69,.35);background:rgba(255,159,69,.07)}
 .month-cell:active{transform:scale(.97)}
-.year-list{display:flex;flex-direction:column;gap:7px}
+.year-list{display:flex;flex-direction:column;gap:7px;margin-top:14px}
 .year-row{display:flex;align-items:center;gap:11px;padding:13px 14px;border-radius:13px;background:rgba(255,255,255,.03);border:1px solid var(--line)}
 .year-row .y{font-size:12px;font-weight:650;width:43px}
 .year-row .bar{flex:1;height:5px;border-radius:3px;background:rgba(255,255,255,.06);overflow:hidden}
@@ -1031,7 +1033,6 @@ html[data-theme="light"] .backup-copy-area{background:#fff}
 .stats-row .main .t,.stats-row .main .s{display:block}
 .icon-btn:disabled{opacity:.25;pointer-events:none}
 .month-cell{text-align:left}
-.week-row{text-align:left;width:100%}
 .year-row{width:100%;text-align:left}
 .check-row{position:relative}
 .form-hint{font-size:8.5px;color:var(--faint);line-height:1.5;margin:5px 2px 7px}
@@ -1104,16 +1105,6 @@ input[type="date"]{color-scheme:dark}
   .detail-chart-card .metric .val{font-size:10px}
   .hero-note{font-size:9px}
 }
-
-/* ---------- year insights ---------- */
-.year-bars{display:grid;grid-template-columns:repeat(12,1fr);gap:3px;align-items:end;margin-top:15px;height:104px}
-.yb-col{display:flex;flex-direction:column;align-items:center;gap:5px;height:100%}
-.yb-track{position:relative;flex:1;width:100%;border-radius:4px;background:rgba(255,255,255,.025)}
-.yb-track i{position:absolute;left:20%;right:20%;border-radius:3px;min-height:2px}
-.yb-track i.up{background:var(--gain);opacity:.8;border-radius:3px 3px 1px 1px}
-.yb-track i.down{background:var(--loss);opacity:.8;border-radius:1px 1px 3px 3px}
-.yb-col span{font-size:7px;color:var(--faint);flex:0 0 auto}
-.year-bars + .cal-mini-stats .n{font-size:9.5px}
 
 body.has-overlay .toast-root{top:calc(var(--safe-top) + 14px);bottom:auto}
 
@@ -1367,9 +1358,7 @@ html[data-theme="light"] .rec-edit{color:rgba(16,24,40,.25)}
 html[data-theme="light"] .rec-del{color:rgba(16,24,40,.22)}
 html[data-theme="light"] .bar-track,
 html[data-theme="light"] .reb-track,
-html[data-theme="light"] .week-bar,
 html[data-theme="light"] .year-row .bar,
-html[data-theme="light"] .yb-track,
 html[data-theme="light"] .cal-legend .scale i{background:rgba(16,24,40,.08)}
 html[data-theme="light"] .flow-node,
 html[data-theme="light"] .flow-node.total{background:rgba(255,255,255,.78);border-color:rgba(16,24,40,.09)}
@@ -1396,9 +1385,11 @@ html[data-theme="light"] .cal-cell{background:rgba(16,24,40,.025);border-color:r
 html[data-theme="light"] .cal-cell.empty{background:rgba(16,24,40,.018)}
 html[data-theme="light"] .cal-cell .cal-day{color:rgba(16,24,40,.62)}
 html[data-theme="light"] .cal-head .nav .icon-btn{background:rgba(16,24,40,.045)}
-html[data-theme="light"] .week-row,
+html[data-theme="light"] .week-tile,
 html[data-theme="light"] .month-cell,
 html[data-theme="light"] .year-row{background:rgba(16,24,40,.028);border-color:var(--line)}
+html[data-theme="light"] .week-tile.gain{background:rgba(200,60,75,.07);border-color:rgba(200,60,75,.14)}
+html[data-theme="light"] .week-tile.loss{background:rgba(30,140,100,.07);border-color:rgba(30,140,100,.14)}
 html[data-theme="light"] .month-cell.active{background:rgba(225,132,34,.08);border-color:rgba(225,132,34,.3)}
 html[data-theme="light"] .detail-hero,
 html[data-theme="light"] .group-scheme-card,
@@ -1513,7 +1504,7 @@ html[data-theme="light"] .acct-icon.brand{border-color:rgba(16,24,40,.1);box-sha
 'use strict';
 
 const APP_NAME = '有余';
-const APP_VERSION = '6.5.30';
+const APP_VERSION = '6.5.31';
 const IS_DESKTOP = document.documentElement.getAttribute('data-layout') === 'desktop';
 const PC_HREF = 'pc/index.html';
 const MOBILE_HREF = /\/pc\//.test(location.pathname) ? '../index.html' : 'index.html';
@@ -5460,26 +5451,10 @@ function renderCalendarPage() {
   const month = ui.calendarMonth;
   const year = Number(ui.calendarYear) || parseDay(month).getFullYear();
   ui.calendarYear = year;
-  const monthStart = startOfMonth(month);
-  const monthEnd = endOfMonth(month);
   const groups = scheme ? scheme.groups : [];
   const groupChips = '<div class="chip-row" style="margin-bottom:12px"><button class="chip ' + (gid === 'all' ? 'active' : '') + '" data-action="select-calendar-group" data-id="all">全部资产</button>' +
     groups.map(g => '<button class="chip ' + (gid === g.id ? 'active' : '') + '" data-action="select-calendar-group" data-id="' + esc(g.id) + '"><span class="dot" style="background:' + g.color + '"></span>' + esc(g.name) + '</button>').join('') +
     '</div>';
-
-  let periodStart, periodEnd, summaryLabel;
-  if (mode === 'day' || mode === 'week') {
-    periodStart = monthStart; periodEnd = monthEnd < todayKey() ? monthEnd : todayKey(); summaryLabel = '当月收益';
-  } else if (mode === 'month') {
-    periodStart = year + '-01-01'; periodEnd = year + '-12-31' < todayKey() ? year + '-12-31' : todayKey(); summaryLabel = '本年收益';
-  } else {
-    periodStart = daily.dates[0]; periodEnd = todayKey(); summaryLabel = '记账以来';
-  }
-  let summary = periodStats(series, periodStart, periodEnd);
-  if (periodStart > todayKey()) summary = periodStats(series, todayKey(), todayKey());
-  const totalPnl = summary.pnl;
-  const summaryMain = metric === 'percent' ? fmtPct(summary.returnPct, 2) : (totalPnl > 0 ? '+' : totalPnl < 0 ? '-' : '') + fmtMoney(Math.abs(totalPnl));
-  const best = summary.best || { pnl: 0, date: periodStart };
 
   const header = pageTop({
     eyebrow: 'GAIN CALENDAR',
@@ -5495,20 +5470,28 @@ function renderCalendarPage() {
       [['amount', '金额'], ['percent', '收益率']].map(([k, l]) => '<button class="seg ' + (metric === k ? 'active' : '') + '" data-action="set-calendar-metric" data-value="' + k + '">' + l + '</button>').join('') +
     '</div></div>';
 
-  const summaryHTML = '<section class="cal-summary">' +
-    '<div class="l">' + summaryLabel + ' <span class="faint">· ' + esc(series.name) + '</span></div>' +
-    '<div class="v ' + pnlClass(totalPnl) + '">' + summaryMain + '</div>' +
-    '<div class="sub"><b class="' + pnlClass(summary.returnPct) + '">' + fmtPct(summary.returnPct, 2) + '</b><span>区间收益率</span><span class="faint">' + (summary.positiveDays || 0) + ' 天盈利 / ' + (summary.negativeDays || 0) + ' 天亏损</span></div>' +
-    '<div class="cal-mini-stats"><div><div class="l">最佳单日</div><div class="n gain">' + (best.pnl >= 0 ? '+' : '') + fmtMoney(best.pnl, { compact: true }) + '</div></div>' +
-      '<div><div class="l">日均收益</div><div class="n ' + pnlClass(totalPnl) + '">' + fmtMoney(summary.days ? totalPnl / summary.days : 0, { compact: true }) + '</div></div>' +
-      '<div><div class="l">胜率</div><div class="n">' + ((summary.positiveDays + summary.negativeDays) > 0 ? Math.round(summary.positiveDays / (summary.positiveDays + summary.negativeDays) * 100) : 0) + '%</div></div></div>' +
-  '</section>';
+  // 只有年视图保留「记账以来」汇总卡片
+  let summaryHTML = '';
+  if (mode === 'year') {
+    const summary = periodStats(series, daily.dates[0], todayKey());
+    const totalPnl = summary.pnl;
+    const summaryMain = metric === 'percent' ? fmtPct(summary.returnPct, 2) : (totalPnl > 0 ? '+' : totalPnl < 0 ? '-' : '') + fmtMoney(Math.abs(totalPnl));
+    const best = summary.best || { pnl: 0, date: todayKey() };
+    summaryHTML = '<section class="cal-summary">' +
+      '<div class="l">记账以来 <span class="faint">· ' + esc(series.name) + '</span></div>' +
+      '<div class="v ' + pnlClass(totalPnl) + '">' + summaryMain + '</div>' +
+      '<div class="sub"><b class="' + pnlClass(summary.returnPct) + '">' + fmtPct(summary.returnPct, 2) + '</b><span>区间收益率</span><span class="faint">' + (summary.positiveDays || 0) + ' 天盈利 / ' + (summary.negativeDays || 0) + ' 天亏损</span></div>' +
+      '<div class="cal-mini-stats"><div><div class="l">最佳单日</div><div class="n gain">' + (best.pnl >= 0 ? '+' : '') + fmtMoney(best.pnl, { compact: true }) + '</div></div>' +
+        '<div><div class="l">日均收益</div><div class="n ' + pnlClass(totalPnl) + '">' + fmtMoney(summary.days ? totalPnl / summary.days : 0, { compact: true }) + '</div></div>' +
+        '<div><div class="l">胜率</div><div class="n">' + ((summary.positiveDays + summary.negativeDays) > 0 ? Math.round(summary.positiveDays / (summary.positiveDays + summary.negativeDays) * 100) : 0) + '%</div></div></div>' +
+    '</section>';
+  }
 
   let bodyHTML = '';
   if (mode === 'day') bodyHTML = dayCalendarHTML(series, month, metric);
   else if (mode === 'week') bodyHTML = weekCalendarHTML(series, month);
   else if (mode === 'month') bodyHTML = monthCalendarHTML(series, year);
-  else bodyHTML = yearCalendarHTML(series) + yearInsightHTML(series, year);
+  else bodyHTML = yearCalendarHTML(series);
 
   const navTitle = mode === 'day' || mode === 'week' ? monthCN(month) : mode === 'month' ? year + '年' : '年度收益';
   const currentYear = parseDay(todayKey()).getFullYear();
@@ -5517,10 +5500,11 @@ function renderCalendarPage() {
     '<button class="icon-btn" data-action="cal-prev" aria-label="上一页">' + icon('chevronLeft') + '</button>' +
     '<button class="icon-btn" data-action="cal-next" aria-label="下一页"' + (atLatest ? ' disabled' : '') + '>' + icon('chevronRight') + '</button></div></div>';
 
+  const legendLabel = mode === 'week' ? '当月每周盈亏' : mode === 'day' ? '当月每日盈亏' : mode === 'month' ? '本年每月盈亏' : '年度收益';
   const boardHTML = nav + bodyHTML +
-    '<div class="cal-legend"><span>' + (mode === 'day' || mode === 'week' ? '当月每日盈亏' : mode === 'month' ? '本年每月盈亏' : '年度收益') + '</span><div class="scale"><span class="loss">亏</span><i class="l3"></i><i class="l2"></i><i class="l1"></i><i></i><i class="g1"></i><i class="g2"></i><i class="g3"></i><span class="gain">盈</span></div></div>';
+    '<div class="cal-legend"><span>' + legendLabel + '</span><div class="scale"><span class="loss">亏</span><i class="l3"></i><i class="l2"></i><i class="l1"></i><i></i><i class="g1"></i><i class="g2"></i><i class="g3"></i><span class="gain">盈</span></div></div>';
   return header + controls + summaryHTML +
-    '<div class="cal-board">' + boardHTML + '</div>' +
+    '<div class="cal-board' + (summaryHTML ? '' : ' no-summary') + '">' + boardHTML + '</div>' +
     '<div style="height:10px"></div>' +
     portfolioTrendCard(portfolioSummary(), { series, title: gid === 'all' ? '组合走势' : series.name + '走势', scopeName: series.name }) +
     '<div style="height:10px"></div>';
@@ -5564,11 +5548,15 @@ function dayCalendarHTML(series, month, metric) {
     '<div class="cal-grid">' + cells + '</div>';
 }
 
+function weekRangeLabel(ws, we) {
+  const f = d => d.slice(5, 7) + '.' + d.slice(8, 10);
+  return f(ws) + '-' + f(we);
+}
 function weekCalendarHTML(series, month) {
   const first = startOfMonth(month);
   const last = endOfMonth(month);
   const startSunday = weekStart(first);
-  const daily = buildDailyAnalytics();
+  const today = todayKey();
   const rows = [];
   for (let w = 0; w < 6; w++) {
     const rawWs = addDays(startSunday, w * 7);
@@ -5577,20 +5565,21 @@ function weekCalendarHTML(series, month) {
     if (rawWe < first) continue;
     const ws = rawWs < first ? first : rawWs;
     const we = rawWe > last ? last : rawWe;
-    const end = we > todayKey() ? todayKey() : we;
-    if (ws > todayKey()) continue;
-    const ps = periodStats(series, ws, end);
-    rows.push({ ws, we, ps, idx: w + 1 });
+    const end = we > today ? today : we;
+    if (ws > today) continue;
+    rows.push({ ws, we, ps: periodStats(series, ws, end) });
   }
-  const maxAbs = Math.max(1, ...rows.map(r => Math.abs(r.ps.pnl)));
-  return '<div class="week-list">' + (rows.length ? rows.map(r => {
-    const pct = r.ps.returnPct;
-    const w = Math.max(2, Math.abs(r.ps.pnl) / maxAbs * 100);
-    return '<button class="week-row" data-action="open-calendar-week" data-start="' + r.ws + '">' +
-      '<span class="wk"><b>W' + r.idx + '</b><span>' + dateRangeLabel(r.ws, r.we) + '</span></span>' +
-      '<span class="wk-main"><span class="r">' + r.ps.positiveDays + ' 天盈利 · ' + r.ps.negativeDays + ' 天亏损</span><span class="week-bar"><i style="width:' + w.toFixed(1) + '%;background:' + (r.ps.pnl >= 0 ? 'var(--gain)' : 'var(--loss)') + '"></i></span></span>' +
-      '<span class="wk-val ' + pnlClass(r.ps.pnl) + '">' + (r.ps.pnl >= 0 ? '+' : '') + fmtMoney(r.ps.pnl, { compact: true }) + '<span>' + fmtPct(pct, 2) + '</span></span></button>';
-  }).join('') : '<div class="cal-empty">这个月还没有收益记录</div>') + '</div>';
+  if (!rows.length) return '<div class="cal-empty">这个月还没有收益记录</div>';
+  return '<div class="week-grid">' + rows.map(r => {
+    const pnl = r.ps.pnl;
+    const cls = pnl > 0.005 ? ' gain' : pnl < -0.005 ? ' loss' : '';
+    const cur = today >= r.ws && today <= r.we ? ' current' : '';
+    return '<button class="week-tile' + cls + cur + '" data-action="open-calendar-week" data-start="' + r.ws + '">' +
+      '<span class="wr">' + weekRangeLabel(r.ws, r.we) + '</span>' +
+      '<b class="wa">' + (pnl >= 0 ? '+' : '') + fmtMoney(pnl, { compact: true }) + '</b>' +
+      '<span class="wp">' + fmtPct(r.ps.returnPct, 2) + '</span>' +
+    '</button>';
+  }).join('') + '</div>';
 }
 
 function monthCalendarHTML(series, year) {
@@ -5629,33 +5618,6 @@ function yearCalendarHTML(series) {
       '<span class="y">' + r.y + '</span><span class="bar"><i style="width:' + w.toFixed(1) + '%;background:' + (r.ps.pnl >= 0 ? 'var(--gain)' : 'var(--loss)') + '"></i></span>' +
       '<span class="v ' + pnlClass(r.ps.pnl) + '">' + (r.ps.pnl >= 0 ? '+' : '') + fmtMoney(r.ps.pnl, { compact: true }) + '<span>' + fmtPct(r.ps.returnPct, 2) + '</span></span></button>';
   }).join('') + '</div>';
-}
-
-function yearInsightHTML(series, year) {
-  const months = [];
-  for (let m = 0; m < 12; m++) {
-    const ms = year + '-' + String(m + 1).padStart(2, '0') + '-01';
-    if (ms > todayKey()) { months.push({ m: m + 1, pnl: null, ret: 0 }); continue; }
-    const ps = periodStats(series, ms, endOfMonth(ms) < todayKey() ? endOfMonth(ms) : todayKey());
-    months.push({ m: m + 1, pnl: ps.pnl, ret: ps.returnPct });
-  }
-  const known = months.filter(x => x.pnl != null);
-  const maxAbs = Math.max(1, ...known.map(x => Math.abs(x.pnl)));
-  const best = known.slice().sort((a, b) => b.pnl - a.pnl)[0];
-  const worst = known.slice().sort((a, b) => a.pnl - b.pnl)[0];
-  const win = known.filter(x => x.pnl > 0).length;
-  const bars = months.map(x => {
-    if (x.pnl == null) return '<div class="yb-col"><div class="yb-track"><i style="height:2px;bottom:50%;background:rgba(255,255,255,.06)"></i></div><span>' + x.m + '</span></div>';
-    const h = Math.max(2, Math.abs(x.pnl) / maxAbs * 42);
-    return '<div class="yb-col"><div class="yb-track"><i class="' + (x.pnl >= 0 ? 'up' : 'down') + '" style="height:' + h.toFixed(1) + 'px;' + (x.pnl >= 0 ? 'bottom:50%' : 'top:50%') + '"></i></div><span>' + x.m + '</span></div>';
-  }).join('');
-  return '<section class="card pad" style="margin-top:14px">' +
-    '<div class="card-head" style="padding:0"><div><h2>年度分布</h2><div class="sub">' + year + ' 年 · 每月盈亏</div></div><span class="tiny">' + esc(series.name) + '</span></div>' +
-    '<div class="year-bars">' + bars + '</div>' +
-    '<div class="cal-mini-stats" style="margin-top:10px"><div><div class="l">最佳月份</div><div class="n gain">' + (best ? best.m + '月 · ' + (best.pnl >= 0 ? '+' : '') + fmtMoney(best.pnl, { compact: true }) : '—') + '</div></div>' +
-    '<div><div class="l">最差月份</div><div class="n ' + (worst && worst.pnl < 0 ? 'loss' : '') + '">' + (worst ? worst.m + '月 · ' + fmtMoney(worst.pnl, { compact: true }) : '—') + '</div></div>' +
-    '<div><div class="l">盈利月份</div><div class="n">' + win + ' / ' + known.length + '</div></div></div>' +
-  '</section>';
 }
 
 /* ---------- calendar day sheet ---------- */

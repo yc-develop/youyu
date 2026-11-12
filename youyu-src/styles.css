@@ -694,20 +694,22 @@ html[data-theme="light"] .backup-copy-area{background:#fff}
 .cal-legend .scale i.l1{background:rgba(53,211,154,.12)}
 .cal-legend .scale i.l2{background:rgba(53,211,154,.2)}
 .cal-legend .scale i.l3{background:rgba(53,211,154,.32)}
-.week-list{display:flex;flex-direction:column;gap:7px}
-.week-row{
-  display:flex;align-items:center;gap:11px;padding:12px 13px;border-radius:14px;
+.week-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.week-tile{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+  min-height:80px;padding:10px 6px;border-radius:13px;text-align:center;
   background:rgba(255,255,255,.03);border:1px solid var(--line);
+  transition:transform .15s,background .15s;
 }
-.week-row .wk{width:31px;flex:0 0 31px;text-align:center}
-.week-row .wk b{display:block;font-size:12px;font-weight:650}
-.week-row .wk span{display:block;font-size:7.5px;color:var(--faint);margin-top:2px}
-.week-row .wk-main{flex:1;min-width:0}
-.week-row .wk-main .r{font-size:8.5px;color:var(--faint)}
-.week-bar{height:4px;border-radius:2px;background:rgba(255,255,255,.06);margin-top:6px;overflow:hidden}
-.week-bar i{display:block;height:100%;border-radius:2px}
-.week-row .wk-val{text-align:right;font-size:11px;font-weight:650;font-variant-numeric:tabular-nums;white-space:nowrap}
-.week-row .wk-val span{display:block;font-size:8px;color:var(--faint);margin-top:3px;font-weight:500}
+.week-tile:active{transform:scale(.97)}
+.week-tile.gain{background:rgba(255,93,108,.09);border-color:rgba(255,93,108,.14)}
+.week-tile.loss{background:rgba(53,211,154,.08);border-color:rgba(53,211,154,.12)}
+.week-tile.current{border-color:rgba(255,159,69,.4);box-shadow:0 0 0 1px rgba(255,159,69,.14) inset}
+.week-tile .wr{font-size:9px;color:var(--muted);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.week-tile .wa{font-size:11.5px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.02em;white-space:nowrap}
+.week-tile.gain .wa{color:var(--gain)}
+.week-tile.loss .wa{color:var(--loss)}
+.week-tile .wp{font-size:8px;color:var(--faint);font-variant-numeric:tabular-nums}
 .month-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
 .month-cell{position:relative;padding:12px 10px 11px;border-radius:13px;background:rgba(255,255,255,.03);border:1px solid var(--line);min-height:75px;display:flex;flex-direction:column;justify-content:space-between}
 .month-cell .m{font-size:10.5px;color:var(--ink-2);font-weight:600}
@@ -715,7 +717,7 @@ html[data-theme="light"] .backup-copy-area{background:#fff}
 .month-cell .p{font-size:8px;color:var(--faint);margin-top:2px}
 .month-cell.active{border-color:rgba(255,159,69,.35);background:rgba(255,159,69,.07)}
 .month-cell:active{transform:scale(.97)}
-.year-list{display:flex;flex-direction:column;gap:7px}
+.year-list{display:flex;flex-direction:column;gap:7px;margin-top:14px}
 .year-row{display:flex;align-items:center;gap:11px;padding:13px 14px;border-radius:13px;background:rgba(255,255,255,.03);border:1px solid var(--line)}
 .year-row .y{font-size:12px;font-weight:650;width:43px}
 .year-row .bar{flex:1;height:5px;border-radius:3px;background:rgba(255,255,255,.06);overflow:hidden}
@@ -1013,7 +1015,6 @@ html[data-theme="light"] .backup-copy-area{background:#fff}
 .stats-row .main .t,.stats-row .main .s{display:block}
 .icon-btn:disabled{opacity:.25;pointer-events:none}
 .month-cell{text-align:left}
-.week-row{text-align:left;width:100%}
 .year-row{width:100%;text-align:left}
 .check-row{position:relative}
 .form-hint{font-size:8.5px;color:var(--faint);line-height:1.5;margin:5px 2px 7px}
@@ -1086,16 +1087,6 @@ input[type="date"]{color-scheme:dark}
   .detail-chart-card .metric .val{font-size:10px}
   .hero-note{font-size:9px}
 }
-
-/* ---------- year insights ---------- */
-.year-bars{display:grid;grid-template-columns:repeat(12,1fr);gap:3px;align-items:end;margin-top:15px;height:104px}
-.yb-col{display:flex;flex-direction:column;align-items:center;gap:5px;height:100%}
-.yb-track{position:relative;flex:1;width:100%;border-radius:4px;background:rgba(255,255,255,.025)}
-.yb-track i{position:absolute;left:20%;right:20%;border-radius:3px;min-height:2px}
-.yb-track i.up{background:var(--gain);opacity:.8;border-radius:3px 3px 1px 1px}
-.yb-track i.down{background:var(--loss);opacity:.8;border-radius:1px 1px 3px 3px}
-.yb-col span{font-size:7px;color:var(--faint);flex:0 0 auto}
-.year-bars + .cal-mini-stats .n{font-size:9.5px}
 
 body.has-overlay .toast-root{top:calc(var(--safe-top) + 14px);bottom:auto}
 
@@ -1349,9 +1340,7 @@ html[data-theme="light"] .rec-edit{color:rgba(16,24,40,.25)}
 html[data-theme="light"] .rec-del{color:rgba(16,24,40,.22)}
 html[data-theme="light"] .bar-track,
 html[data-theme="light"] .reb-track,
-html[data-theme="light"] .week-bar,
 html[data-theme="light"] .year-row .bar,
-html[data-theme="light"] .yb-track,
 html[data-theme="light"] .cal-legend .scale i{background:rgba(16,24,40,.08)}
 html[data-theme="light"] .flow-node,
 html[data-theme="light"] .flow-node.total{background:rgba(255,255,255,.78);border-color:rgba(16,24,40,.09)}
@@ -1378,9 +1367,11 @@ html[data-theme="light"] .cal-cell{background:rgba(16,24,40,.025);border-color:r
 html[data-theme="light"] .cal-cell.empty{background:rgba(16,24,40,.018)}
 html[data-theme="light"] .cal-cell .cal-day{color:rgba(16,24,40,.62)}
 html[data-theme="light"] .cal-head .nav .icon-btn{background:rgba(16,24,40,.045)}
-html[data-theme="light"] .week-row,
+html[data-theme="light"] .week-tile,
 html[data-theme="light"] .month-cell,
 html[data-theme="light"] .year-row{background:rgba(16,24,40,.028);border-color:var(--line)}
+html[data-theme="light"] .week-tile.gain{background:rgba(200,60,75,.07);border-color:rgba(200,60,75,.14)}
+html[data-theme="light"] .week-tile.loss{background:rgba(30,140,100,.07);border-color:rgba(30,140,100,.14)}
 html[data-theme="light"] .month-cell.active{background:rgba(225,132,34,.08);border-color:rgba(225,132,34,.3)}
 html[data-theme="light"] .detail-hero,
 html[data-theme="light"] .group-scheme-card,
