@@ -1508,7 +1508,7 @@ html[data-theme="light"] .acct-icon.brand{border-color:rgba(16,24,40,.1);box-sha
 'use strict';
 
 const APP_NAME = '有余';
-const APP_VERSION = '6.5.33';
+const APP_VERSION = '6.5.34';
 const IS_DESKTOP = document.documentElement.getAttribute('data-layout') === 'desktop';
 const PC_HREF = 'pc/index.html';
 const MOBILE_HREF = /\/pc\//.test(location.pathname) ? '../index.html' : 'index.html';
@@ -5677,8 +5677,6 @@ function openCalendarDaySheet(date) {
     const p = idx != null ? g.pnls[idx] : 0;
     return { name: g.name, color: g.color, p };
   }).filter(r => Math.abs(r.p) > 0.005)
-    .sort((a, b) => Math.abs(b.p) - Math.abs(a.p))
-    .slice(0, 5)
     .sort((a, b) => b.p - a.p);
   let dayRecords = recordsSorted().filter(r => r.date === date).reverse();
   if (gid !== 'all') {

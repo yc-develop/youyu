@@ -262,8 +262,6 @@ function openCalendarDaySheet(date) {
     const p = idx != null ? g.pnls[idx] : 0;
     return { name: g.name, color: g.color, p };
   }).filter(r => Math.abs(r.p) > 0.005)
-    .sort((a, b) => Math.abs(b.p) - Math.abs(a.p))
-    .slice(0, 5)
     .sort((a, b) => b.p - a.p);
   let dayRecords = recordsSorted().filter(r => r.date === date).reverse();
   if (gid !== 'all') {
