@@ -107,6 +107,7 @@ function normalizeState(obj) {
   obj.rebalance = obj.rebalance && typeof obj.rebalance === 'object' ? obj.rebalance : {};
   obj.rebalance.schemes = obj.rebalance.schemes && typeof obj.rebalance.schemes === 'object' ? obj.rebalance.schemes : {};
   obj.rebalance.targets = obj.rebalance.targets && typeof obj.rebalance.targets === 'object' ? obj.rebalance.targets : {};
+  obj.rebalance.expectedRates = obj.rebalance.expectedRates && typeof obj.rebalance.expectedRates === 'object' ? obj.rebalance.expectedRates : {};
   if (!Array.isArray(obj.schemes) || !obj.schemes.length) obj.schemes = buildSeed().schemes;
   obj.schemes.forEach(s => {
     s.id = s.id || uid('sch');
@@ -288,6 +289,7 @@ function rebalanceConfig(schemeId) {
   if (!state.rebalance) state.rebalance = { schemes: {}, targets: {} };
   if (!state.rebalance.schemes) state.rebalance.schemes = {};
   if (!state.rebalance.targets) state.rebalance.targets = {};
+  if (!state.rebalance.expectedRates) state.rebalance.expectedRates = {};
   return state.rebalance.schemes[schemeId] || {};
 }
 function rebalanceEnabled(scheme) {
@@ -308,6 +310,18 @@ function rebalanceTargetFor(scheme, group) {
   return Number(targets[group.id]) || 0;
 }
 function groupTargetValue(scheme, group) { return rebalanceTargetFor(scheme, group); }
+function rebalanceExpectedFor(scheme, group) {
+  if (!scheme || !group) return null;
+  let raw;
+  if (!scheme.builtin) raw = group.expectedRate;
+  else {
+    const rates = (state.rebalance && state.rebalance.expectedRates && state.rebalance.expectedRates[scheme.id]) || {};
+    raw = rates[group.id];
+  }
+  if (raw === null || raw === undefined || raw === '') return null;
+  const v = Number(raw);
+  return Number.isFinite(v) ? v : null;
+}
 function schemesForRebalance() {
   return schemes().filter(s => rebalanceEnabled(s));
 }

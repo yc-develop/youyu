@@ -99,49 +99,87 @@ function openTargetEditor(sid) {
   const scheme = schemeById(sid || rebalanceSchemeId());
   if (!scheme || !rebalanceEnabled(scheme)) { toast('请先在分组管理中开启再平衡', 'error'); return; }
   const tolerance = Number(state.settings.tolerance) || 0;
+  const assets = groupBreakdown(scheme.id).total;
   const body = '<form id="target-form">' +
-    '<div class="info-banner" style="margin-top:0">' + icon('target') + '<div>目标比例合计建议为 100%。你可以为每个分组设定一个目标占比，允许 ±' + tolerance.toFixed(1) + '% 的偏离。</div></div>' +
+    '<div class="info-banner" style="margin-top:0">' + icon('target') + '<div>目标比例合计建议为 100%。你可以为每个分组设定一个目标占比和预期年化，允许 ±' + tolerance.toFixed(1) + '% 的偏离。</div></div>' +
     '<div class="form-section">分组目标</div>' +
-    '<div style="display:flex;flex-direction:column;gap:10px">' +
-      scheme.groups.map(g => '<div class="field" style="display:grid;grid-template-columns:1fr 98px;align-items:center;gap:10px">' +
-        '<div style="display:flex;align-items:center;gap:8px;min-width:0"><span style="width:8px;height:8px;border-radius:3px;background:' + g.color + '"></span><span style="font-size:11px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(g.name) + '</span></div>' +
-        '<div class="amount-input"><input class="input target-input" type="text" inputmode="decimal" name="target_' + esc(g.id) + '" id="target_' + esc(g.id) + '" value="' + rebalanceTargetFor(scheme, g) + '" placeholder="0"><span class="unit">%</span></div>' +
-      '</div>').join('') +
+    '<div class="reb-target-head"><span></span><span>目标 %</span><span>年化 %</span><span>预期收益</span></div>' +
+    '<div class="reb-target-list">' +
+      scheme.groups.map(g => {
+        const rate = rebalanceExpectedFor(scheme, g);
+        return '<div class="reb-target-row">' +
+          '<div class="reb-target-name"><span class="dot" style="background:' + g.color + '"></span><span class="nm">' + esc(g.name) + '</span></div>' +
+          '<input class="input reb-num" type="text" inputmode="decimal" name="target_' + esc(g.id) + '" id="target_' + esc(g.id) + '" value="' + rebalanceTargetFor(scheme, g) + '" placeholder="0" aria-label="目标占比">' +
+          '<input class="input reb-num" type="text" inputmode="decimal" name="rate_' + esc(g.id) + '" id="rate_' + esc(g.id) + '" value="' + (rate == null ? '' : rate) + '" placeholder="0" aria-label="预期年化">' +
+          '<div class="reb-target-amt" data-amount="' + esc(g.id) + '">—</div>' +
+        '</div>';
+      }).join('') +
     '</div>' +
     '<div class="row-between" style="margin-top:12px;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,.035)"><span class="tiny">目标合计</span><b id="target-total" style="font-size:13px">' + schemeTargetTotal(scheme).toFixed(1) + '%</b></div>' +
+    '<div class="reb-expected"><div class="reb-expected-l"><span class="tiny">预期总收益 / 年</span><span class="reb-expected-sub">按目标占比 × 预期年化估算</span></div>' +
+      '<div class="reb-expected-r"><b id="expected-total">' + fmtMoney(0, { compact: true }) + '</b><span class="reb-expected-sub" id="expected-rate">组合年化 0.00%</span></div></div>' +
     '<div class="form-section">容忍带</div>' +
     '<div class="field" style="display:grid;grid-template-columns:1fr 98px;align-items:center;gap:10px"><div style="font-size:11px;color:var(--ink-2)">允许偏离目标</div><div class="amount-input"><input class="input" type="text" inputmode="decimal" name="tolerance" id="target-tolerance" value="' + tolerance + '"><span class="unit">%</span></div></div>' +
     '<div class="hint" style="font-size:8px;color:var(--faint);margin-top:7px;padding-left:2px">容忍带越窄，再平衡提示越频繁。</div>' +
   '</form>';
   const wrap = openSheet({
-    title: '调整目标配置', sub: esc(scheme.name) + ' · 目标占比', body,
+    title: '调整目标配置', sub: esc(scheme.name) + ' · 目标占比 · 预期年化', body,
     footer: '<button class="btn ghost" data-sheet-close>取消</button><button class="btn primary" data-target-save>保存目标</button>'
   });
   const form = wrap.querySelector('#target-form');
-  const updateTotal = () => {
-    let total = 0;
-    form.querySelectorAll('.target-input').forEach(inp => { total += parseNumber(inp.value); });
-    const el = form.querySelector('#target-total');
-    if (el) {
-      el.textContent = total.toFixed(1) + '%';
-      el.style.color = Math.abs(total - 100) < 0.01 ? 'var(--loss)' : 'var(--warning)';
+  const updateTotals = () => {
+    let totalPct = 0, expected = 0;
+    scheme.groups.forEach(g => {
+      const ti = form.querySelector('#target_' + g.id);
+      const ri = form.querySelector('#rate_' + g.id);
+      const t = clamp(parseNumber(ti ? ti.value : 0), 0, 100);
+      const r = ri && String(ri.value).trim() !== '' ? clamp(parseNumber(ri.value), -100, 100) : 0;
+      totalPct += t;
+      const amt = assets * (t / 100) * (r / 100);
+      expected += amt;
+      const cell = form.querySelector('[data-amount="' + g.id + '"]');
+      if (cell) {
+        const show = t > 0 && r !== 0;
+        cell.textContent = show ? fmtMoney(amt, { compact: true }) : '—';
+        cell.classList.toggle('on', show);
+      }
+    });
+    const totalEl = form.querySelector('#target-total');
+    if (totalEl) {
+      totalEl.textContent = totalPct.toFixed(1) + '%';
+      totalEl.style.color = Math.abs(totalPct - 100) < 0.01 ? 'var(--loss)' : 'var(--warning)';
     }
+    const expEl = form.querySelector('#expected-total');
+    if (expEl) expEl.textContent = fmtMoney(expected, { compact: true });
+    const rateEl = form.querySelector('#expected-rate');
+    if (rateEl) rateEl.textContent = '组合年化 ' + (assets > 0 ? expected / assets * 100 : 0).toFixed(2) + '%';
   };
-  form.addEventListener('input', updateTotal);
+  form.addEventListener('input', updateTotals);
+  updateTotals();
   wrap.querySelector('[data-target-save]').addEventListener('click', () => {
     let total = 0;
     const values = {};
+    const rates = {};
     scheme.groups.forEach(g => {
       const inp = form.querySelector('#target_' + g.id);
       const v = clamp(parseNumber(inp ? inp.value : 0), 0, 100);
       values[g.id] = v;
       total += v;
+      const ri = form.querySelector('#rate_' + g.id);
+      const raw = ri ? String(ri.value).trim() : '';
+      rates[g.id] = raw === '' ? null : clamp(parseNumber(raw), -100, 100);
     });
     const tol = clamp(parseNumber(form.querySelector('#target-tolerance').value), 0.1, 30);
     if (scheme.builtin) {
       state.rebalance.targets[scheme.id] = Object.assign({}, state.rebalance.targets[scheme.id] || {}, values);
+      state.rebalance.expectedRates = state.rebalance.expectedRates || {};
+      state.rebalance.expectedRates[scheme.id] = Object.assign({}, state.rebalance.expectedRates[scheme.id] || {}, rates);
     } else {
-      scheme.groups.forEach(g => { g.target = values[g.id]; });
+      scheme.groups.forEach(g => {
+        g.target = values[g.id];
+        const r = rates[g.id];
+        if (r == null) delete g.expectedRate; else g.expectedRate = r;
+      });
     }
     state.settings.tolerance = tol;
     saveState();
