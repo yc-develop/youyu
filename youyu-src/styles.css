@@ -642,6 +642,10 @@ html[data-theme="light"] .backup-copy-area{background:#fff}
   padding:15px 16px;margin-top:12px;
 }
 .cal-summary .l{font-size:9px;color:var(--faint);display:flex;align-items:center;gap:5px}
+.cal-summary{cursor:pointer}
+.cal-summary:active{transform:scale(.995)}
+.cal-more{margin-left:auto;display:inline-flex;align-items:center;gap:2px;font-size:8.5px;color:var(--faint)}
+.cal-more .icon{width:11px;height:11px}
 .cal-summary .v{font-size:25px;font-weight:720;letter-spacing:-.035em;margin-top:5px;font-variant-numeric:tabular-nums}
 .cal-summary .sub{display:flex;align-items:center;gap:9px;font-size:9.5px;color:var(--muted);margin-top:5px}
 .cal-summary .sub b{font-weight:600}

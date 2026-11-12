@@ -144,17 +144,18 @@ function handleAction(action, el) {
       refreshPage(); return;
     case 'open-calendar-day': openCalendarDaySheet(d.date); return;
     case 'open-calendar-week':
-      ui.calendarMonth = startOfMonth(d.start);
-      ui.calendarMode = 'day';
-      refreshPage(); return;
-    case 'open-calendar-month':
-      ui.calendarMonth = d.month;
-      ui.calendarMode = 'day';
-      refreshPage(); return;
-    case 'open-calendar-year':
-      ui.calendarYear = Number(d.year);
-      ui.calendarMode = 'month';
-      refreshPage(); return;
+      openCalendarRangeSheet('week', d.start, d.end || addDays(d.start, 6)); return;
+    case 'open-calendar-month': {
+      const monthEnd = endOfMonth(d.month);
+      openCalendarRangeSheet('month', d.month, monthEnd < todayKey() ? monthEnd : todayKey()); return;
+    }
+    case 'open-calendar-year': {
+      const ys = d.year + '-01-01';
+      const ye = d.year + '-12-31';
+      openCalendarRangeSheet('year', ys, ye < todayKey() ? ye : todayKey()); return;
+    }
+    case 'open-calendar-all':
+      openCalendarRangeSheet('all', buildDailyAnalytics().dates[0], todayKey()); return;
 
     case 'new-scheme': closeAllSheets(); setTimeout(openNewSchemeSheet, 50); return;
     case 'edit-scheme': closeAllSheets(); setTimeout(() => openEditSchemeSheet(d.scheme), 50); return;

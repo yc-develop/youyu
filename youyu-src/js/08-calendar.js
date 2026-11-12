@@ -66,8 +66,8 @@ function renderCalendarPage() {
     const totalPnl = summary.pnl;
     const summaryMain = metric === 'percent' ? fmtPct(summary.returnPct, 2) : (totalPnl > 0 ? '+' : totalPnl < 0 ? '-' : '') + fmtMoney(Math.abs(totalPnl));
     const best = summary.best || { pnl: 0, date: todayKey() };
-    summaryHTML = '<section class="cal-summary">' +
-      '<div class="l">记账以来 <span class="faint">· ' + esc(series.name) + '</span></div>' +
+    summaryHTML = '<section class="cal-summary" data-action="open-calendar-all" role="button" tabindex="0">' +
+      '<div class="l">记账以来 <span class="faint">· ' + esc(series.name) + '</span><span class="cal-more">明细' + icon('chevronRight') + '</span></div>' +
       '<div class="v ' + pnlClass(totalPnl) + '">' + summaryMain + '</div>' +
       '<div class="sub"><b class="' + pnlClass(summary.returnPct) + '">' + fmtPct(summary.returnPct, 2) + '</b><span>区间收益率</span><span class="faint">' + (summary.positiveDays || 0) + ' 天盈利 / ' + (summary.negativeDays || 0) + ' 天亏损</span></div>' +
       '<div class="cal-mini-stats"><div><div class="l">最佳单日</div><div class="n gain">' + (best.pnl >= 0 ? '+' : '') + fmtMoney(best.pnl, { compact: true }) + '</div></div>' +
@@ -163,7 +163,7 @@ function weekCalendarHTML(series, month) {
     const pnl = r.ps.pnl;
     const cls = pnl > 0.005 ? ' gain' : pnl < -0.005 ? ' loss' : '';
     const cur = today >= r.ws && today <= r.we ? ' current' : '';
-    return '<button class="week-tile' + cls + cur + '" data-action="open-calendar-week" data-start="' + r.ws + '">' +
+    return '<button class="week-tile' + cls + cur + '" data-action="open-calendar-week" data-start="' + r.ws + '" data-end="' + r.we + '">' +
       '<span class="wr">' + weekRangeLabel(r.ws, r.we) + '</span>' +
       '<b class="wa">' + (pnl >= 0 ? '+' : '') + fmtMoney(pnl, { compact: true }) + '</b>' +
       '<span class="wp">' + fmtPct(r.ps.returnPct, 2) + '</span>' +
@@ -207,6 +207,45 @@ function yearCalendarHTML(series) {
       '<span class="y">' + r.y + '</span><span class="bar"><i style="width:' + w.toFixed(1) + '%;background:' + (r.ps.pnl >= 0 ? 'var(--gain)' : 'var(--loss)') + '"></i></span>' +
       '<span class="v ' + pnlClass(r.ps.pnl) + '">' + (r.ps.pnl >= 0 ? '+' : '') + fmtMoney(r.ps.pnl, { compact: true }) + '<span>' + fmtPct(r.ps.returnPct, 2) + '</span></span></button>';
   }).join('') + '</div>';
+}
+
+/* ---------- calendar range sheet ---------- */
+function openCalendarRangeSheet(kind, start, end) {
+  const sid = calendarSchemeId();
+  const gid = calendarGroupId(sid);
+  const series = calendarSeries(sid, gid);
+  const daily = buildDailyAnalytics();
+  const sIdx = daily.indexMap.has(start) ? daily.indexMap.get(start) : 0;
+  const eIdx = daily.indexMap.has(end) ? daily.indexMap.get(end) : daily.n - 1;
+  const ps = periodStats(series, start, end);
+  const gs = groupDailySeries(sid);
+  const groupRows = gs.groups.map(g => {
+    let p = 0;
+    for (let i = sIdx; i <= eIdx; i++) p += g.pnls[i] || 0;
+    return { name: g.name, color: g.color, p };
+  }).filter(r => Math.abs(r.p) > 0.005)
+    .sort((a, b) => Math.abs(b.p) - Math.abs(a.p))
+    .slice(0, 5)
+    .sort((a, b) => b.p - a.p);
+  const maxAbs = Math.max(1, ...groupRows.map(r => Math.abs(r.p)));
+  const titles = { week: '周收益', month: '月收益', year: '年收益', all: '投资以来' };
+  const title = titles[kind] || '区间收益';
+  const rangeText = kind === 'all' ? dateRangeLabel(daily.dates[0], todayKey()) : dateRangeLabel(start, end);
+  const totalPnl = ps.pnl;
+  const body = '<div class="stat-hero" style="margin-bottom:0">' +
+    '<div><div class="eyebrow">' + esc(rangeText) + '</div>' +
+    '<div class="big ' + pnlClass(totalPnl) + '" style="font-size:27px">' + (totalPnl >= 0 ? '+' : '') + fmtMoney(totalPnl) + '</div>' +
+    '<div class="cap">' + esc(series.name) + ' · ' + fmtPct(ps.returnPct, 2) + ' 区间盈亏</div></div>' +
+    '<div class="right">盈利<b>' + (ps.positiveDays || 0) + ' 天</b><span>亏损 ' + (ps.negativeDays || 0) + ' 天</span></div></div>' +
+    '<div class="cal-mini-stats">' +
+      '<div><div class="l">最佳单日</div><div class="n gain">' + (ps.best ? (ps.best.pnl >= 0 ? '+' : '') + fmtMoney(ps.best.pnl, { compact: true }) : '—') + '</div></div>' +
+      '<div><div class="l">最差单日</div><div class="n ' + (ps.worst && ps.worst.pnl < 0 ? 'loss' : '') + '">' + (ps.worst ? fmtMoney(ps.worst.pnl, { compact: true }) : '—') + '</div></div>' +
+      '<div><div class="l">胜率</div><div class="n">' + ((ps.positiveDays + ps.negativeDays) > 0 ? Math.round(ps.positiveDays / (ps.positiveDays + ps.negativeDays) * 100) : 0) + '%</div></div>' +
+    '</div>' +
+    (groupRows.length ? '<div class="bar-list" style="margin-top:18px">' + groupRows.map(r => '<div class="bar-row"><div class="bar-top"><span class="dot" style="background:' + r.color + '"></span><span class="name">' + esc(r.name) + '</span><span class="pct ' + pnlClass(r.p) + '">' + (r.p >= 0 ? '+' : '') + fmtMoney(r.p, { compact: true }) + '</span></div><div class="bar-track"><div class="bar-fill" style="width:' + (Math.abs(r.p) / maxAbs * 100).toFixed(1) + '%;background:' + r.color + '"></div></div></div>').join('') + '</div>' : '') +
+    '<div class="divider-line"></div>' +
+    '<div class="tiny" style="padding:6px 0 2px;text-align:center">共 ' + esc(ps.days) + ' 天</div>';
+  openSheet({ title, sub: esc(scopeName(gid, sid)), body, footer: '<button class="btn ghost" data-sheet-close>关闭</button>' });
 }
 
 /* ---------- calendar day sheet ---------- */
