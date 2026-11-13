@@ -135,9 +135,16 @@ ul,ol{margin:0;padding:0;list-style:none}
 }
 .topbar .head-left{min-width:0}
 .head-actions{display:flex;align-items:center;gap:9px;padding-top:3px;flex-shrink:0}
-.head-stack{display:flex;flex-direction:column;gap:6px;flex-shrink:0}
-.head-add{align-self:flex-start}
-.head-stack .icon-btn{width:38px;height:38px}
+.hero-amount-row{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+.hero-big-toggle{
+  width:30px;height:30px;border-radius:50%;flex:0 0 30px;margin-bottom:7px;
+  display:inline-flex;align-items:center;justify-content:center;
+  background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.09);
+  color:rgba(255,255,255,.5);transition:background .16s,color .16s,transform .12s;
+}
+.hero-big-toggle .icon{width:14px;height:14px}
+.hero-big-toggle.on{background:rgba(255,159,69,.16);border-color:rgba(255,159,69,.3);color:var(--accent)}
+.hero-big-toggle:active{transform:scale(.94)}
 .icon-btn{
   width:38px;height:38px;border-radius:50%;
   display:inline-flex;align-items:center;justify-content:center;
@@ -2120,7 +2127,7 @@ html[data-layout="desktop"][data-theme="light"] .version{color:rgba(16,24,40,.32
 'use strict';
 
 const APP_NAME = '有余';
-const APP_VERSION = '6.5.35';
+const APP_VERSION = '6.5.36';
 const IS_DESKTOP = document.documentElement.getAttribute('data-layout') === 'desktop';
 const PC_HREF = 'pc/index.html';
 const MOBILE_HREF = /\/pc\//.test(location.pathname) ? '../index.html' : 'index.html';
@@ -5462,17 +5469,17 @@ function renderAssetsPage() {
     eyebrow: 'PORTFOLIO OVERVIEW',
     title: '资产',
     sub: '把每一笔钱，放在看得见的地方。',
-    actions: '<div class="head-stack">' +
-        '<button class="icon-btn" data-action="toggle-hide" aria-label="隐藏全部金额">' + icon(eyeIcon) + '</button>' +
-        '<button class="icon-btn' + (state.settings.hideBig ? ' accent' : '') + '" data-action="toggle-hide-big" aria-label="只隐藏大数字">' + icon('bigHide') + '</button>' +
-      '</div>' +
-      '<button class="icon-btn accent head-add" data-action="open-add-account" aria-label="添加账户">' + icon('plus') + '</button>'
+    actions: '<button class="icon-btn" data-action="toggle-hide" aria-label="隐藏全部金额">' + icon(eyeIcon) + '</button>' +
+      '<button class="icon-btn accent" data-action="open-add-account" aria-label="添加账户">' + icon('plus') + '</button>'
   }) +
   '<section class="hero">' +
     (sparkVals.length > 2 ? '<div class="spark-layer">' + sparklineHTML(sparkVals, { color: p.profit >= 0 ? '#ff9f45' : '#43d6b0' }) + '</div>' : '') +
     '<div class="hero-top"><div class="hero-label">组合总资产 <span class="tag">含浮动盈亏</span></div>' +
       '<span style="font-size:8.5px;color:rgba(255,255,255,.32);letter-spacing:.03em">更新至 ' + shortDate(todayKey()) + '</span></div>' +
-    '<div class="hero-amount"><span class="cur">' + heroMoney.sym + '</span><span>' + heroMoney.main + '</span>' + (heroMoney.dec ? '<span class="dec">.' + heroMoney.dec + '</span>' : '') + '</div>' +
+    '<div class="hero-amount-row">' +
+      '<div class="hero-amount"><span class="cur">' + heroMoney.sym + '</span><span>' + heroMoney.main + '</span>' + (heroMoney.dec ? '<span class="dec">.' + heroMoney.dec + '</span>' : '') + '</div>' +
+      '<button class="hero-big-toggle' + (state.settings.hideBig ? ' on' : '') + '" data-action="toggle-hide-big" aria-label="只隐藏大数字">' + icon('bigHide') + '</button>' +
+    '</div>' +
     '<div class="hero-pnl-list">' +
       '<div class="hero-pnl-line"><span class="k">浮动盈亏</span><span class="v ' + pnlClass(p.unrealized) + '">' + pnlText(p.unrealized) + '</span></div>' +
       '<div class="hero-pnl-line"><span class="k">累计收益</span><span class="v ' + pnlClass(p.profit) + '">' + pnlText(p.profit) + '</span><span class="pct ' + pnlClass(p.profit) + '">' + (p.returnPct == null ? '—' : fmtPct(p.returnPct, 2)) + '</span><span class="muted" style="font-size:8px">累计收益率（按净投入）</span></div>' +

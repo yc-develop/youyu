@@ -38,17 +38,17 @@ function renderAssetsPage() {
     eyebrow: 'PORTFOLIO OVERVIEW',
     title: '资产',
     sub: '把每一笔钱，放在看得见的地方。',
-    actions: '<div class="head-stack">' +
-        '<button class="icon-btn" data-action="toggle-hide" aria-label="隐藏全部金额">' + icon(eyeIcon) + '</button>' +
-        '<button class="icon-btn' + (state.settings.hideBig ? ' accent' : '') + '" data-action="toggle-hide-big" aria-label="只隐藏大数字">' + icon('bigHide') + '</button>' +
-      '</div>' +
-      '<button class="icon-btn accent head-add" data-action="open-add-account" aria-label="添加账户">' + icon('plus') + '</button>'
+    actions: '<button class="icon-btn" data-action="toggle-hide" aria-label="隐藏全部金额">' + icon(eyeIcon) + '</button>' +
+      '<button class="icon-btn accent" data-action="open-add-account" aria-label="添加账户">' + icon('plus') + '</button>'
   }) +
   '<section class="hero">' +
     (sparkVals.length > 2 ? '<div class="spark-layer">' + sparklineHTML(sparkVals, { color: p.profit >= 0 ? '#ff9f45' : '#43d6b0' }) + '</div>' : '') +
     '<div class="hero-top"><div class="hero-label">组合总资产 <span class="tag">含浮动盈亏</span></div>' +
       '<span style="font-size:8.5px;color:rgba(255,255,255,.32);letter-spacing:.03em">更新至 ' + shortDate(todayKey()) + '</span></div>' +
-    '<div class="hero-amount"><span class="cur">' + heroMoney.sym + '</span><span>' + heroMoney.main + '</span>' + (heroMoney.dec ? '<span class="dec">.' + heroMoney.dec + '</span>' : '') + '</div>' +
+    '<div class="hero-amount-row">' +
+      '<div class="hero-amount"><span class="cur">' + heroMoney.sym + '</span><span>' + heroMoney.main + '</span>' + (heroMoney.dec ? '<span class="dec">.' + heroMoney.dec + '</span>' : '') + '</div>' +
+      '<button class="hero-big-toggle' + (state.settings.hideBig ? ' on' : '') + '" data-action="toggle-hide-big" aria-label="只隐藏大数字">' + icon('bigHide') + '</button>' +
+    '</div>' +
     '<div class="hero-pnl-list">' +
       '<div class="hero-pnl-line"><span class="k">浮动盈亏</span><span class="v ' + pnlClass(p.unrealized) + '">' + pnlText(p.unrealized) + '</span></div>' +
       '<div class="hero-pnl-line"><span class="k">累计收益</span><span class="v ' + pnlClass(p.profit) + '">' + pnlText(p.profit) + '</span><span class="pct ' + pnlClass(p.profit) + '">' + (p.returnPct == null ? '—' : fmtPct(p.returnPct, 2)) + '</span><span class="muted" style="font-size:8px">累计收益率（按净投入）</span></div>' +
