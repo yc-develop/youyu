@@ -234,7 +234,7 @@ function emptyBlock(title, text, actionHtml, ico) {
 /* ---------- amount formatting ---------- */
 function moneyParts(v, ccy) {
   const sym = symbolFor(ccy || baseCurrency());
-  if (state && state.settings && state.settings.hideAmounts) return { sym, main: '••••••', dec: '' };
+  if (state && state.settings && (state.settings.hideAmounts || state.settings.hideBig)) return { sym, main: '••••••', dec: '' };
   const n = Number(v) || 0;
   const abs = Math.abs(n);
   const fixed = abs.toFixed(2);

@@ -36,6 +36,11 @@ function handleAction(action, el) {
     case 'toggle-hide':
       state.settings.hideAmounts = !state.settings.hideAmounts;
       saveState(); refreshPage(); return;
+    case 'toggle-hide-big':
+      state.settings.hideBig = !state.settings.hideBig;
+      saveState(); refreshPage();
+      toast(state.settings.hideBig ? '已只隐藏大数字' : '已显示大数字', 'success');
+      return;
     case 'toggle-theme': state.settings.theme = state.settings.theme === 'light' ? 'dark' : 'light'; try { localStorage.setItem(THEME_KEY, state.settings.theme); } catch (e) {} applyTheme(); saveState(); refreshPage(); toast(state.settings.theme === 'light' ? '已切换到日间模式' : '已切换到夜间模式', 'success'); return;
     case 'toggle-fx':
       state.settings.considerFx = !state.settings.considerFx;

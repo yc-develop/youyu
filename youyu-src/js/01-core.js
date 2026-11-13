@@ -4,7 +4,7 @@
 'use strict';
 
 const APP_NAME = '有余';
-const APP_VERSION = '6.5.34';
+const APP_VERSION = '6.5.35';
 const IS_DESKTOP = document.documentElement.getAttribute('data-layout') === 'desktop';
 const PC_HREF = 'pc/index.html';
 const MOBILE_HREF = /\/pc\//.test(location.pathname) ? '../index.html' : 'index.html';
@@ -295,6 +295,7 @@ const ICONS = {
   swap: '<path d="M4 8h14M14 4l4 4-4 4M20 16H6M10 12l-4 4 4 4"/>',
   eye: '<path d="M2.3 12S5.8 5.5 12 5.5 21.7 12 21.7 12 18.2 18.5 12 18.5 2.3 12 2.3 12z"/><circle cx="12" cy="12" r="3"/>',
   eyeOff: '<path d="M3 3l18 18"/><path d="M10.6 6.7A9.8 9.8 0 0 1 12 6.5c5.8 0 9.4 5.5 9.4 5.5a17.4 17.4 0 0 1-3 3.7M6.3 8.2A17 17 0 0 0 2.6 12S6.2 18.5 12 18.5a9.8 9.8 0 0 0 4.6-1.2"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>',
+  bigHide: '<path d="M6 4l6 7 6-7"/><path d="M12 11v9"/><path d="M8 15h8"/><path d="M3 3l18 18"/>',
   more: '<circle cx="5" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.2" fill="currentColor" stroke="none"/>',
   edit: '<path d="M4 20h4l11-11a2.8 2.8 0 0 0-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>',
   trash: '<path d="M4 7h16M10 11v6M14 11v6"/><path d="M6 7l1 13h10l1-13M9 7V4h6v3"/>',

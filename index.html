@@ -139,6 +139,9 @@ ul,ol{margin:0;padding:0;list-style:none}
 }
 .topbar .head-left{min-width:0}
 .head-actions{display:flex;align-items:center;gap:9px;padding-top:3px;flex-shrink:0}
+.head-stack{display:flex;flex-direction:column;gap:6px;flex-shrink:0}
+.head-add{align-self:flex-start}
+.head-stack .icon-btn{width:38px;height:38px}
 .icon-btn{
   width:38px;height:38px;border-radius:50%;
   display:inline-flex;align-items:center;justify-content:center;
@@ -1508,7 +1511,7 @@ html[data-theme="light"] .acct-icon.brand{border-color:rgba(16,24,40,.1);box-sha
 'use strict';
 
 const APP_NAME = '有余';
-const APP_VERSION = '6.5.34';
+const APP_VERSION = '6.5.35';
 const IS_DESKTOP = document.documentElement.getAttribute('data-layout') === 'desktop';
 const PC_HREF = 'pc/index.html';
 const MOBILE_HREF = /\/pc\//.test(location.pathname) ? '../index.html' : 'index.html';
@@ -1799,6 +1802,7 @@ const ICONS = {
   swap: '<path d="M4 8h14M14 4l4 4-4 4M20 16H6M10 12l-4 4 4 4"/>',
   eye: '<path d="M2.3 12S5.8 5.5 12 5.5 21.7 12 21.7 12 18.2 18.5 12 18.5 2.3 12 2.3 12z"/><circle cx="12" cy="12" r="3"/>',
   eyeOff: '<path d="M3 3l18 18"/><path d="M10.6 6.7A9.8 9.8 0 0 1 12 6.5c5.8 0 9.4 5.5 9.4 5.5a17.4 17.4 0 0 1-3 3.7M6.3 8.2A17 17 0 0 0 2.6 12S6.2 18.5 12 18.5a9.8 9.8 0 0 0 4.6-1.2"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>',
+  bigHide: '<path d="M6 4l6 7 6-7"/><path d="M12 11v9"/><path d="M8 15h8"/><path d="M3 3l18 18"/>',
   more: '<circle cx="5" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.2" fill="currentColor" stroke="none"/>',
   edit: '<path d="M4 20h4l11-11a2.8 2.8 0 0 0-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>',
   trash: '<path d="M4 7h16M10 11v6M14 11v6"/><path d="M6 7l1 13h10l1-13M9 7V4h6v3"/>',
@@ -2346,6 +2350,7 @@ function normalizeState(obj) {
   obj.settings.considerFx = false;
   obj.settings.tolerance = Number.isFinite(Number(obj.settings.tolerance)) ? Number(obj.settings.tolerance) : 3;
   obj.settings.hideAmounts = !!obj.settings.hideAmounts;
+  obj.settings.hideBig = !!obj.settings.hideBig;
   obj.settings.theme = obj.settings.theme === 'light' ? 'light' : 'dark';
   obj.accountTypes = normalizeTypeList(obj.accountTypes, DEFAULT_ACCOUNT_TYPES, 'account');
   obj.instrumentTypes = normalizeTypeList(obj.instrumentTypes, DEFAULT_INSTRUMENT_TYPES, 'instrument');
@@ -4650,7 +4655,7 @@ function emptyBlock(title, text, actionHtml, ico) {
 /* ---------- amount formatting ---------- */
 function moneyParts(v, ccy) {
   const sym = symbolFor(ccy || baseCurrency());
-  if (state && state.settings && state.settings.hideAmounts) return { sym, main: '••••••', dec: '' };
+  if (state && state.settings && (state.settings.hideAmounts || state.settings.hideBig)) return { sym, main: '••••••', dec: '' };
   const n = Number(v) || 0;
   const abs = Math.abs(n);
   const fixed = abs.toFixed(2);
@@ -4848,8 +4853,11 @@ function renderAssetsPage() {
     eyebrow: 'PORTFOLIO OVERVIEW',
     title: '资产',
     sub: '把每一笔钱，放在看得见的地方。',
-    actions: '<button class="icon-btn" data-action="toggle-hide" aria-label="隐藏金额">' + icon(eyeIcon) + '</button>' +
-      '<button class="icon-btn accent" data-action="open-add-account" aria-label="添加账户">' + icon('plus') + '</button>'
+    actions: '<div class="head-stack">' +
+        '<button class="icon-btn" data-action="toggle-hide" aria-label="隐藏全部金额">' + icon(eyeIcon) + '</button>' +
+        '<button class="icon-btn' + (state.settings.hideBig ? ' accent' : '') + '" data-action="toggle-hide-big" aria-label="只隐藏大数字">' + icon('bigHide') + '</button>' +
+      '</div>' +
+      '<button class="icon-btn accent head-add" data-action="open-add-account" aria-label="添加账户">' + icon('plus') + '</button>'
   }) +
   '<section class="hero">' +
     (sparkVals.length > 2 ? '<div class="spark-layer">' + sparklineHTML(sparkVals, { color: p.profit >= 0 ? '#ff9f45' : '#43d6b0' }) + '</div>' : '') +
@@ -5286,7 +5294,7 @@ function renderStatsPage() {
       (manageSid ? '<a class="icon-btn" href="#/groups/' + encodeURIComponent(manageSid) + '" aria-label="管理分组">' + icon('grid') + '</a>' : '')
   }) +
   schemeChipsHTML(sid, 'select-stats-scheme') +
-  '<div class="stat-hero"><div><div class="eyebrow">组合总资产</div><div class="big">' + fmtMoney(p.totalMarket) + '</div><div class="cap">含浮动盈亏 · ' + p.accounts.length + ' 个账户 · ' + p.positions + ' 个持仓</div></div>' +
+  '<div class="stat-hero"><div><div class="eyebrow">组合总资产</div><div class="big">' + (state.settings.hideBig ? symbolFor(baseCurrency()) + '••••••' : fmtMoney(p.totalMarket)) + '</div><div class="cap">含浮动盈亏 · ' + p.accounts.length + ' 个账户 · ' + p.positions + ' 个持仓</div></div>' +
     '<div class="right">累计收益<b class="' + pnlClass(p.profit) + '">' + pnlText(p.profit) + '</b><span class="' + pnlClass(p.returnPct) + '">' + (p.returnPct == null ? '—' : fmtPct(p.returnPct, 2)) + '</span><span style="display:block;font-size:8px;color:var(--faint)">累计收益率（按净投入）</span></div></div>' +
   '<section class="card pad" style="margin-top:12px">' +
     '<div class="card-head" style="padding:0"><div><h2>资产构成</h2><div class="sub">' + esc(scheme ? scheme.name : '') + ' · 按当前市值</div></div><span class="tiny">' + esc(baseCurrency()) + '</span></div>' +
@@ -8239,6 +8247,11 @@ function handleAction(action, el) {
     case 'toggle-hide':
       state.settings.hideAmounts = !state.settings.hideAmounts;
       saveState(); refreshPage(); return;
+    case 'toggle-hide-big':
+      state.settings.hideBig = !state.settings.hideBig;
+      saveState(); refreshPage();
+      toast(state.settings.hideBig ? '已只隐藏大数字' : '已显示大数字', 'success');
+      return;
     case 'toggle-theme': state.settings.theme = state.settings.theme === 'light' ? 'dark' : 'light'; try { localStorage.setItem(THEME_KEY, state.settings.theme); } catch (e) {} applyTheme(); saveState(); refreshPage(); toast(state.settings.theme === 'light' ? '已切换到日间模式' : '已切换到夜间模式', 'success'); return;
     case 'toggle-fx':
       state.settings.considerFx = !state.settings.considerFx;

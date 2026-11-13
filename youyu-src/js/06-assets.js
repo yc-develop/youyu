@@ -38,8 +38,11 @@ function renderAssetsPage() {
     eyebrow: 'PORTFOLIO OVERVIEW',
     title: '资产',
     sub: '把每一笔钱，放在看得见的地方。',
-    actions: '<button class="icon-btn" data-action="toggle-hide" aria-label="隐藏金额">' + icon(eyeIcon) + '</button>' +
-      '<button class="icon-btn accent" data-action="open-add-account" aria-label="添加账户">' + icon('plus') + '</button>'
+    actions: '<div class="head-stack">' +
+        '<button class="icon-btn" data-action="toggle-hide" aria-label="隐藏全部金额">' + icon(eyeIcon) + '</button>' +
+        '<button class="icon-btn' + (state.settings.hideBig ? ' accent' : '') + '" data-action="toggle-hide-big" aria-label="只隐藏大数字">' + icon('bigHide') + '</button>' +
+      '</div>' +
+      '<button class="icon-btn accent head-add" data-action="open-add-account" aria-label="添加账户">' + icon('plus') + '</button>'
   }) +
   '<section class="hero">' +
     (sparkVals.length > 2 ? '<div class="spark-layer">' + sparklineHTML(sparkVals, { color: p.profit >= 0 ? '#ff9f45' : '#43d6b0' }) + '</div>' : '') +
