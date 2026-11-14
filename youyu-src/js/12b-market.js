@@ -230,6 +230,7 @@ async function refreshAllMarketQuotes(btn) {
     return;
   }
   refreshAllRunning = true;
+  let hist = null;
   const setLabel = t => { if (btn && btn.isConnected) btn.innerHTML = icon('refresh') + esc(t); };
   if (btn) { btn.classList.add('busy'); btn.disabled = true; }
   setLabel('刷新中 0/' + ids.length);
@@ -244,6 +245,25 @@ async function refreshAllMarketQuotes(btn) {
     state.meta = state.meta || {};
     state.meta.marketSyncedAt = nowISO();
     saveState();
+
+    // 行情刷新完，顺带把缺历史行情的标的补齐
+    const pending = [];
+    accounts().forEach(a => (a.instruments || []).forEach(i => {
+      if (i.market && i.market.code && !i.market.historyLoaded) pending.push(i.id);
+    }));
+    if (pending.length) {
+      setLabel('补历史 0/' + pending.length);
+      let fixed = 0;
+      for (let k = 0; k < pending.length; k++) {
+        await ensureInstrumentHistory(pending[k], { noRefresh: true });
+        const inst = instrumentById(pending[k]);
+        if (inst && inst.market && inst.market.historyLoaded) fixed++;
+        setLabel('补历史 ' + (k + 1) + '/' + pending.length);
+        await new Promise(resolve => setTimeout(resolve, 120));
+      }
+      hist = { total: pending.length, fixed: fixed };
+      saveState();
+    }
   } catch (e) {
     console.warn('批量刷新行情失败', e);
   } finally {
@@ -251,7 +271,12 @@ async function refreshAllMarketQuotes(btn) {
     if (btn) { btn.classList.remove('busy'); btn.disabled = false; }
   }
   const failed = ids.length - ok;
-  toast(failed ? '行情已刷新 · 成功 ' + ok + ' 个，失败 ' + failed + ' 个' : '行情已刷新 · 共 ' + ok + ' 个标的', failed ? 'error' : 'success');
+  const parts = [];
+  parts.push(failed ? '行情 ' + ok + '/' + ids.length : '行情已刷新');
+  if (hist && hist.total) {
+    parts.push('补历史 ' + hist.fixed + '/' + hist.total);
+  }
+  toast(parts.join(' · '), failed ? 'error' : 'success');
   refreshPage();
 }
 
