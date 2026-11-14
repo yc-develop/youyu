@@ -38,11 +38,6 @@ applyTheme();
     history.replaceState(null, '', '#/assets');
   }
   renderPage({ scroll: true });
-  let fitTimer = 0;
-  window.addEventListener('resize', () => {
-    clearTimeout(fitTimer);
-    fitTimer = setTimeout(() => { if (typeof fitLineCharts === 'function') fitLineCharts(); }, 180);
-  });
   setTimeout(() => { autoRefreshMarketQuotes().catch(e => console.warn('自动行情失败', e)); }, 900);
   if (demoMode) setTimeout(() => { hydrateDemoLedger().catch(e => console.warn('演示数据同步失败', e)); }, 1200);
   // 开放给调试与自动化测试

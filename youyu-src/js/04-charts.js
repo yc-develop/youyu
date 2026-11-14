@@ -20,10 +20,14 @@ function chartAxisText(v, mode, ccy) {
   return abs < 10 ? n.toFixed(2) : Math.round(n).toString();
 }
 
-function buildLineChart(o, W, id) {
+function lineChartHTML(opts) {
+  const o = opts || {};
+  const id = o.id || chartId();
   const points = (o.points || []).filter(p => p && Number.isFinite(Number(p.value)));
-  const H = o.height || 188;
+  const height = o.height || 188;
+  const W = 360, H = height;
   const pad = { l: o.showY === false ? 8 : 38, r: 8, t: 13, b: 24 };
+  if (points.length < 2) return chartEmptyHTML(o.emptyText || '暂无足够数据', height + 24);
   const vals = points.map(p => Number(p.value));
   let min = Math.min(...vals), max = Math.max(...vals);
   if (o.baseline || (min < 0 && max > 0)) { min = Math.min(min, 0); max = Math.max(max, 0); }
@@ -88,6 +92,12 @@ function buildLineChart(o, W, id) {
     if (o.mode === 'price') return fmtPrice(value, o.currency);
     return fmtMoney(value, { currency: o.currency, decimals: Math.abs(value) >= 1000 ? 0 : 2 });
   };
+  chartRegistry[id] = {
+    id, points, W, H, pad, plotW, plotH, min, max,
+    dateOf: p => p.date,
+    fmt: tipFmt,
+    mode: o.mode
+  };
   const svg = '<svg class="chart-svg" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" role="img" aria-label="' + esc(o.aria || '资产趋势图') + '">' +
     '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + color + '" stop-opacity=".27"/><stop offset="1" stop-color="' + color + '" stop-opacity="0"/></linearGradient></defs>' +
     grid +
@@ -99,35 +109,7 @@ function buildLineChart(o, W, id) {
     '<circle class="hover-dot" data-hover="dot" cx="0" cy="0" r="3.8" fill="' + color + '" opacity="0"/>' +
     labels +
     '</svg>';
-  return {
-    svg,
-    meta: { id, points, W, H, pad, plotW, plotH, min, max, dateOf: p => p.date, fmt: tipFmt, mode: o.mode, opts: o }
-  };
-}
-
-function lineChartHTML(opts) {
-  const o = opts || {};
-  const id = o.id || chartId();
-  const points = (o.points || []).filter(p => p && Number.isFinite(Number(p.value)));
-  if (points.length < 2) return chartEmptyHTML(o.emptyText || '暂无足够数据', (o.height || 188) + 24);
-  const built = buildLineChart(o, o.w || 360, id);
-  chartRegistry[id] = built.meta;
-  return '<div class="chart-block" data-chart="' + id + '">' + built.svg + '<div class="chart-tip" data-tip="' + id + '"><div class="d"></div><div class="v"></div><div class="p"></div></div></div>';
-}
-
-function fitLineCharts() {
-  $$('.chart-block[data-chart]').forEach(wrap => {
-    const id = wrap.getAttribute('data-chart');
-    const meta = chartRegistry[id];
-    if (!meta || !meta.opts) return;
-    const svg = $('svg', wrap);
-    if (!svg) return;
-    const w = Math.round(wrap.clientWidth);
-    if (!(w > 0) || Math.abs(w - meta.W) < 12) return;
-    const built = buildLineChart(meta.opts, w, id);
-    svg.outerHTML = built.svg;
-    chartRegistry[id] = built.meta;
-  });
+  return '<div class="chart-block" data-chart="' + id + '">' + svg + '<div class="chart-tip" data-tip="' + id + '"><div class="d"></div><div class="v"></div><div class="p"></div></div></div>';
 }
 
 function sparklineHTML(values, opts) {
@@ -471,14 +453,13 @@ function bindCharts() {
     if (wrap.dataset.bound) return;
     wrap.dataset.bound = '1';
     const id = wrap.getAttribute('data-chart');
-    if (!chartRegistry[id]) return;
+    const meta = chartRegistry[id];
+    if (!meta) return;
+    const svg = $('svg', wrap);
     const tip = $('[data-tip]', wrap);
+    const line = $('[data-hover="line"]', svg);
+    const dot = $('[data-hover="dot"]', svg);
     const show = (clientX) => {
-      const meta = chartRegistry[id];
-      if (!meta) return;
-      const svg = $('svg', wrap);
-      const line = svg ? $('[data-hover="line"]', svg) : null;
-      const dot = svg ? $('[data-hover="dot"]', svg) : null;
       const rect = wrap.getBoundingClientRect();
       const frac = clamp((clientX - rect.left) / Math.max(1, rect.width), 0, 1);
       const index = Math.round(frac * (meta.points.length - 1));

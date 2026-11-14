@@ -92,7 +92,6 @@ function renderPage(opts) {
   tabbar.style.display = IS_DESKTOP ? 'flex' : (isDetail ? 'none' : 'grid');
   renderTabbar(activeTabFor(route));
   bindCharts();
-  if (typeof fitLineCharts === 'function') fitLineCharts();
   if (typeof afterRenderPage === 'function') afterRenderPage(route);
   const newKey = routeKey(route);
   if (o.scroll === false) {
