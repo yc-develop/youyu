@@ -876,7 +876,7 @@ html[data-theme="light"] .backup-copy-area{background:#fff}
 .sheet{
   width:100%;max-width:var(--app-w);max-height:92dvh;max-height:92vh;
   background:#15161a;border:1px solid rgba(255,255,255,.08);border-bottom:0;
-  border-radius:26px 26px 0 0;display:flex;flex-direction:column;
+  border-radius:26px 26px 0 0;display:flex;flex-direction:column;overflow:hidden;
   transform:translateY(100%);transition:transform .34s cubic-bezier(.22,.85,.24,1);
   box-shadow:0 -20px 60px rgba(0,0,0,.5);
 }
@@ -2129,7 +2129,7 @@ html[data-layout="desktop"][data-theme="light"] .version{color:rgba(16,24,40,.32
 'use strict';
 
 const APP_NAME = '有余';
-const APP_VERSION = '6.5.39';
+const APP_VERSION = '6.5.40';
 const IS_DESKTOP = document.documentElement.getAttribute('data-layout') === 'desktop';
 const PC_HREF = 'pc/index.html';
 const MOBILE_HREF = /\/pc\//.test(location.pathname) ? '../index.html' : 'index.html';
