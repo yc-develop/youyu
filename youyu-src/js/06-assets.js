@@ -28,7 +28,7 @@ function renderAssetsPage() {
     if (!ms.length) return;
     const total = sum(ms, m => m.marketBase);
     accountList += '<div class="list-card">' +
-      '<div class="account-group-label"><span>' + g.title + '</span><span>' + fmtMoney(total, { compact: true }) + ' · ' + ms.length + ' 个</span></div>' +
+      '<div class="account-group-label"><span>' + g.title + '</span><span>' + fmtMoney(total) + ' · ' + ms.length + ' 个</span></div>' +
       ms.map(accountRowHTML).join('') + '</div>';
   });
   if (!accountList) {

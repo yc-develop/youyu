@@ -174,10 +174,10 @@ function accountRowHTML(m) {
   return '<a class="account-row" href="#/account/' + encodeURIComponent(a.id) + '">' +
     accountIconHTML(a) +
     '<div class="acct-main"><div class="acct-name">' + esc(a.name) + ' <span class="ccy">' + a.currency + '</span></div>' +
-      '<div class="acct-meta"><span>累计已实现盈亏 <b class="' + pnlClass(realized) + '">' + pnlText(realized, { compact: true, currency: ccy }) + '</b></span></div>' +
-      '<div class="acct-meta"><span>浮动盈亏 <b class="' + pnlClass(floating) + '">' + pnlText(floating, { compact: true, currency: ccy }) + '</b></span></div>' +
+      '<div class="acct-meta"><span>累计已实现盈亏 <b class="' + pnlClass(realized) + '">' + pnlText(realized, { currency: ccy }) + '</b></span></div>' +
+      '<div class="acct-meta"><span>浮动盈亏 <b class="' + pnlClass(floating) + '">' + pnlText(floating, { currency: ccy }) + '</b></span></div>' +
     '</div>' +
-    '<div class="acct-value"><div class="v">' + fmtMoney(market, { compact: true, currency: ccy }) + '</div>' +
+    '<div class="acct-value"><div class="v">' + fmtMoney(market, { currency: ccy }) + '</div>' +
       '<div class="p ' + pnlClass(pct) + '">' + (pct == null ? '—' : fmtPct(pct, 2)) + '</div>' +
     '</div>' +
     '<span class="acct-chevron">' + icon('chevronRight') + '</span></a>';

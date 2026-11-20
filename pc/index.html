@@ -2129,7 +2129,7 @@ html[data-layout="desktop"][data-theme="light"] .version{color:rgba(16,24,40,.32
 'use strict';
 
 const APP_NAME = '有余';
-const APP_VERSION = '6.5.40';
+const APP_VERSION = '6.5.41';
 const IS_DESKTOP = document.documentElement.getAttribute('data-layout') === 'desktop';
 const PC_HREF = 'pc/index.html';
 const MOBILE_HREF = /\/pc\//.test(location.pathname) ? '../index.html' : 'index.html';
@@ -5213,10 +5213,10 @@ function accountRowHTML(m) {
   return '<a class="account-row" href="#/account/' + encodeURIComponent(a.id) + '">' +
     accountIconHTML(a) +
     '<div class="acct-main"><div class="acct-name">' + esc(a.name) + ' <span class="ccy">' + a.currency + '</span></div>' +
-      '<div class="acct-meta"><span>累计已实现盈亏 <b class="' + pnlClass(realized) + '">' + pnlText(realized, { compact: true, currency: ccy }) + '</b></span></div>' +
-      '<div class="acct-meta"><span>浮动盈亏 <b class="' + pnlClass(floating) + '">' + pnlText(floating, { compact: true, currency: ccy }) + '</b></span></div>' +
+      '<div class="acct-meta"><span>累计已实现盈亏 <b class="' + pnlClass(realized) + '">' + pnlText(realized, { currency: ccy }) + '</b></span></div>' +
+      '<div class="acct-meta"><span>浮动盈亏 <b class="' + pnlClass(floating) + '">' + pnlText(floating, { currency: ccy }) + '</b></span></div>' +
     '</div>' +
-    '<div class="acct-value"><div class="v">' + fmtMoney(market, { compact: true, currency: ccy }) + '</div>' +
+    '<div class="acct-value"><div class="v">' + fmtMoney(market, { currency: ccy }) + '</div>' +
       '<div class="p ' + pnlClass(pct) + '">' + (pct == null ? '—' : fmtPct(pct, 2)) + '</div>' +
     '</div>' +
     '<span class="acct-chevron">' + icon('chevronRight') + '</span></a>';
@@ -5461,7 +5461,7 @@ function renderAssetsPage() {
     if (!ms.length) return;
     const total = sum(ms, m => m.marketBase);
     accountList += '<div class="list-card">' +
-      '<div class="account-group-label"><span>' + g.title + '</span><span>' + fmtMoney(total, { compact: true }) + ' · ' + ms.length + ' 个</span></div>' +
+      '<div class="account-group-label"><span>' + g.title + '</span><span>' + fmtMoney(total) + ' · ' + ms.length + ' 个</span></div>' +
       ms.map(accountRowHTML).join('') + '</div>';
   });
   if (!accountList) {
