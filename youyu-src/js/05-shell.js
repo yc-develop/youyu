@@ -50,16 +50,6 @@ function renderTabbar(active) {
     return '<a class="tab-item ' + (on ? 'active' : '') + '" href="' + t.href + '" aria-label="' + t.label + '"' + (on ? ' aria-current="page"' : '') + '>' +
       '<span class="tab-ico">' + icon(t.icon) + '</span><span>' + t.label + '</span></a>';
   }).join('');
-  if (IS_DESKTOP) {
-    const mobileHref = MOBILE_HREF + (location.hash && location.hash.indexOf('#/') === 0 ? location.hash : '#/assets');
-    el.innerHTML = '<div class="side-brand"><span class="side-logo">余</span><span class="side-brand-text"><b>有余</b><i>投资组合</i></span></div>' +
-      '<div class="side-nav">' + items + '</div>' +
-      '<div class="side-foot">' +
-        '<a class="side-mobile-link" href="' + mobileHref + '">' + icon('external') + '<span>手机版</span></a>' +
-        '<div class="side-meta">数据保存在本机浏览器<br>有余 · ' + APP_VERSION + '</div>' +
-      '</div>';
-    return;
-  }
   el.innerHTML = items;
 }
 
@@ -89,7 +79,7 @@ function renderPage(opts) {
   screen.innerHTML = '<div class="page page-' + route.name + '">' + html + '</div>';
   if (route.name === 'import' && typeof bindImportPage === 'function') bindImportPage();
   const tabbar = $('#tabbar');
-  tabbar.style.display = IS_DESKTOP ? 'flex' : (isDetail ? 'none' : 'grid');
+  tabbar.style.display = isDetail ? 'none' : 'grid';
   renderTabbar(activeTabFor(route));
   bindCharts();
   if (typeof afterRenderPage === 'function') afterRenderPage(route);

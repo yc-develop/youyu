@@ -21,11 +21,5 @@ def build(template_name, style_names, outputs):
 # 手机版：保持原入口与单文件
 build('template.html', ['styles.css'], [root / 'youyu.html', root / 'index.html'])
 
-# 电脑版：同一个 GitHub Pages 下的 /pc/ 入口，并保留单文件
-build(
-    'template-pc.html',
-    ['styles.css', 'pc.css'],
-    [root / 'youyu-pc.html', root / 'pc' / 'index.html'],
-)
 
 print('js parts', len(parts))
