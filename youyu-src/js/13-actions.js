@@ -168,7 +168,7 @@ function handleAction(action, el) {
     case 'open-group-editor': closeAllSheets(); setTimeout(() => openGroupEditor(d.scheme, d.id || null), 50); return;
     case 'open-type-editor': closeAllSheets(); setTimeout(() => openTypeEditor(d.kind, d.id || ''), 50); return;
     case 'move-group': moveGroup(d.id, Number(d.dir)); return;
-    case 'open-group-detail': openGroupDetailSheet(d.id); return;
+    case 'open-group-detail': openGroupDetailSheet(d.id, d.scheme || undefined); return;
     case 'open-target-editor': closeAllSheets(); setTimeout(() => openTargetEditor(d.scheme), 60); return;
     case 'open-rebalance-plan': openRebalancePlanSheet(d.scheme); return;
 

@@ -65,15 +65,15 @@ function renderRebalancePage() {
       '<button class="text-btn" style="font-size:9px;margin-left:4px" data-action="go" data-href="#/groups/' + encodeURIComponent(sid) + '">去分组 ' + icon('chevronRight') + '</button></div></div>' : '') +
   '</section>' +
   '<section class="card pad" style="margin-top:14px">' +
-    '<div class="card-head" style="padding:0"><div><h2>偏离与目标区间</h2><div class="sub">竖线为目标，底色区域为 ±' + tolerance.toFixed(1) + '% 容忍带</div></div></div>' +
-    '<div class="reb-list">' + rebalanceRows(items, tolerance) + '</div>' +
+    '<div class="card-head" style="padding:0"><div><h2>偏离与目标区间</h2><div class="sub">竖线为目标，底色区域为 ±' + tolerance.toFixed(1) + '% 容忍带 · 点击分组查看构成</div></div></div>' +
+    '<div class="reb-list">' + rebalanceRows(items, tolerance, sid) + '</div>' +
   '</section>' +
   '<div class="reb-actions"><button class="btn ghost" data-action="open-target-editor" data-scheme="' + esc(sid) + '">' + icon('sliders') + '调整目标</button>' +
     '<button class="btn primary" data-action="open-rebalance-plan" data-scheme="' + esc(sid) + '">' + icon('sparkles') + '查看再平衡</button></div>' +
   '<div style="height:12px"></div>';
 }
 
-function rebalanceRows(items, tolerance) {
+function rebalanceRows(items, tolerance, schemeId) {
   if (!items.length) return '<div class="tiny" style="padding:20px;text-align:center">还没有分组目标</div>';
   return items.map(it => {
     const current = clamp(it.pct * 100, 0, 100);
@@ -83,7 +83,7 @@ function rebalanceRows(items, tolerance) {
     const statusCls = it.status === 'high' ? 'high' : it.status === 'low' ? 'low' : 'ok';
     const statusText = groupStatusText(it.status);
     const diff = it.drift;
-    return '<div class="reb-row">' +
+    return '<button class="reb-row" data-action="open-group-detail" data-id="' + esc(it.id) + '" data-scheme="' + esc(schemeId || '') + '">' +
       '<div class="reb-top"><span class="dot" style="background:' + it.color + '"></span><span class="name">' + esc(it.name) + '</span>' +
         '<span class="st ' + statusCls + '">' + statusText + '</span></div>' +
       '<div class="reb-track"><span class="reb-zone" style="left:' + left.toFixed(1) + '%;width:' + width.toFixed(1) + '%"></span>' +
@@ -91,7 +91,7 @@ function rebalanceRows(items, tolerance) {
         '<span class="reb-target" style="left:calc(' + target.toFixed(1) + '% - 1px)"></span></div>' +
       '<div class="reb-meta"><span>目标 <b>' + target.toFixed(1) + '%</b> · 当前 <b>' + current.toFixed(1) + '%</b> · ' + (it.status === 'high' ? '超出' : it.status === 'low' ? '低于' : '接近') + ' <b class="diff ' + statusCls + '">' + (diff >= 0 ? '+' : '') + diff.toFixed(1) + '%</b></span>' +
         '<span>' + (it.status === 'ok' ? '在目标区间内' : Math.abs(it.delta) < 0.005 ? '无需操作' : (it.delta > 0 ? '需买入 ' : '需卖出 ') + fmtMoney(Math.abs(it.delta), { compact: true })) + '</span></div>' +
-    '</div>';
+    '</button>';
   }).join('');
 }
 

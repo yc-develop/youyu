@@ -587,7 +587,8 @@ html[data-theme="light"] .backup-copy-area{background:#fff}
 .reb-summary .l .icon{width:15px;height:15px;color:var(--accent)}
 .reb-summary .r{font-size:10px;font-weight:600;color:var(--ink-2)}
 .reb-list{margin-top:8px}
-.reb-row{padding:14px 0;border-bottom:1px solid var(--line)}
+.reb-row{padding:14px 0;border-bottom:1px solid var(--line);display:block;width:100%;text-align:left;background:none;color:inherit;font:inherit}
+button.reb-row:active{opacity:.8}
 .reb-row:last-child{border-bottom:0}
 .reb-top{display:flex;align-items:center;gap:7px;margin-bottom:8px}
 .reb-top .dot{width:7px;height:7px;border-radius:2px;flex:0 0 7px}
