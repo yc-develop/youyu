@@ -1113,9 +1113,6 @@ function twrStats(series, days) {
   for (let i = start; i < n; i++) {
     const prev = series.values[i - 1];
     const r = prev > 0 ? (series.pnls[i] || 0) / prev : 0;
-    /* 单日涨跌超过 ±100%，说明当天的本金基准不可比（余额极低，或当天有大额转入转出），
-       这一段收益无法度量；跳过，而不是让它把整条链乘成荒谬的数字。 */
-    if (Math.abs(r) > 1) continue;
     cum *= (1 + r);
     if (r > 0.000001) pos++;
     if (cum > peak) peak = cum;
