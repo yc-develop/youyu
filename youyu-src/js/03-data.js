@@ -1102,6 +1102,9 @@ function twrStats(series, days) {
   const n = series.values.length;
   const lookback = days ? Math.min(days, n - 1) : n - 1;
   let start = Math.max(1, n - 1 - lookback);
+  /* 账户/标的往往晚于账本起点才建立：跳过"还没出生"的空日子，
+     否则收益会被摊到整条全局时间轴上（例如两年的利息摊进 7.9 年）。 */
+  while (start < n - 1 && !(series.values[start - 1] > 0)) start++;
   let cum = 1;
   let peak = 1;
   let maxDd = 0;
@@ -1110,6 +1113,9 @@ function twrStats(series, days) {
   for (let i = start; i < n; i++) {
     const prev = series.values[i - 1];
     const r = prev > 0 ? (series.pnls[i] || 0) / prev : 0;
+    /* 单日涨跌超过 ±100%，说明当天的本金基准不可比（余额极低，或当天有大额转入转出），
+       这一段收益无法度量；跳过，而不是让它把整条链乘成荒谬的数字。 */
+    if (Math.abs(r) > 1) continue;
     cum *= (1 + r);
     if (r > 0.000001) pos++;
     if (cum > peak) peak = cum;
@@ -1118,7 +1124,7 @@ function twrStats(series, days) {
     points.push({ date: daily.dates[i], value: cum - 1, daily: r });
   }
   const totalReturn = cum - 1;
-  const d = Math.max(1, n - 1 - start);
+  const d = Math.max(1, n - start);
   const annualized = Math.pow(Math.max(0.0001, 1 + totalReturn), 365 / d) - 1;
   return { points, totalReturn, annualized, maxDrawdown: maxDd, positiveRate: points.length ? pos / points.length : 0, days: d };
 }

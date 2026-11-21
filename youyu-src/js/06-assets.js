@@ -252,7 +252,9 @@ function accountChartCard(am) {
   const labels = { 30: '近1月', 90: '近3月', 365: '近1年', 0: '全部' };
   let chartHTML = '', metricsHTML = '', rangeText = '';
   if (series && n > 2) {
-    const start = period ? Math.max(1, n - period) : 1;
+    let start = period ? Math.max(1, n - period) : 1;
+    /* 曲线从账户第一笔余额开始，而不是从账本起点拉一条多年平线 */
+    while (start < n - 1 && !(series.values[start - 1] > 0)) start++;
     const ps = periodStats(series, dailyStartDateForIndex(series, start), todayKey());
     const tw = twrStats(series, period || n - 1);
     let points;
