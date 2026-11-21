@@ -203,7 +203,7 @@ function recordRowHTML(rec, opts) {
       (rec.type === 'buy' || rec.type === 'sell' ? '<span class="small">' + esc(meta.label) + '</span>' : '') +
     '</div>' +
     ((o.editable || o.deletable) ? '<div class="rec-actions">' +
-      (o.editable ? '<button class="rec-edit" data-action="edit-record" data-id="' + esc(rec.id) + '" aria-label="编辑记录">' + icon('pen') + '</button>' : '') +
+      (o.editable && rec.type !== 'flow' ? '<button class="rec-edit" data-action="edit-record" data-id="' + esc(rec.id) + '" aria-label="编辑记录">' + icon('pen') + '</button>' : '') +
       (o.deletable ? '<button class="rec-del" data-action="delete-record" data-id="' + esc(rec.id) + '" aria-label="删除记录">' + icon('trash') + '</button>' : '') +
     '</div>' : '') +
   '</div>';

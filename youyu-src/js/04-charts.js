@@ -204,7 +204,6 @@ function flowDiagramHTML(flow, opts) {
   const periodKey = o.periodKey || 'all';
   const periods = o.periods || ['all'];
   const periodLabel = f.periodLabel || flowPeriodLabel(periodKey);
-  const editable = !!o.editable && scope && id;
   const isInstrument = !!o.isInstrument;
   const allTime = periodKey === 'all';
   const hasFx = (o.currency || f.currency || baseCurrency()) !== baseCurrency();
@@ -228,16 +227,14 @@ function flowDiagramHTML(flow, opts) {
     : '期初资产 + ' + flowLabels.net + ' + ' + flowLabels.profit + ' = 期末资产';
   const profitSub = '';
   const node = (field, cls, label, valueHtml, extra) => {
-    const attr = editable ? ' data-action="edit-flow-field" data-scope="' + esc(scope) + '" data-id="' + esc(id) + '" data-period="' + esc(periodKey) + '" data-field="' + esc(field) + '"' : '';
-    const pen = editable ? '<span class="flow-edit">' + icon('pen') + '</span>' : '';
-    return '<button type="button" class="flow-node ' + cls + (editable ? ' editable' : '') + '"' + attr + '>' + pen + '<span class="l">' + label + '</span><span class="v">' + valueHtml + '</span>' + (extra || '') + '</button>';
+    return '<div class="flow-node ' + cls + '"><span class="l">' + label + '</span><span class="v">' + valueHtml + '</span>' + (extra || '') + '</div>';
   };
   const periodChips = periods.length > 1 ? '<div class="chip-row flow-period-row">' +
     periods.map(p => '<button class="chip ' + (p === periodKey ? 'active' : '') + '" data-action="set-flow-period" data-scope="' + esc(scope) + '" data-id="' + esc(id) + '" data-period="' + esc(p) + '">' + flowPeriodLabel(p) + '</button>').join('') +
     '</div>' : '';
   return '<div class="flow-card card">' +
     '<div class="card-head" style="padding:0"><div><h2>资金流 ' + (f.adjusted ? '<span class="flow-adjusted">已调整</span>' : '') + '</h2><div class="sub">' + esc(periodLabel) + ' · ' + flowFormula + '</div></div>' +
-      (f.adjusted ? '<button class="text-btn" style="font-size:9px" data-action="reset-flow" data-scope="' + esc(scope) + '" data-id="' + esc(id) + '" data-period="' + esc(periodKey) + '">撤销调整</button>' : (editable ? '<span class="pill-btn" style="height:26px;font-size:9px;padding:0 9px">' + icon('info') + '点击可校正</span>' : '')) + '</div>' +
+      (f.adjusted ? '<button class="text-btn" style="font-size:9px" data-action="reset-flow" data-scope="' + esc(scope) + '" data-id="' + esc(id) + '" data-period="' + esc(periodKey) + '">撤销调整</button>' : '') + '</div>' +
     periodChips +
     '<div class="flow-diagram">' +
       '<svg class="flow-svg" viewBox="0 0 100 100" preserveAspectRatio="none">' +
@@ -255,7 +252,7 @@ function flowDiagramHTML(flow, opts) {
       node('profit', 'flow-mid c ' + pnlCls, flowLabels.profit, pnlSign + money(Math.abs(pnl)), profitSub) +
       node('ending', 'flow-end total', flowLabels.ending, money(f.ending || 0)) +
     '</div>' +
-    '<div class="flow-legend"><span class="dot"></span>' + flowLabels.net + ' + ' + flowLabels.profit + ' = 期末 − 期初' + (!isInstrument && (showDividend || showFee) ? ' · 分红/费用已计入' + flowLabels.profit : '') + (editable ? ' · 点击金额可校正' : '') + '</div>' +
+    '<div class="flow-legend"><span class="dot"></span>' + flowLabels.net + ' + ' + flowLabels.profit + ' = 期末 − 期初' + (!isInstrument && (showDividend || showFee) ? ' · 分红/费用已计入' + flowLabels.profit : '') + '</div>' +
     flowSplitHTML(f, { isInstrument, allTime, money }) +
     (f.adjusted ? '<div class="flow-adjusted-note">本周期已写入账本调整，资产统计已同步；可在更新记录中删除调整或撤销本周期调整。</div>' : '') +
   '</div>';

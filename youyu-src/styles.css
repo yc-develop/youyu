@@ -1133,18 +1133,10 @@ body.has-overlay .toast-root{top:calc(var(--safe-top) + 14px);bottom:auto}
 .flow-adjusted{display:inline-block;font-size:7.5px;font-weight:600;color:var(--blue);background:var(--blue-soft);border:1px solid rgba(91,140,255,.16);border-radius:4px;padding:2px 4px;vertical-align:2px;margin-left:4px}
 .flow-period-row{margin:12px 0 2px;gap:6px}
 .flow-period-row .chip{height:28px;font-size:9.5px;padding:0 10px}
-.flow-node.editable{transition:background .15s,border-color .15s,transform .15s;text-align:center}
-.flow-node.editable:active{transform:scale(.98);background:rgba(255,159,69,.1);border-color:rgba(255,159,69,.3)}
-.flow-edit{position:absolute;top:5px;right:6px;width:13px;height:13px;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.26)}
-.flow-edit .icon{width:10px;height:10px}
 .flow-node .v{font-size:10.5px;letter-spacing:-.03em}
 .flow-node.total .v{font-size:12px}
 .flow-node.flow-top .v{font-size:10px}
 .flow-adjusted-note{font-size:8px;color:var(--faint);text-align:center;margin-top:6px;line-height:1.4}
-.flow-edit-current{display:flex;align-items:center;justify-content:space-between;padding:8px 2px;border-bottom:1px solid var(--line);font-size:9.5px;color:var(--muted)}
-.flow-edit-current:last-child{border-bottom:0}
-.flow-edit-current b{font-size:10.5px;color:var(--ink-2);font-variant-numeric:tabular-nums}
-.flow-edit-current + .flow-edit-current{margin-top:0}
 @media (max-width:380px){
   .account-detail-stats .v{font-size:9.5px!important}
   .account-detail-stats > div{padding-right:2px}
@@ -1360,7 +1352,6 @@ html[data-theme="light"] .cal-legend .scale i{background:rgba(16,24,40,.08)}
 html[data-theme="light"] .flow-node,
 html[data-theme="light"] .flow-node.total{background:rgba(255,255,255,.78);border-color:rgba(16,24,40,.09)}
 html[data-theme="light"] .flow-node.total{background:rgba(16,24,40,.05)}
-html[data-theme="light"] .flow-edit{color:rgba(16,24,40,.28)}
 html[data-theme="light"] .info-banner{background:rgba(65,105,216,.06);border-color:rgba(65,105,216,.14)}
 html[data-theme="light"] .info-banner.warn{color:#7a5b10;background:rgba(183,134,24,.08);border-color:rgba(183,134,24,.16)}
 html[data-theme="light"] .empty-state .ico{background:rgba(16,24,40,.045)}

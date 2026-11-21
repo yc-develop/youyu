@@ -1151,18 +1151,10 @@ body.has-overlay .toast-root{top:calc(var(--safe-top) + 14px);bottom:auto}
 .flow-adjusted{display:inline-block;font-size:7.5px;font-weight:600;color:var(--blue);background:var(--blue-soft);border:1px solid rgba(91,140,255,.16);border-radius:4px;padding:2px 4px;vertical-align:2px;margin-left:4px}
 .flow-period-row{margin:12px 0 2px;gap:6px}
 .flow-period-row .chip{height:28px;font-size:9.5px;padding:0 10px}
-.flow-node.editable{transition:background .15s,border-color .15s,transform .15s;text-align:center}
-.flow-node.editable:active{transform:scale(.98);background:rgba(255,159,69,.1);border-color:rgba(255,159,69,.3)}
-.flow-edit{position:absolute;top:5px;right:6px;width:13px;height:13px;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.26)}
-.flow-edit .icon{width:10px;height:10px}
 .flow-node .v{font-size:10.5px;letter-spacing:-.03em}
 .flow-node.total .v{font-size:12px}
 .flow-node.flow-top .v{font-size:10px}
 .flow-adjusted-note{font-size:8px;color:var(--faint);text-align:center;margin-top:6px;line-height:1.4}
-.flow-edit-current{display:flex;align-items:center;justify-content:space-between;padding:8px 2px;border-bottom:1px solid var(--line);font-size:9.5px;color:var(--muted)}
-.flow-edit-current:last-child{border-bottom:0}
-.flow-edit-current b{font-size:10.5px;color:var(--ink-2);font-variant-numeric:tabular-nums}
-.flow-edit-current + .flow-edit-current{margin-top:0}
 @media (max-width:380px){
   .account-detail-stats .v{font-size:9.5px!important}
   .account-detail-stats > div{padding-right:2px}
@@ -1378,7 +1370,6 @@ html[data-theme="light"] .cal-legend .scale i{background:rgba(16,24,40,.08)}
 html[data-theme="light"] .flow-node,
 html[data-theme="light"] .flow-node.total{background:rgba(255,255,255,.78);border-color:rgba(16,24,40,.09)}
 html[data-theme="light"] .flow-node.total{background:rgba(16,24,40,.05)}
-html[data-theme="light"] .flow-edit{color:rgba(16,24,40,.28)}
 html[data-theme="light"] .info-banner{background:rgba(65,105,216,.06);border-color:rgba(65,105,216,.14)}
 html[data-theme="light"] .info-banner.warn{color:#7a5b10;background:rgba(183,134,24,.08);border-color:rgba(183,134,24,.16)}
 html[data-theme="light"] .empty-state .ico{background:rgba(16,24,40,.045)}
@@ -1521,7 +1512,7 @@ html[data-theme="light"] .acct-icon.brand{border-color:rgba(16,24,40,.1);box-sha
 'use strict';
 
 const APP_NAME = '有余';
-const APP_VERSION = '6.5.48';
+const APP_VERSION = '6.5.49';
 // 沿用旧存储键，避免改名后已有本地账本丢失
 const STORE_KEY = 'yingji.portfolio.v1';
 const DEMO_STORE_KEY = 'yingji.demo.v1';
@@ -4135,7 +4126,6 @@ function flowDiagramHTML(flow, opts) {
   const periodKey = o.periodKey || 'all';
   const periods = o.periods || ['all'];
   const periodLabel = f.periodLabel || flowPeriodLabel(periodKey);
-  const editable = !!o.editable && scope && id;
   const isInstrument = !!o.isInstrument;
   const allTime = periodKey === 'all';
   const hasFx = (o.currency || f.currency || baseCurrency()) !== baseCurrency();
@@ -4159,16 +4149,14 @@ function flowDiagramHTML(flow, opts) {
     : '期初资产 + ' + flowLabels.net + ' + ' + flowLabels.profit + ' = 期末资产';
   const profitSub = '';
   const node = (field, cls, label, valueHtml, extra) => {
-    const attr = editable ? ' data-action="edit-flow-field" data-scope="' + esc(scope) + '" data-id="' + esc(id) + '" data-period="' + esc(periodKey) + '" data-field="' + esc(field) + '"' : '';
-    const pen = editable ? '<span class="flow-edit">' + icon('pen') + '</span>' : '';
-    return '<button type="button" class="flow-node ' + cls + (editable ? ' editable' : '') + '"' + attr + '>' + pen + '<span class="l">' + label + '</span><span class="v">' + valueHtml + '</span>' + (extra || '') + '</button>';
+    return '<div class="flow-node ' + cls + '"><span class="l">' + label + '</span><span class="v">' + valueHtml + '</span>' + (extra || '') + '</div>';
   };
   const periodChips = periods.length > 1 ? '<div class="chip-row flow-period-row">' +
     periods.map(p => '<button class="chip ' + (p === periodKey ? 'active' : '') + '" data-action="set-flow-period" data-scope="' + esc(scope) + '" data-id="' + esc(id) + '" data-period="' + esc(p) + '">' + flowPeriodLabel(p) + '</button>').join('') +
     '</div>' : '';
   return '<div class="flow-card card">' +
     '<div class="card-head" style="padding:0"><div><h2>资金流 ' + (f.adjusted ? '<span class="flow-adjusted">已调整</span>' : '') + '</h2><div class="sub">' + esc(periodLabel) + ' · ' + flowFormula + '</div></div>' +
-      (f.adjusted ? '<button class="text-btn" style="font-size:9px" data-action="reset-flow" data-scope="' + esc(scope) + '" data-id="' + esc(id) + '" data-period="' + esc(periodKey) + '">撤销调整</button>' : (editable ? '<span class="pill-btn" style="height:26px;font-size:9px;padding:0 9px">' + icon('info') + '点击可校正</span>' : '')) + '</div>' +
+      (f.adjusted ? '<button class="text-btn" style="font-size:9px" data-action="reset-flow" data-scope="' + esc(scope) + '" data-id="' + esc(id) + '" data-period="' + esc(periodKey) + '">撤销调整</button>' : '') + '</div>' +
     periodChips +
     '<div class="flow-diagram">' +
       '<svg class="flow-svg" viewBox="0 0 100 100" preserveAspectRatio="none">' +
@@ -4186,7 +4174,7 @@ function flowDiagramHTML(flow, opts) {
       node('profit', 'flow-mid c ' + pnlCls, flowLabels.profit, pnlSign + money(Math.abs(pnl)), profitSub) +
       node('ending', 'flow-end total', flowLabels.ending, money(f.ending || 0)) +
     '</div>' +
-    '<div class="flow-legend"><span class="dot"></span>' + flowLabels.net + ' + ' + flowLabels.profit + ' = 期末 − 期初' + (!isInstrument && (showDividend || showFee) ? ' · 分红/费用已计入' + flowLabels.profit : '') + (editable ? ' · 点击金额可校正' : '') + '</div>' +
+    '<div class="flow-legend"><span class="dot"></span>' + flowLabels.net + ' + ' + flowLabels.profit + ' = 期末 − 期初' + (!isInstrument && (showDividend || showFee) ? ' · 分红/费用已计入' + flowLabels.profit : '') + '</div>' +
     flowSplitHTML(f, { isInstrument, allTime, money }) +
     (f.adjusted ? '<div class="flow-adjusted-note">本周期已写入账本调整，资产统计已同步；可在更新记录中删除调整或撤销本周期调整。</div>' : '') +
   '</div>';
@@ -4631,7 +4619,7 @@ function recordRowHTML(rec, opts) {
       (rec.type === 'buy' || rec.type === 'sell' ? '<span class="small">' + esc(meta.label) + '</span>' : '') +
     '</div>' +
     ((o.editable || o.deletable) ? '<div class="rec-actions">' +
-      (o.editable ? '<button class="rec-edit" data-action="edit-record" data-id="' + esc(rec.id) + '" aria-label="编辑记录">' + icon('pen') + '</button>' : '') +
+      (o.editable && rec.type !== 'flow' ? '<button class="rec-edit" data-action="edit-record" data-id="' + esc(rec.id) + '" aria-label="编辑记录">' + icon('pen') + '</button>' : '') +
       (o.deletable ? '<button class="rec-del" data-action="delete-record" data-id="' + esc(rec.id) + '" aria-label="删除记录">' + icon('trash') + '</button>' : '') +
     '</div>' : '') +
   '</div>';
@@ -4992,7 +4980,7 @@ function renderAccountPage(accountId) {
     '<div class="detail-section account-composition"><div class="section-head"><div><h2>资产构成</h2><div class="sub">现金与持仓 · 按当前市值</div></div><span class="tiny">' + a.currency + '</span></div>' +
       '<div class="card pad" style="padding-top:12px;padding-bottom:14px"><div class="donut-layout">' + donutBoxHTML(composition.items, { size: 132, stroke: 15, centerValue: fmtMoney(am.marketNative, { compact: true, currency: a.currency }), centerLabel: '账户总资产' }) +
       '<div class="donut-legend">' + donutLegendHTML(composition.items, { compact: true }) + '</div></div></div></div>' +
-    '<div class="detail-section account-flow" style="margin-top:14px">' + flowDiagramHTML(accountFlow(accountId, flowPeriod), { scope: 'account', id: accountId, periodKey: flowPeriod, periods: flowPeriods('account', accountId), editable: true, currency: a.currency }) + '</div>' +
+    '<div class="detail-section account-flow" style="margin-top:14px">' + flowDiagramHTML(accountFlow(accountId, flowPeriod), { scope: 'account', id: accountId, periodKey: flowPeriod, periods: flowPeriods('account', accountId), currency: a.currency }) + '</div>' +
     '<div class="detail-section account-holdings"><div class="section-head"><div><h2>持仓</h2><div class="sub">按持仓市值排序 · 点击查看标的</div></div><button class="text-btn" data-action="open-add-instrument" data-account="' + esc(a.id) + '">' + icon('plus') + '添加</button></div>' +
       (am.instruments.length ? '<div class="list-card">' + am.instruments.slice().sort((x, y) => (y.marketBase || 0) - (x.marketBase || 0)).map(im => holdingRowHTML(im, { currency: a.currency })).join('') + '</div>' :
         '<div class="list-card">' + emptyBlock('这个账户还没有标的', '添加基金、股票或存单，记录买入与估值。', '<button class="btn primary sm" data-action="open-add-instrument" data-account="' + esc(a.id) + '">添加标的</button>', 'fund') + '</div>') +
@@ -7220,77 +7208,6 @@ function flowAdjustmentRecords(scope, id, periodKey) {
   if (scope !== 'account') return [];
   return (state.records || []).filter(r => r.type === 'flow' && r.ledgerAdjust && (periodKey === 'all' || r.periodKey === periodKey) && r.accountId === id && !r.instrumentId);
 }
-function openFlowFieldEditor(scope, id, periodKey, field) {
-  if (scope !== 'account') { toast('标的级资金流校正已取消', 'error'); return; }
-  const account = accountById(id);
-  if (!account) return;
-  const flow = accountFlow(id, periodKey);
-  if (!flow) return;
-  const meta = FLOW_FIELD_META[field];
-  if (!meta) return;
-  if (field === 'opening' && periodKey === 'all') {
-    toast('记账以来的期初固定为 0，请选择具体年份调整', 'error');
-    return;
-  }
-  const current = Number(flow[field]) || 0;
-  const descriptions = {
-    opening: '调整期初资产会把差额写入该年份开始时的账本，并同步更新之后所有周期的资产统计。',
-    ending: '调整期末资产会把差额写入该周期末的账本，资产市值和本期收益会同步更新。',
-    profit: '调整本期收益会把差额写入该周期末的账本，期末资产和资产市值会同步更新。',
-    in: '调整本期投入会写入一笔账本资金调整，影响净投入和资产市值，不会改变真实交易记录。',
-    out: '调整本期转出会写入一笔账本资金调整，影响净投入和资产市值，不会改变真实交易记录。'
-  };
-  const body = '<form id="flow-edit-form">' +
-    '<div class="info-banner" style="margin-top:0">' + icon('pen') + '<div>' + esc(descriptions[field] || '') + '<br><span class="faint">保存后会写入一条「' + esc(meta.title) + '」账本调整记录，并立即更新资产统计。</span></div></div>' +
-    '<div class="form-section">' + esc(meta.label) + '</div>' +
-    fieldHTML({ id: 'flow-edit-value', label: meta.label, value: Number(current).toFixed(2), inputmode: 'decimal', unit: account.currency, full: true }) +
-    '<div class="flow-edit-current"><span>当前周期</span><b>' + esc(flow.periodLabel || flowPeriodLabel(periodKey)) + '</b></div>' +
-    '<div class="flow-edit-current"><span>当前净投入</span><b>' + fmtMoney(flow.net, { currency: account.currency }) + '</b></div>' +
-    '<div class="flow-edit-current"><span>当前期末</span><b>' + fmtMoney(flow.ending, { currency: account.currency }) + '</b></div>' +
-  '</form>';
-  const wrap = openSheet({
-    title: '调整' + meta.label, sub: account.name + ' · ' + (flow.periodLabel || flowPeriodLabel(periodKey)),
-    body, footer: '<button class="btn ghost" data-sheet-close>取消</button><button class="btn primary" data-flow-save>保存调整</button>'
-  });
-  wrap.querySelector('[data-flow-save]').addEventListener('click', () => {
-    const raw = wrap.querySelector('#flow-edit-value').value;
-    if (String(raw).trim() === '') { toast('请输入金额', 'error'); return; }
-    const value = round(parseNumber(raw), 2);
-    if ((field === 'in' || field === 'out') && value < 0) { toast('投入/转出不能为负数', 'error'); return; }
-    const delta = round(value - current, 2);
-    if (Math.abs(delta) < 0.005) { toast('金额没有变化', 'info'); return; }
-    const bounds = flowPeriodBounds(periodKey);
-    const date = field === 'opening' ? bounds.start : bounds.end;
-    if (!date) return;
-    const fx = fxToBaseAt(account.currency, date) || 1;
-    const cashNative = field === 'out' ? -delta : delta;
-    const flowDeltaNative = (field === 'in' || field === 'out') ? delta : 0;
-    const netDeltaNative = field === 'out' ? -delta : (field === 'in' || field === 'opening') ? delta : 0;
-    state.records.push({
-      id: uid('rec'),
-      date,
-      type: 'flow',
-      ledgerAdjust: true,
-      accountId: id,
-      instrumentId: null,
-      amount: cashNative,
-      cashNative,
-      flowDeltaNative,
-      netDeltaNative,
-      flowValueNative: value,
-      flowField: field,
-      periodKey,
-      qty: 0, price: 0, fee: 0, fxRate: fxAt(account.currency, date),
-      note: meta.title + ' · ' + (flow.periodLabel || flowPeriodLabel(periodKey)),
-      createdAt: nowISO()
-    });
-    state.isDemo = false;
-    saveState();
-    closeAllSheets();
-    toast(meta.title + '已写入账本', 'success');
-    refreshPage();
-  });
-}
 function resetFlowAdjustments(scope, id, periodKey) {
   const list = flowAdjustmentRecords(scope, id, periodKey);
   if (!list.length) return;
@@ -8323,10 +8240,7 @@ function handleAction(action, el) {
       const rec = state.records.find(r => r.id === d.id);
       if (!rec) return;
       if (rec.type === 'flow') {
-        closeAllSheets();
-        const scope = rec.instrumentId ? 'instrument' : 'account';
-        const targetId = rec.instrumentId || rec.accountId;
-        setTimeout(() => openFlowFieldEditor(scope, targetId, rec.periodKey, rec.flowField), 50);
+        toast('账本调整记录不可编辑，可直接删除', 'info');
         return;
       }
       closeAllSheets();
@@ -8354,7 +8268,6 @@ function handleAction(action, el) {
       map[d.id] = d.period;
       refreshPage(); return;
     }
-    case 'edit-flow-field': openFlowFieldEditor(d.scope, d.id, d.period, d.field); return;
     case 'reset-flow': resetFlowAdjustments(d.scope, d.id, d.period); return;
     case 'select-stats-scheme': ui.statsSchemeId = d.id; ui.sankeyMode = ui.sankeyMode || 'account'; refreshPage(); return;
     case 'set-sankey-mode': ui.sankeyMode = d.value; refreshPage(); return;
