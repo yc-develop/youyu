@@ -14,8 +14,7 @@ const RECORD_META = {
   cashProfit: { label: '更新收益', icon: 'trendUp',      tone: 'gain' },
   fee:      { label: '费用',     icon: 'minus',         tone: 'loss' },
   price:    { label: '更新估值', icon: 'refresh',       tone: 'blue' },
-  fx:       { label: '换汇',     icon: 'swap',          tone: 'blue' },
-  flow:     { label: '资金流调整', icon: 'pen',          tone: 'blue' }
+  fx:       { label: '换汇',     icon: 'swap',          tone: 'blue' }
 };
 
 /* ---------- persistence ---------- */
@@ -90,6 +89,8 @@ function normalizeState(obj) {
       if (i.market) delete i.market.historyLoading;
     });
   });
+  // 账本调整功能已移除：旧记录直接丢弃，避免被下面的类型兜底改成存入/取出。
+  obj.records = obj.records.filter(r => r.type !== 'flow' && !r.ledgerAdjust);
   obj.records.forEach(r => {
     r.id = r.id || uid('rec');
     r.date = r.date || todayKey();
@@ -100,8 +101,6 @@ function normalizeState(obj) {
     r.fee = Number(r.fee) || 0;
     r.fxRate = Number(r.fxRate) || 0;
   });
-  // 账本调整替代旧版仅报表的 flowSnapshot；旧记录不兼容，直接移除。
-  obj.records = obj.records.filter(r => r.type !== 'flow' || r.ledgerAdjust);
   obj.prices = obj.prices || {};
   (obj.accounts || []).forEach(a => (a.instruments || []).forEach(i => { if (!i.market) rebuildRecordPrices(obj, i.id); }));
   obj.fxHistory = obj.fxHistory || {};
@@ -144,7 +143,14 @@ function readStoredState(key) {
     const raw = localStorage.getItem(key);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    if (parsed && parsed.version === SCHEMA && normalizeState(parsed)) return parsed;
+    if (!parsed || parsed.version !== SCHEMA) return null;
+    const hadFlow = Array.isArray(parsed.records) && parsed.records.some(r => r.type === 'flow');
+    if (!normalizeState(parsed)) return null;
+    // 账本调整功能已移除：读取时顺手把旧记录从本地存储中清掉
+    if (hadFlow) {
+      try { localStorage.setItem(key, JSON.stringify(parsed)); } catch (e) {}
+    }
+    return parsed;
   } catch (e) {}
   return null;
 }
@@ -467,7 +473,6 @@ function recordCashDelta(rec, account) {
     case 'interest': return Number(rec.amount) || 0;
     case 'cashProfit': return Number(rec.amount) || 0;
     case 'fee': return -(Number(rec.amount) || 0);
-    case 'flow': return rec.ledgerAdjust ? (Number(rec.cashNative) || 0) : 0;
     default: return 0;
   }
 }
@@ -676,14 +681,6 @@ function accountNetDeposits(account) {
       else { withdrawals += v; net -= v; }
       return;
     }
-    if (r.type !== 'flow' || !r.ledgerAdjust) return;
-    if (r.flowField === 'in' || r.flowField === 'out') {
-      const d = (Number(r.flowDeltaNative) || 0) * fxToBase(account.currency);
-      if (r.flowField === 'in') { deposits += d; net += d; }
-      else { withdrawals += d; net -= d; }
-    } else if (r.flowField === 'opening') {
-      net += (Number(r.netDeltaNative) || 0) * fxToBase(account.currency);
-    }
   });
   return { net, deposits, withdrawals };
 }
@@ -696,14 +693,6 @@ function accountNetDepositsNative(account) {
       if (r.type === 'deposit') { deposits += v; net += v; }
       else { withdrawals += v; net -= v; }
       return;
-    }
-    if (r.type !== 'flow' || !r.ledgerAdjust) return;
-    if (r.flowField === 'in' || r.flowField === 'out') {
-      const d = Number(r.flowDeltaNative) || 0;
-      if (r.flowField === 'in') { deposits += d; net += d; }
-      else { withdrawals += d; net -= d; }
-    } else if (r.flowField === 'opening') {
-      net += Number(r.netDeltaNative) || 0;
     }
   });
   return { net, deposits, withdrawals };
@@ -895,11 +884,6 @@ function buildDailyAnalytics() {
         const rate = fxToBase(ccy);
         if (r.type === 'deposit') dep += (Number(r.amount) || 0) * accFx;
         else if (r.type === 'withdraw') dep -= (Number(r.amount) || 0) * accFx;
-        else if (r.type === 'flow' && r.ledgerAdjust) {
-          if (r.flowField === 'in') dep += (Number(r.flowDeltaNative) || 0) * accFx;
-          else if (r.flowField === 'out') dep -= (Number(r.flowDeltaNative) || 0) * accFx;
-          else if (r.flowField === 'opening') dep += (Number(r.netDeltaNative) || 0) * accFx;
-        }
         if (r.type === 'dividend' || r.type === 'interest' || r.type === 'cashProfit') inc += (Number(r.amount) || 0) * rate;
         if (r.type === 'fee') feeAcc += (Number(r.amount) || 0) * rate;
       });
@@ -1205,14 +1189,6 @@ function groupPeriodSummary(schemeId, days) {
 }
 
 /* ---------- flow / waterfall ---------- */
-const FLOW_FIELD_META = {
-  opening: { label: '期初资产', title: '期初资产调整' },
-  ending:  { label: '期末资产', title: '期末资产调整' },
-  profit:  { label: '本期收益', title: '本期收益调整' },
-  in:      { label: '本期投入', title: '本期投入调整' },
-  out:     { label: '本期转出', title: '本期转出调整' }
-};
-
 function flowPeriodLabel(periodKey) {
   return periodKey === 'all' ? '记账以来' : periodKey + '年';
 }
@@ -1227,10 +1203,6 @@ function flowPeriods(scope, id) {
   const values = new Set(['all']);
   const recs = scope === 'account' ? recordsForAccount(id) : recordsForInstrument(id);
   recs.forEach(r => { if (r.date) values.add(String(r.date).slice(0, 4)); });
-  (state.records || []).forEach(r => {
-    if (r.type !== 'flow' || r.periodKey === 'all') return;
-    if (scope === 'account' ? (r.accountId === id && !r.instrumentId) : r.instrumentId === id) values.add(String(r.periodKey));
-  });
   if (recs.length) values.add(todayKey().slice(0, 4));
   return Array.from(values).sort((a, b) => a === 'all' ? -1 : b === 'all' ? 1 : Number(b) - Number(a));
 }
@@ -1278,29 +1250,19 @@ function accountFlow(accountId, periodKey) {
   }) : null;
   const recs = recordsForAccount(accountId);
   let beginning = bounds.start ? flowValueAt(series, addDays(bounds.start, -1)) : 0;
-  if (bounds.start) {
-    recs.filter(r => r.type === 'flow' && r.ledgerAdjust && r.flowField === 'opening' && r.date === bounds.start)
-      .forEach(r => { beginning += (Number(r.netDeltaNative) || 0); });
-  }
   const ending = flowValueAt(series, bounds.end);
   let inAmt = 0, outAmt = 0;
   recs.forEach(r => {
     if (!flowInPeriod(r, bounds)) return;
     if (r.type === 'deposit') inAmt += Number(r.amount) || 0;
     else if (r.type === 'withdraw') outAmt += Number(r.amount) || 0;
-    else if (r.type === 'flow' && r.ledgerAdjust) {
-      if (r.flowField === 'in') inAmt += Number(r.flowDeltaNative) || 0;
-      else if (r.flowField === 'out') outAmt += Number(r.flowDeltaNative) || 0;
-      else if (r.flowField === 'opening' && !bounds.start) inAmt += Number(r.netDeltaNative) || 0;
-    }
   });
   const net = inAmt - outAmt;
   const profit = ending - beginning - net;
   return {
     scope: 'account', periodKey: key, periodLabel: bounds.label, currency: account.currency,
     beginning, in: inAmt, out: outAmt, net, profit, ending,
-    label: bounds.label,
-    adjusted: recs.some(r => r.type === 'flow' && r.ledgerAdjust && (key === 'all' || r.periodKey === key))
+    label: bounds.label
   };
 }
 function instrumentRealizedUntil(inst, date) {
@@ -1410,10 +1372,6 @@ function priceSeriesRange(instrumentId, days) {
 function recordAccount(rec) { return accountById(rec.accountId); }
 function recordInstrument(rec) { return rec.instrumentId ? instrumentById(rec.instrumentId) : null; }
 function recordCurrency(rec) {
-  if (rec.type === 'flow') {
-    const acc = accountById(rec.accountId);
-    return acc ? acc.currency : baseCurrency();
-  }
   const inst = recordInstrument(rec);
   if (inst) return inst.currency;
   const acc = recordAccount(rec);
@@ -1426,10 +1384,6 @@ function recordTitle(rec) {
   if (rec.type === 'fx') {
     return '换汇 ' + (rec.fromCcy || '') + ' → ' + (rec.toCcy || '');
   }
-  if (rec.type === 'flow') {
-    const fm = FLOW_FIELD_META[rec.flowField] || FLOW_FIELD_META.opening;
-    return (inst ? inst.name : acc ? acc.name : '') + ' · ' + fm.title + ' · ' + flowPeriodLabel(rec.periodKey);
-  }
   if (rec.type === 'price') return inst ? inst.name + ' · 估值更新' : '估值更新';
   if (rec.type === 'buy' || rec.type === 'sell' || rec.type === 'dividend' || rec.type === 'fee') {
     return (inst ? inst.name : acc ? acc.name : '') + ' · ' + meta.label;
@@ -1441,15 +1395,6 @@ function recordAmountHTML(rec) {
   const inst = recordInstrument(rec);
   const ccy = recordCurrency(rec);
   if (rec.type === 'price') return '<span class="mono">' + fmtPrice(rec.price, ccy) + '</span>';
-  if (rec.type === 'flow') {
-    const acc = accountById(rec.accountId);
-    const ccy = acc ? acc.currency : baseCurrency();
-    const v = Number(rec.flowValueNative) || 0;
-    const sign = rec.flowField === 'out' ? '−' : rec.flowField === 'in' ? '+' : rec.flowField === 'profit' ? (v > 0 ? '+' : v < 0 ? '-' : '') : '';
-    const cls = rec.flowField === 'out' ? 'loss' : (rec.flowField === 'in' || (rec.flowField === 'profit' && v > 0)) ? 'gain' : (rec.flowField === 'profit' && v < 0 ? 'loss' : '');
-    const body = (rec.flowField === 'opening' || rec.flowField === 'ending') ? fmtMoney(v, { currency: ccy }) : sign + fmtMoney(Math.abs(v), { currency: ccy });
-    return '<span class="' + cls + '">' + body + '</span>';
-  }
   if (rec.type === 'fx') return '<span class="mono">' + fmtMoney(rec.fromAmount || 0, { currency: rec.fromCcy }) + ' → ' + fmtMoney(rec.toAmount || 0, { currency: rec.toCcy }) + '</span>';
   if (rec.type === 'dividend' && (Number(rec.qty) || 0) > 0 && !(Number(rec.amount) > 0)) {
     const unit = inst ? qtyUnit(inst.cls) : '份';
@@ -1473,18 +1418,15 @@ function recordSubHTML(rec) {
     if (rec.fee) parts.push('费用 ' + fmtMoney(rec.fee, { currency: recordCurrency(rec) }));
   } else if (rec.type === 'price') {
     // 价格已在上方金额位置展示，避免重复
-  } else if (rec.type === 'flow') {
-    parts.push(flowPeriodLabel(rec.periodKey));
-    parts.push('账本调整');
   }
-  if (rec.note && !(rec.type === 'price' && /估值更新|价格更新/.test(rec.note)) && rec.type !== 'flow') parts.push(rec.note);
+  if (rec.note && !(rec.type === 'price' && /估值更新|价格更新/.test(rec.note))) parts.push(rec.note);
   return parts.map(esc).join(' · ');
 }
 function recordTone(rec) {
   if (rec.type === 'cashProfit') return (Number(rec.amount) || 0) >= 0 ? 'gain' : 'loss';
   if (rec.type === 'deposit' || rec.type === 'sell' || rec.type === 'dividend' || rec.type === 'interest') return 'gain';
   if (rec.type === 'withdraw' || rec.type === 'buy' || rec.type === 'fee') return 'loss';
-  if (rec.type === 'price' || rec.type === 'flow') return 'blue';
+  if (rec.type === 'price') return 'blue';
   return 'accent';
 }
 

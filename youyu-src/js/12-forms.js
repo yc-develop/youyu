@@ -719,26 +719,3 @@ function shadeColor(hex, percent) {
   r = clamp(r, 0, 255); g = clamp(g, 0, 255); b = clamp(b, 0, 255);
   return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
 }
-
-/* ---------- flow adjustments (account ledger) ---------- */
-function flowAdjustmentRecords(scope, id, periodKey) {
-  if (scope !== 'account') return [];
-  return (state.records || []).filter(r => r.type === 'flow' && r.ledgerAdjust && (periodKey === 'all' || r.periodKey === periodKey) && r.accountId === id && !r.instrumentId);
-}
-function resetFlowAdjustments(scope, id, periodKey) {
-  const list = flowAdjustmentRecords(scope, id, periodKey);
-  if (!list.length) return;
-  confirmDialog({
-    title: '撤销本周期调整？',
-    message: '会删除当前周期的账本调整记录，相关资产市值和盈亏会回滚到调整前。真实交易记录不受影响。',
-    confirmText: '撤销调整', danger: true,
-    onConfirm: () => {
-      const ids = new Set(list.map(r => r.id));
-      state.records = state.records.filter(r => !ids.has(r.id));
-      saveState();
-      closeAllSheets();
-      toast('已撤销账本调整', 'success');
-      refreshPage();
-    }
-  });
-}

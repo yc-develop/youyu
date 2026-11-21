@@ -95,10 +95,6 @@ function handleAction(action, el) {
     case 'edit-record': {
       const rec = state.records.find(r => r.id === d.id);
       if (!rec) return;
-      if (rec.type === 'flow') {
-        toast('账本调整记录不可编辑，可直接删除', 'info');
-        return;
-      }
       closeAllSheets();
       setTimeout(() => openRecordForm(rec.accountId, rec.type, rec.instrumentId, rec.id), 50);
       return;
@@ -124,7 +120,6 @@ function handleAction(action, el) {
       map[d.id] = d.period;
       refreshPage(); return;
     }
-    case 'reset-flow': resetFlowAdjustments(d.scope, d.id, d.period); return;
     case 'select-stats-scheme': ui.statsSchemeId = d.id; ui.sankeyMode = ui.sankeyMode || 'account'; refreshPage(); return;
     case 'set-sankey-mode': ui.sankeyMode = d.value; refreshPage(); return;
     case 'select-rebalance-scheme': ui.rebalanceSchemeId = d.id; refreshPage(); return;

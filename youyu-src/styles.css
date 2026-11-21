@@ -1130,13 +1130,11 @@ body.has-overlay .toast-root{top:calc(var(--safe-top) + 14px);bottom:auto}
 .rec-val .gain,.rec-val .loss{white-space:nowrap}
 
 /* ---------- flow corrections ---------- */
-.flow-adjusted{display:inline-block;font-size:7.5px;font-weight:600;color:var(--blue);background:var(--blue-soft);border:1px solid rgba(91,140,255,.16);border-radius:4px;padding:2px 4px;vertical-align:2px;margin-left:4px}
 .flow-period-row{margin:12px 0 2px;gap:6px}
 .flow-period-row .chip{height:28px;font-size:9.5px;padding:0 10px}
 .flow-node .v{font-size:10.5px;letter-spacing:-.03em}
 .flow-node.total .v{font-size:12px}
 .flow-node.flow-top .v{font-size:10px}
-.flow-adjusted-note{font-size:8px;color:var(--faint);text-align:center;margin-top:6px;line-height:1.4}
 @media (max-width:380px){
   .account-detail-stats .v{font-size:9.5px!important}
   .account-detail-stats > div{padding-right:2px}
