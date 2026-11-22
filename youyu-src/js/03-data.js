@@ -308,17 +308,44 @@ function rebalanceTargetFor(scheme, group) {
   return Number(targets[group.id]) || 0;
 }
 function groupTargetValue(scheme, group) { return rebalanceTargetFor(scheme, group); }
-function rebalanceExpectedFor(scheme, group) {
-  if (!scheme || !group) return null;
-  let raw;
-  if (!scheme.builtin) raw = group.expectedRate;
-  else {
-    const rates = (state.rebalance && state.rebalance.expectedRates && state.rebalance.expectedRates[scheme.id]) || {};
-    raw = rates[group.id];
-  }
-  if (raw === null || raw === undefined || raw === '') return null;
-  const v = Number(raw);
-  return Number.isFinite(v) ? v : null;
+/* 预期年化挂在标的（账户现金则为账户）上，分组年化由持仓加权算出，不再手填 */
+function parseRateField(v) {
+  if (v === null || v === undefined) return null;
+  if (typeof v === 'string' && v.trim() === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+function instrumentExpectedRate(inst) { return inst ? parseRateField(inst.expectedRate) : null; }
+function accountExpectedRate(acc) { return acc ? parseRateField(acc.expectedRate) : null; }
+function componentExpectedRate(comp) {
+  if (!comp) return null;
+  return comp.type === 'cash' ? accountExpectedRate(comp.account) : instrumentExpectedRate(comp.instrument);
+}
+/* 未设年化的部分按 0 计入，但金额单独报出来，不静默吞掉 */
+function groupExpectedStats(schemeId, groupId) {
+  const comps = groupComponents(schemeId, groupId);
+  let totalValue = 0, coveredValue = 0, coveredIncome = 0, missingValue = 0, missingCount = 0;
+  let minRate = null, maxRate = null;
+  const parts = comps.map(c => {
+    const value = Number(c.value) || 0;
+    const rate = componentExpectedRate(c);
+    totalValue += value;
+    if (rate == null) { missingCount += 1; missingValue += value; }
+    else {
+      coveredValue += value;
+      coveredIncome += value * rate / 100;
+      if (minRate == null || rate < minRate) minRate = rate;
+      if (maxRate == null || rate > maxRate) maxRate = rate;
+    }
+    return { name: c.name, value, rate, kind: c.type === 'cash' ? '现金' : '标的' };
+  }).sort((a, b) => b.value - a.value);
+  return {
+    totalValue, coveredValue, missingValue, missingCount,
+    minRate, maxRate,
+    income: coveredIncome,
+    weighted: coveredValue > 0 ? coveredIncome / totalValue * 100 : null,
+    parts
+  };
 }
 function schemesForRebalance() {
   return schemes().filter(s => rebalanceEnabled(s));

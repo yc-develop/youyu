@@ -28,6 +28,7 @@ function openAccountForm(accountId) {
     fieldHTML({ id: 'account-type', label: '账户类型', type: 'select', value: editing ? editing.type : (accountTypes()[0] ? accountTypes()[0].id : 'payment'), options: accountTypeOptions(), hint: '用于「账户类型分组」和账户筛选；可在「我的 → 类型管理」中维护。' }) +
     (editing ? fieldHTML({ id: 'account-currency', label: '币种', type: 'select', value: editing.currency, options: currencyOptions(), attrs: 'disabled' }) : fieldHTML({ id: 'account-currency', label: '币种', type: 'select', value: 'CNY', options: currencyOptions() })) +
     (editing ? '' : fieldHTML({ id: 'account-initial', label: '初始余额', value: '', placeholder: '0.00', unit: 'CNY', inputmode: 'decimal' })) +
+    fieldHTML({ id: 'account-rate', label: '预期年化（可选）', value: editing ? (editing.expectedRate == null ? '' : editing.expectedRate) : '', placeholder: '例如 1.04', unit: '%', inputmode: 'decimal', hint: '账户里的现金按这个年化计入再平衡的预期收益。留空＝未设，不会被当成 0。' }) +
     fieldHTML({ id: 'account-note', label: '备注（可选）', value: editing ? (editing.note || '') : '', placeholder: '例如：日常消费账户', full: true }) +
     '</div>' +
     '<div class="field" style="margin-top:11px"><label>账户颜色</label><div class="color-row">' +
@@ -58,11 +59,15 @@ function openAccountForm(accountId) {
     const currency = ccySel ? ccySel.value : 'CNY';
     const note = cleanText(form.querySelector('#account-note').value, 40);
     const color = form.querySelector('#account-color').value || '#ff9f45';
+    const rateRaw = form.querySelector('#account-rate') ? form.querySelector('#account-rate').value : '';
+    const accountRate = parseRateField(rateRaw);
+    if (accountRate != null && (accountRate < -100 || accountRate > 100)) { toast('预期年化需在 -100% 到 100% 之间', 'error'); return; }
     const logoRaw = (form.querySelector('#account-logo') || {}).value || 'auto';
     const logo = logoRaw === 'auto' ? (matchAccountBrand(name) || '') : logoRaw === 'none' ? '' : logoRaw;
     state.isDemo = false;
     if (editing) {
       editing.name = name; editing.type = type; editing.typeName = accountTypeName(type); editing.note = note; editing.color = color; editing.logo = logo;
+      if (accountRate == null) delete editing.expectedRate; else editing.expectedRate = accountRate;
       editing.color2 = shadeColor(color, -18);
       editing.icon = name.slice(0, 1);
       saveState(); closeSheet(wrap); toast('账户已更新', 'success'); refreshPage(); return;
@@ -72,6 +77,7 @@ function openAccountForm(accountId) {
       id, name, type, typeName: accountTypeName(type), currency, color, color2: shadeColor(color, -18), icon: name.slice(0, 1), logo, note,
       instruments: []
     };
+    if (accountRate != null) account.expectedRate = accountRate;
     state.accounts.push(account);
     const initial = parseNumber(form.querySelector('#account-initial') ? form.querySelector('#account-initial').value : 0);
     if (initial > 0) {
@@ -107,6 +113,7 @@ function openInstrumentForm(accountId, instrumentId) {
     fieldHTML({ id: 'inst-price', label: editing ? '当前价格' : '当前价格 / 净值', value: editing ? fmtNumber(priceNow(editing.id), { decimals: 4 }) : '', placeholder: '0.00', inputmode: 'decimal' }) +
     (editing ? '' : fieldHTML({ id: 'inst-qty', label: '初始持有数量', value: '', placeholder: '可不填', inputmode: 'decimal' })) +
     (editing ? '' : '<div class="field"><label>初始成本价</label><div class="amount-input"><input class="input" id="inst-cost" inputmode="decimal" placeholder="默认等于当前价"><span class="unit" id="inst-cost-unit">' + (editing ? editing.currency : account.currency) + '</span></div><div class="hint">仅填写数量时，按当前价建仓</div></div>') +
+    fieldHTML({ id: 'inst-rate', label: '预期年化（可选）', value: editing ? (editing.expectedRate == null ? '' : editing.expectedRate) : '', placeholder: '例如 1.95', unit: '%', inputmode: 'decimal', hint: '用于再平衡的预期收益计算。留空＝未设，不会被当成 0。' }) +
     fieldHTML({ id: 'inst-note', label: '备注（可选）', value: editing ? (editing.note || '') : '', placeholder: '例如：长期配置', full: true }) +
   '</div>' +
   '<div class="field" style="margin-top:11px"><label>标的颜色</label><div class="color-row">' +
@@ -207,6 +214,9 @@ function openInstrumentForm(accountId, instrumentId) {
     const currency = account.currency;
     const color = form.querySelector('#inst-color').value || '#ff9f45';
     const note = cleanText(form.querySelector('#inst-note').value, 40);
+    const instRateRaw = form.querySelector('#inst-rate') ? form.querySelector('#inst-rate').value : '';
+    const instRate = parseRateField(instRateRaw);
+    if (instRate != null && (instRate < -100 || instRate > 100)) { toast('预期年化需在 -100% 到 100% 之间', 'error'); return; }
     const price = Math.max(0, parseNumber(form.querySelector('#inst-price').value));
     if (!editing && !(price > 0)) { toast('请输入当前价格或净值', 'error'); return; }
     if (editing && editing.currency && editing.currency !== account.currency) {
@@ -218,6 +228,7 @@ function openInstrumentForm(accountId, instrumentId) {
     if (editing) {
       editing.name = name; editing.symbol = symbol; editing.cls = cls; editing.color = color;
       editing.note = note; editing.color2 = shadeColor(color, -18);
+      if (instRate == null) delete editing.expectedRate; else editing.expectedRate = instRate;
       editing.market = selectedMarket || null;
       if (price > 0 && Math.abs(price - priceNow(editing.id)) > 0.0000001) {
         upsertPricePoint(editing.id, todayKey(), price);
@@ -227,6 +238,7 @@ function openInstrumentForm(accountId, instrumentId) {
     }
     const id = uid('inst');
     const inst = { id, accountId: account.id, name, symbol, cls, currency, color, color2: shadeColor(color, -18), note, market: selectedMarket || null };
+    if (instRate != null) inst.expectedRate = instRate;
     account.instruments.push(inst);
     state.prices[id] = [[todayKey(), price > 0 ? price : 1, 'record']];
     const qty = normalizeFundQty(Math.max(0, parseNumber(form.querySelector('#inst-qty') ? form.querySelector('#inst-qty').value : 0)), cls);
