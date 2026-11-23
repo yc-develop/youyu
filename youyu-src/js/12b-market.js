@@ -347,8 +347,13 @@ function fetchFundHistory(market) {
     script.onload = () => {
       const rows = window.Data_netWorthTrend;
       if (!Array.isArray(rows)) { finish(reject, new Error('基金历史净值为空')); return; }
-      finish(resolve, rows.map(r => [new Date(r.x).toISOString().slice(0, 10), Number(r.y)]).filter(x => x[0] && x[1] > 0));
+      const accRows = Array.isArray(window.Data_ACWorthTrend) ? window.Data_ACWorthTrend : [];
       try { delete window.Data_netWorthTrend; } catch (e) {}
+      try { delete window.Data_ACWorthTrend; } catch (e) {}
+      finish(resolve, {
+        net: rows.map(r => [new Date(r.x).toISOString().slice(0, 10), Number(r.y)]).filter(x => x[0] && x[1] > 0),
+        acc: accRows.map(r => [new Date(r[0]).toISOString().slice(0, 10), Number(r[1])]).filter(x => x[0] && x[1] > 0)
+      });
     };
     script.onerror = () => finish(reject, new Error('基金历史净值不可用'));
     document.head.appendChild(script);
@@ -389,9 +394,14 @@ async function ensureInstrumentHistory(id, opts) {
   historyLoadingIds.add(id);
   try {
     let rows = [];
+    let accRows = [];
     const code = actual.market.code;
     if (actual.market.provider === 'eastmoney' || actual.market.marketType === 'SGE') rows = await fetchEastmoneySgeHistory(actual.market);
-    else if (code.indexOf('jj') === 0) rows = await fetchFundHistory(actual.market);
+    else if (code.indexOf('jj') === 0) {
+      const fund = await fetchFundHistory(actual.market);
+      rows = fund.net || [];
+      accRows = fund.acc || [];
+    }
     else if (code.indexOf('us') === 0) rows = await fetchSinaUSHistory(actual.market);
     else if (/^(sh|sz)/.test(code)) {
       try { rows = await fetchSinaCNHistory(actual.market); } catch (e) { rows = await fetchTencentHistory(actual.market); }
@@ -399,6 +409,7 @@ async function ensureInstrumentHistory(id, opts) {
     rows = rows.filter(x => x[0] <= todayKey()).slice(-2000);
     if (!rows.length) throw new Error('没有历史行情');
     rows.forEach(([date, price]) => upsertPricePoint(id, date, price, 'market'));
+    setAccPriceSeries(id, accRows.filter(x => x[0] <= todayKey()).slice(-2000));
     actual.market = Object.assign({}, actual.market, {
       historyLoaded: true,
       historyVersion: actual.market.marketType === 'SGE' ? 2 : actual.market.historyVersion,

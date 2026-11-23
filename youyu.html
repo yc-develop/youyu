@@ -1540,7 +1540,7 @@ html[data-theme="light"] .acct-icon.brand{border-color:rgba(16,24,40,.1);box-sha
 'use strict';
 
 const APP_NAME = '有余';
-const APP_VERSION = '6.5.55';
+const APP_VERSION = '6.5.56';
 // 沿用旧存储键，避免改名后已有本地账本丢失
 const STORE_KEY = 'yingji.portfolio.v1';
 const DEMO_STORE_KEY = 'yingji.demo.v1';
@@ -2424,6 +2424,7 @@ function normalizeState(obj) {
     r.fxRate = Number(r.fxRate) || 0;
   });
   obj.prices = obj.prices || {};
+  obj.accPrices = obj.accPrices && typeof obj.accPrices === 'object' ? obj.accPrices : {};
   (obj.accounts || []).forEach(a => (a.instruments || []).forEach(i => { if (!i.market) rebuildRecordPrices(obj, i.id); }));
   obj.fxHistory = obj.fxHistory || {};
   obj.rebalance = obj.rebalance && typeof obj.rebalance === 'object' ? obj.rebalance : {};
@@ -2711,6 +2712,24 @@ function recordsForInstrument(instrumentId) {
   return recordsSorted().filter(r => r.instrumentId === instrumentId);
 }
 function priceList(id) { return state.prices[id] || []; }
+/* 累计净值：只用于画收益曲线，绝不参与市值计算（市值必须是份额 × 单位净值） */
+function accPriceList(id) { return (state.accPrices && state.accPrices[id]) || []; }
+function setAccPriceSeries(id, rows) {
+  if (!state.accPrices) state.accPrices = {};
+  const list = (Array.isArray(rows) ? rows : []).filter(x => Array.isArray(x) && x[0] && Number(x[1]) > 0);
+  if (list.length < 2) { delete state.accPrices[id]; return; }
+  state.accPrices[id] = list;
+}
+function accPriceRange(id, days) {
+  const list = accPriceList(id);
+  if (!list.length) return [];
+  if (!days) return list;
+  const start = addDays(todayKey(), -days);
+  const out = list.filter(([d]) => d >= start);
+  const before = list.filter(([d]) => d < start).pop();
+  if (before) out.unshift(before);
+  return out;
+}
 function valuationPriceList(id) {
   const list = priceList(id);
   const inst = instrumentById(id);
@@ -3815,6 +3834,8 @@ function rateForRecord(ccy, date) {
 /* ---------- import / export ---------- */
 function stripNetworkHistory(obj) {
   if (!obj || typeof obj !== 'object') return obj;
+  // 累计净值全是网络数据，导出不留，导入后由行情重新拉取
+  if (obj.accPrices) delete obj.accPrices;
   if (obj.prices && typeof obj.prices === 'object') {
     Object.keys(obj.prices).forEach(id => {
       const rows = Array.isArray(obj.prices[id]) ? obj.prices[id] : [];
@@ -5179,11 +5200,36 @@ function positionRow(label, value, sub) {
 function instrumentChartCard(im) {
   const inst = im.inst;
   const period = Number(ui.instrumentPeriod == null ? 365 : ui.instrumentPeriod);
-  const mode = ui.instrumentChartMode === 'profit' ? 'profit' : 'price';
+  const accList = accPriceRange(inst.id, period || 0);
+  const hasAcc = accList.length > 2;
+  const mode = ui.instrumentChartMode === 'profit' ? 'profit'
+    : (ui.instrumentChartMode === 'acc' && hasAcc) ? 'acc' : 'price';
   const labels = { 30: '近1月', 90: '近3月', 365: '近1年', 0: '全部' };
   const list = priceSeriesRange(inst.id, period || 0);
   let chartHTML = '', metricsHTML = '', rangeText = '', lastDate = '';
-  if (mode === 'profit') {
+  if (mode === 'acc') {
+    const startAcc = accList[0][1] || 1;
+    const endAcc = accList[accList.length - 1][1];
+    let peak = -Infinity, maxDd = 0;
+    accList.forEach(([d, p]) => { if (p > peak) peak = p; if (peak > 0) maxDd = Math.min(maxDd, p / peak - 1); });
+    const ret = startAcc > 0 ? endAcc / startAcc - 1 : 0;
+    const days = Math.max(1, daysBetween(accList[0][0], accList[accList.length - 1][0]));
+    const annualized = Math.pow(Math.max(0.0001, endAcc / startAcc), 365 / days) - 1;
+    const points = accList.map(([d, p]) => ({ date: d, value: p }));
+    chartHTML = lineChartHTML({
+      points, mode: 'price', currency: inst.currency,
+      color: inst.color || '#ff9f45',
+      height: 174, baseline: false, aria: '标的累计净值曲线'
+    });
+    rangeText = dateRangeLabel(accList[0][0], accList[accList.length - 1][0]);
+    lastDate = accList[accList.length - 1][0];
+    metricsHTML = '<div class="metrics">' +
+      '<div class="metric"><div class="lab">区间累计涨幅</div><div class="val ' + pnlClass(ret) + '">' + fmtPct(ret, 2) + '</div><div class="sub">含分红</div></div>' +
+      '<div class="metric"><div class="lab">最大回撤率</div><div class="val loss">' + fmtPct(maxDd, 2) + '</div><div class="sub">累计净值</div></div>' +
+      '<div class="metric"><div class="lab">年化涨幅</div><div class="val ' + pnlClass(annualized) + '">' + fmtPct(annualized, 2) + '</div><div class="sub">含分红</div></div>' +
+      '<div class="metric"><div class="lab">最新累计净值</div><div class="val">' + fmtNumber(endAcc, { decimals: 4 }) + '</div><div class="sub">' + inst.currency + '</div></div>' +
+    '</div>';
+  } else if (mode === 'profit') {
     const series = instrumentProfitSeries(im);
     if (series.length > 1) {
       let peak = -Infinity, maxDd = 0;
@@ -5231,11 +5277,18 @@ function instrumentChartCard(im) {
   } else {
     chartHTML = chartEmptyHTML(inst.market ? '正在获取历史行情…' : '还没有足够的价格历史', 174);
   }
-  const ccyLabel = mode === 'profit' ? inst.currency + ' 累计收益' : inst.currency + ' 原币计价';
+  const ccyLabel = mode === 'profit' ? inst.currency + ' 累计收益'
+    : mode === 'acc' ? inst.currency + ' 累计净值（含分红）'
+    : inst.currency + ' 原币计价';
   const sourceLabel = inst.market ? '行情自动同步' : '按记录生成';
+  const chartTitle = mode === 'profit' ? '累计收益' : mode === 'acc' ? '累计净值' : '价格走势';
+  const modeBtns = [['price', '价格']]
+    .concat(hasAcc ? [['acc', '累计净值']] : [])
+    .concat([['profit', '累计收益']])
+    .map(([v, t]) => '<button class="seg ' + (mode === v ? 'active' : '') + '" data-action="set-instrument-chart-mode" data-value="' + v + '">' + t + '</button>').join('');
   return '<div class="detail-chart-card instrument-chart">' +
-    '<div class="chart-head"><div><h2>' + (mode === 'profit' ? '累计收益' : '价格走势') + '</h2><div class="sub">' + (rangeText || '暂无数据') + ' · ' + ccyLabel + ' · ' + sourceLabel + (mode === 'price' && recordsForInstrument(inst.id).some(r => r.type === 'buy' || r.type === 'sell') ? ' · B 买入 / S 卖出' : '') + '</div></div>' +
-      '<div class="segmented small chart-toggle"><button class="seg ' + (mode === 'price' ? 'active' : '') + '" data-action="set-instrument-chart-mode" data-value="price">价格</button><button class="seg ' + (mode === 'profit' ? 'active' : '') + '" data-action="set-instrument-chart-mode" data-value="profit">累计收益</button></div></div>' +
+    '<div class="chart-head"><div><h2>' + chartTitle + '</h2><div class="sub">' + (rangeText || '暂无数据') + ' · ' + ccyLabel + ' · ' + sourceLabel + (mode === 'price' && recordsForInstrument(inst.id).some(r => r.type === 'buy' || r.type === 'sell') ? ' · B 买入 / S 卖出' : '') + '</div></div>' +
+      '<div class="segmented small chart-toggle">' + modeBtns + '</div></div>' +
     chartHTML + metricsHTML +
     '<div class="period-row"><div class="segmented small">' + [30, 90, 365, 0].map(d => '<button class="seg ' + (period === d ? 'active' : '') + '" data-action="set-instrument-period" data-value="' + d + '">' + labels[d] + '</button>').join('') + '</div>' +
       '<span class="tiny">' + (lastDate ? shortDate(lastDate) : '') + '</span></div>' +
@@ -7621,8 +7674,13 @@ function fetchFundHistory(market) {
     script.onload = () => {
       const rows = window.Data_netWorthTrend;
       if (!Array.isArray(rows)) { finish(reject, new Error('基金历史净值为空')); return; }
-      finish(resolve, rows.map(r => [new Date(r.x).toISOString().slice(0, 10), Number(r.y)]).filter(x => x[0] && x[1] > 0));
+      const accRows = Array.isArray(window.Data_ACWorthTrend) ? window.Data_ACWorthTrend : [];
       try { delete window.Data_netWorthTrend; } catch (e) {}
+      try { delete window.Data_ACWorthTrend; } catch (e) {}
+      finish(resolve, {
+        net: rows.map(r => [new Date(r.x).toISOString().slice(0, 10), Number(r.y)]).filter(x => x[0] && x[1] > 0),
+        acc: accRows.map(r => [new Date(r[0]).toISOString().slice(0, 10), Number(r[1])]).filter(x => x[0] && x[1] > 0)
+      });
     };
     script.onerror = () => finish(reject, new Error('基金历史净值不可用'));
     document.head.appendChild(script);
@@ -7663,9 +7721,14 @@ async function ensureInstrumentHistory(id, opts) {
   historyLoadingIds.add(id);
   try {
     let rows = [];
+    let accRows = [];
     const code = actual.market.code;
     if (actual.market.provider === 'eastmoney' || actual.market.marketType === 'SGE') rows = await fetchEastmoneySgeHistory(actual.market);
-    else if (code.indexOf('jj') === 0) rows = await fetchFundHistory(actual.market);
+    else if (code.indexOf('jj') === 0) {
+      const fund = await fetchFundHistory(actual.market);
+      rows = fund.net || [];
+      accRows = fund.acc || [];
+    }
     else if (code.indexOf('us') === 0) rows = await fetchSinaUSHistory(actual.market);
     else if (/^(sh|sz)/.test(code)) {
       try { rows = await fetchSinaCNHistory(actual.market); } catch (e) { rows = await fetchTencentHistory(actual.market); }
@@ -7673,6 +7736,7 @@ async function ensureInstrumentHistory(id, opts) {
     rows = rows.filter(x => x[0] <= todayKey()).slice(-2000);
     if (!rows.length) throw new Error('没有历史行情');
     rows.forEach(([date, price]) => upsertPricePoint(id, date, price, 'market'));
+    setAccPriceSeries(id, accRows.filter(x => x[0] <= todayKey()).slice(-2000));
     actual.market = Object.assign({}, actual.market, {
       historyLoaded: true,
       historyVersion: actual.market.marketType === 'SGE' ? 2 : actual.market.historyVersion,

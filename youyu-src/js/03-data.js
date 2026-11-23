@@ -100,6 +100,7 @@ function normalizeState(obj) {
     r.fxRate = Number(r.fxRate) || 0;
   });
   obj.prices = obj.prices || {};
+  obj.accPrices = obj.accPrices && typeof obj.accPrices === 'object' ? obj.accPrices : {};
   (obj.accounts || []).forEach(a => (a.instruments || []).forEach(i => { if (!i.market) rebuildRecordPrices(obj, i.id); }));
   obj.fxHistory = obj.fxHistory || {};
   obj.rebalance = obj.rebalance && typeof obj.rebalance === 'object' ? obj.rebalance : {};
@@ -387,6 +388,24 @@ function recordsForInstrument(instrumentId) {
   return recordsSorted().filter(r => r.instrumentId === instrumentId);
 }
 function priceList(id) { return state.prices[id] || []; }
+/* 累计净值：只用于画收益曲线，绝不参与市值计算（市值必须是份额 × 单位净值） */
+function accPriceList(id) { return (state.accPrices && state.accPrices[id]) || []; }
+function setAccPriceSeries(id, rows) {
+  if (!state.accPrices) state.accPrices = {};
+  const list = (Array.isArray(rows) ? rows : []).filter(x => Array.isArray(x) && x[0] && Number(x[1]) > 0);
+  if (list.length < 2) { delete state.accPrices[id]; return; }
+  state.accPrices[id] = list;
+}
+function accPriceRange(id, days) {
+  const list = accPriceList(id);
+  if (!list.length) return [];
+  if (!days) return list;
+  const start = addDays(todayKey(), -days);
+  const out = list.filter(([d]) => d >= start);
+  const before = list.filter(([d]) => d < start).pop();
+  if (before) out.unshift(before);
+  return out;
+}
 function valuationPriceList(id) {
   const list = priceList(id);
   const inst = instrumentById(id);
@@ -1491,6 +1510,8 @@ function rateForRecord(ccy, date) {
 /* ---------- import / export ---------- */
 function stripNetworkHistory(obj) {
   if (!obj || typeof obj !== 'object') return obj;
+  // 累计净值全是网络数据，导出不留，导入后由行情重新拉取
+  if (obj.accPrices) delete obj.accPrices;
   if (obj.prices && typeof obj.prices === 'object') {
     Object.keys(obj.prices).forEach(id => {
       const rows = Array.isArray(obj.prices[id]) ? obj.prices[id] : [];

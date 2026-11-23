@@ -390,11 +390,36 @@ function positionRow(label, value, sub) {
 function instrumentChartCard(im) {
   const inst = im.inst;
   const period = Number(ui.instrumentPeriod == null ? 365 : ui.instrumentPeriod);
-  const mode = ui.instrumentChartMode === 'profit' ? 'profit' : 'price';
+  const accList = accPriceRange(inst.id, period || 0);
+  const hasAcc = accList.length > 2;
+  const mode = ui.instrumentChartMode === 'profit' ? 'profit'
+    : (ui.instrumentChartMode === 'acc' && hasAcc) ? 'acc' : 'price';
   const labels = { 30: '近1月', 90: '近3月', 365: '近1年', 0: '全部' };
   const list = priceSeriesRange(inst.id, period || 0);
   let chartHTML = '', metricsHTML = '', rangeText = '', lastDate = '';
-  if (mode === 'profit') {
+  if (mode === 'acc') {
+    const startAcc = accList[0][1] || 1;
+    const endAcc = accList[accList.length - 1][1];
+    let peak = -Infinity, maxDd = 0;
+    accList.forEach(([d, p]) => { if (p > peak) peak = p; if (peak > 0) maxDd = Math.min(maxDd, p / peak - 1); });
+    const ret = startAcc > 0 ? endAcc / startAcc - 1 : 0;
+    const days = Math.max(1, daysBetween(accList[0][0], accList[accList.length - 1][0]));
+    const annualized = Math.pow(Math.max(0.0001, endAcc / startAcc), 365 / days) - 1;
+    const points = accList.map(([d, p]) => ({ date: d, value: p }));
+    chartHTML = lineChartHTML({
+      points, mode: 'price', currency: inst.currency,
+      color: inst.color || '#ff9f45',
+      height: 174, baseline: false, aria: '标的累计净值曲线'
+    });
+    rangeText = dateRangeLabel(accList[0][0], accList[accList.length - 1][0]);
+    lastDate = accList[accList.length - 1][0];
+    metricsHTML = '<div class="metrics">' +
+      '<div class="metric"><div class="lab">区间累计涨幅</div><div class="val ' + pnlClass(ret) + '">' + fmtPct(ret, 2) + '</div><div class="sub">含分红</div></div>' +
+      '<div class="metric"><div class="lab">最大回撤率</div><div class="val loss">' + fmtPct(maxDd, 2) + '</div><div class="sub">累计净值</div></div>' +
+      '<div class="metric"><div class="lab">年化涨幅</div><div class="val ' + pnlClass(annualized) + '">' + fmtPct(annualized, 2) + '</div><div class="sub">含分红</div></div>' +
+      '<div class="metric"><div class="lab">最新累计净值</div><div class="val">' + fmtNumber(endAcc, { decimals: 4 }) + '</div><div class="sub">' + inst.currency + '</div></div>' +
+    '</div>';
+  } else if (mode === 'profit') {
     const series = instrumentProfitSeries(im);
     if (series.length > 1) {
       let peak = -Infinity, maxDd = 0;
@@ -442,11 +467,18 @@ function instrumentChartCard(im) {
   } else {
     chartHTML = chartEmptyHTML(inst.market ? '正在获取历史行情…' : '还没有足够的价格历史', 174);
   }
-  const ccyLabel = mode === 'profit' ? inst.currency + ' 累计收益' : inst.currency + ' 原币计价';
+  const ccyLabel = mode === 'profit' ? inst.currency + ' 累计收益'
+    : mode === 'acc' ? inst.currency + ' 累计净值（含分红）'
+    : inst.currency + ' 原币计价';
   const sourceLabel = inst.market ? '行情自动同步' : '按记录生成';
+  const chartTitle = mode === 'profit' ? '累计收益' : mode === 'acc' ? '累计净值' : '价格走势';
+  const modeBtns = [['price', '价格']]
+    .concat(hasAcc ? [['acc', '累计净值']] : [])
+    .concat([['profit', '累计收益']])
+    .map(([v, t]) => '<button class="seg ' + (mode === v ? 'active' : '') + '" data-action="set-instrument-chart-mode" data-value="' + v + '">' + t + '</button>').join('');
   return '<div class="detail-chart-card instrument-chart">' +
-    '<div class="chart-head"><div><h2>' + (mode === 'profit' ? '累计收益' : '价格走势') + '</h2><div class="sub">' + (rangeText || '暂无数据') + ' · ' + ccyLabel + ' · ' + sourceLabel + (mode === 'price' && recordsForInstrument(inst.id).some(r => r.type === 'buy' || r.type === 'sell') ? ' · B 买入 / S 卖出' : '') + '</div></div>' +
-      '<div class="segmented small chart-toggle"><button class="seg ' + (mode === 'price' ? 'active' : '') + '" data-action="set-instrument-chart-mode" data-value="price">价格</button><button class="seg ' + (mode === 'profit' ? 'active' : '') + '" data-action="set-instrument-chart-mode" data-value="profit">累计收益</button></div></div>' +
+    '<div class="chart-head"><div><h2>' + chartTitle + '</h2><div class="sub">' + (rangeText || '暂无数据') + ' · ' + ccyLabel + ' · ' + sourceLabel + (mode === 'price' && recordsForInstrument(inst.id).some(r => r.type === 'buy' || r.type === 'sell') ? ' · B 买入 / S 卖出' : '') + '</div></div>' +
+      '<div class="segmented small chart-toggle">' + modeBtns + '</div></div>' +
     chartHTML + metricsHTML +
     '<div class="period-row"><div class="segmented small">' + [30, 90, 365, 0].map(d => '<button class="seg ' + (period === d ? 'active' : '') + '" data-action="set-instrument-period" data-value="' + d + '">' + labels[d] + '</button>').join('') + '</div>' +
       '<span class="tiny">' + (lastDate ? shortDate(lastDate) : '') + '</span></div>' +
