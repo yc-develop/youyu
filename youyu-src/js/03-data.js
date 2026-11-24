@@ -107,6 +107,14 @@ function normalizeState(obj) {
   obj.rebalance.schemes = obj.rebalance.schemes && typeof obj.rebalance.schemes === 'object' ? obj.rebalance.schemes : {};
   obj.rebalance.targets = obj.rebalance.targets && typeof obj.rebalance.targets === 'object' ? obj.rebalance.targets : {};
   obj.rebalance.expectedRates = obj.rebalance.expectedRates && typeof obj.rebalance.expectedRates === 'object' ? obj.rebalance.expectedRates : {};
+  /* 旧版本用「参与再平衡」开关；现在改为「设了目标才算参与」，被关掉的方案清空目标 */
+  Object.keys(obj.rebalance.schemes || {}).forEach(id => {
+    const cfg = obj.rebalance.schemes[id];
+    if (!cfg || cfg.enabled !== false) return;
+    delete obj.rebalance.targets[id];
+    delete obj.rebalance.expectedRates[id];
+    cfg.enabled = true;
+  });
   if (!Array.isArray(obj.schemes) || !obj.schemes.length) obj.schemes = buildSeed().schemes;
   obj.schemes.forEach(s => {
     s.id = s.id || uid('sch');
@@ -291,16 +299,10 @@ function rebalanceConfig(schemeId) {
   if (!state.rebalance.expectedRates) state.rebalance.expectedRates = {};
   return state.rebalance.schemes[schemeId] || {};
 }
+/* 一个方案是否参与再平衡，只看它有没有设目标：设了就是参与，没设就是纯分组视图 */
 function rebalanceEnabled(scheme) {
   if (!scheme) return false;
-  const cfg = rebalanceConfig(scheme.id);
-  if (typeof cfg.enabled === 'boolean') return cfg.enabled;
-  return !scheme.builtin;
-}
-function setRebalanceEnabled(schemeId, enabled) {
-  if (!state.rebalance) state.rebalance = { schemes: {}, targets: {} };
-  if (!state.rebalance.schemes) state.rebalance.schemes = {};
-  state.rebalance.schemes[schemeId] = Object.assign({}, rebalanceConfig(schemeId), { enabled: !!enabled });
+  return schemeTargetTotal(scheme) > 0.001;
 }
 function rebalanceTargetFor(scheme, group) {
   if (!scheme || !group) return 0;

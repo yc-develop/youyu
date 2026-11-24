@@ -17,17 +17,6 @@ function seedRebalanceTargets(scheme) {
   gb.items.forEach(it => { if (it.id !== '__ungrouped') targets[it.id] = round(it.pct * 100, 1); });
   state.rebalance.targets[scheme.id] = targets;
 }
-function toggleRebalanceScheme(schemeId) {
-  const scheme = schemeById(schemeId);
-  if (!scheme) return;
-  const next = !rebalanceEnabled(scheme);
-  setRebalanceEnabled(scheme.id, next);
-  if (next && scheme.builtin) seedRebalanceTargets(scheme);
-  if (!next && ui.rebalanceSchemeId === scheme.id) ui.rebalanceSchemeId = '';
-  saveState();
-  toast(next ? (scheme.builtin ? '已开启再平衡，并按当前权重初始化目标' : '已开启再平衡') : '已关闭再平衡', 'success');
-  refreshPage();
-}
 
 function renderRebalancePage() {
   const sid = rebalanceSchemeId();
@@ -97,7 +86,7 @@ function rebalanceRows(items, tolerance, schemeId) {
 
 function openTargetEditor(sid) {
   const scheme = schemeById(sid || rebalanceSchemeId());
-  if (!scheme || !rebalanceEnabled(scheme)) { toast('请先在分组管理中开启再平衡', 'error'); return; }
+  if (!scheme) return;
   const tolerance = Number(state.settings.tolerance) || 0;
   const assets = groupBreakdown(scheme.id).total;
   const stats = {};

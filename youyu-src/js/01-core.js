@@ -4,7 +4,7 @@
 'use strict';
 
 const APP_NAME = '有余';
-const APP_VERSION = '6.5.60';
+const APP_VERSION = '6.5.61';
 // 沿用旧存储键，避免改名后已有本地账本丢失
 const STORE_KEY = 'yingji.portfolio.v1';
 const DEMO_STORE_KEY = 'yingji.demo.v1';
