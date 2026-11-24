@@ -16,7 +16,17 @@ function renderStatsPage() {
   const retMap = new Map(groupReturns.map(x => [x.group.id, x]));
   const sankeyMode = ui.sankeyMode || 'account';
   const builtin = !!scheme.builtin;
+  const rebalOn = rebalanceEnabled(scheme);
   const manageSid = sid;
+  const targetsText = gb.items.filter(x => x.id !== '__ungrouped').map(x => x.normalizedTarget.toFixed(0) + '%').join(' / ');
+  const summaryLeft = builtin ? '默认自动分组 · 按当前持仓实时计算'
+    : rebalOn ? '目标配置：' + (targetsText || '未设置')
+    : '未开启再平衡 · 仅按当前持仓分组';
+  const summaryBtn = builtin
+    ? '<button class="text-btn" data-action="go" data-href="#/settings">管理分组 ' + icon('chevronRight') + '</button>'
+    : rebalOn
+      ? '<button class="text-btn" data-action="go" data-href="#/rebalance">查看再平衡 ' + icon('chevronRight') + '</button>'
+      : '<button class="text-btn" data-action="go" data-href="#/groups/' + encodeURIComponent(manageSid) + '">管理分组 ' + icon('chevronRight') + '</button>';
   return pageTop({
     eyebrow: 'ALLOCATION & FLOW',
     title: '统计',
@@ -33,8 +43,8 @@ function renderStatsPage() {
       '<div class="donut-legend">' + donutLegendHTML(items, { compact: !!scheme.builtin }) + '</div></div>' +
     (gb.ungrouped && gb.ungrouped.value > 0 ? '<div class="info-banner warn" style="margin-top:14px">' + icon('alert') + '<div>有 ' + fmtMoney(gb.ungrouped.value, { compact: true }) + ' 资产尚未归入分组。前往分组管理把账户或标的加入分组。</div></div>' : '') +
     '<div class="divider-line"></div>' +
-    '<div class="row-between"><span class="tiny">' + (builtin ? '默认自动分组 · 按当前持仓实时计算' : '目标配置：' + (gb.items.filter(x => x.id !== '__ungrouped').map(x => x.normalizedTarget.toFixed(0) + '%').join(' / ') || '未设置')) + '</span>' +
-      (builtin ? '<button class="text-btn" data-action="go" data-href="#/settings">管理分组 ' + icon('chevronRight') + '</button>' : '<button class="text-btn" data-action="go" data-href="#/rebalance">查看再平衡 ' + icon('chevronRight') + '</button>') + '</div>' +
+    '<div class="row-between"><span class="tiny">' + summaryLeft + '</span>' +
+      summaryBtn + '</div>' +
   '</section>' +
   '<section class="card" style="margin-top:14px;padding:18px 18px 13px">' +
     '<div class="card-head" style="padding:0"><div><h2>资金流向</h2><div class="sub">组合总资产 → 分组 → ' + (sankeyMode === 'instrument' ? '底层标的' : '账户') + '</div></div>' +
@@ -136,6 +146,7 @@ function openGroupDetailSheet(groupId, schemeId) {
   const comps = groupComponents(sid, groupId);
   const total = item ? item.value : sum(comps, c => c.value);
   const builtin = !!scheme.builtin;
+  const rebalOn = rebalanceEnabled(scheme);
   const ret = groupPeriodSummary(sid, 365).find(x => x.group.id === groupId);
   const list = comps.length ? comps.map(c => {
     const pct = total > 0 ? c.value / total : 0;
@@ -144,9 +155,14 @@ function openGroupDetailSheet(groupId, schemeId) {
       '<div class="bar-track"><div class="bar-fill" style="width:' + (pct * 100).toFixed(1) + '%;background:' + (c.instrument ? c.instrument.color : (c.account.color || '#8e9aaf')) + '"></div></div>' +
       '<div class="amt">' + fmtMoney(c.value) + (c.account ? ' · ' + esc(c.account.name) : '') + '</div></div>';
   }).join('') : '<div class="tiny" style="padding:16px 0">这个分组还没有资产</div>';
-  const body = '<div class="stat-hero" style="margin-bottom:0"><div><div class="eyebrow">' + esc(scheme.name) + ' · 分组构成</div><div class="big" style="font-size:25px">' + fmtMoney(total) + '</div><div class="cap">占组合 ' + (gb.total > 0 ? (total / gb.total * 100).toFixed(1) : '0') + '% · 目标 ' + (Number(g.target) || 0).toFixed(0) + '%</div></div>' +
+  const body = '<div class="stat-hero" style="margin-bottom:0"><div><div class="eyebrow">' + esc(scheme.name) + ' · 分组构成</div><div class="big" style="font-size:25px">' + fmtMoney(total) + '</div><div class="cap">占组合 ' + (gb.total > 0 ? (total / gb.total * 100).toFixed(1) : '0') + '%' + ((!builtin && rebalOn) ? ' · 目标 ' + rebalanceTargetFor(scheme, g).toFixed(0) + '%' : (builtin ? '' : ' · 未开启再平衡')) + '</div></div>' +
     '<div class="right">近一年<b class="' + (ret ? pnlClass(ret.returnPct) : '') + '">' + (ret ? fmtPct(ret.returnPct, 2) : '—') + '</b><span>区间收益率</span></div></div>' +
     '<div class="bar-list" style="margin-top:16px">' + list + '</div>' +
     '<div style="height:8px"></div>';
-  openSheet({ title: g.name, sub: '分组构成与表现', body, footer: builtin ? '<button class="btn ghost" data-sheet-close>关闭</button>' : '<button class="btn ghost" data-action="open-group-editor" data-id="' + esc(g.id) + '" data-scheme="' + esc(sid) + '">编辑分组</button><button class="btn primary" data-action="open-target-editor" data-scheme="' + esc(sid) + '">调整目标</button>' });
+  const editBtn = '<button class="btn ghost" data-action="open-group-editor" data-id="' + esc(g.id) + '" data-scheme="' + esc(sid) + '">编辑分组</button>';
+  const targetBtn = '<button class="btn primary" data-action="open-target-editor" data-scheme="' + esc(sid) + '">调整目标</button>';
+  const footer = builtin ? '<button class="btn ghost" data-sheet-close>关闭</button>'
+    : rebalOn ? editBtn + targetBtn
+    : '<button class="btn ghost" data-sheet-close>关闭</button>' + editBtn;
+  openSheet({ title: g.name, sub: '分组构成与表现', body, footer });
 }
