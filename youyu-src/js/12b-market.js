@@ -390,6 +390,12 @@ async function ensureInstrumentHistory(id, opts) {
     actual.market.historyLoaded = false;
     state.prices[id] = (state.prices[id] || []).filter(p => p[2] !== 'market');
   }
+  /* 基金：旧版本只抓了单位净值，没有累计净值，标记版本强制重拉一次 */
+  const isFund = /^jj/.test(String((actual && actual.market && actual.market.code) || ''));
+  if (actual && actual.market && isFund && actual.market.historyVersion !== 2) {
+    actual.market.historyLoaded = false;
+    state.prices[id] = (state.prices[id] || []).filter(p => p[2] !== 'market');
+  }
   if (!actual || actual.market.historyLoaded || historyLoadingIds.has(id)) return !!(actual && actual.market.historyLoaded);
   historyLoadingIds.add(id);
   try {
@@ -412,7 +418,7 @@ async function ensureInstrumentHistory(id, opts) {
     setAccPriceSeries(id, accRows.filter(x => x[0] <= todayKey()).slice(-2000));
     actual.market = Object.assign({}, actual.market, {
       historyLoaded: true,
-      historyVersion: actual.market.marketType === 'SGE' ? 2 : actual.market.historyVersion,
+      historyVersion: (actual.market.marketType === 'SGE' || isFund) ? 2 : actual.market.historyVersion,
       historySyncedAt: nowISO(),
       historyCount: rows.length
     });
