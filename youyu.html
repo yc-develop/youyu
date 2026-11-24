@@ -1540,7 +1540,7 @@ html[data-theme="light"] .acct-icon.brand{border-color:rgba(16,24,40,.1);box-sha
 'use strict';
 
 const APP_NAME = '有余';
-const APP_VERSION = '6.5.58';
+const APP_VERSION = '6.5.59';
 // 沿用旧存储键，避免改名后已有本地账本丢失
 const STORE_KEY = 'yingji.portfolio.v1';
 const DEMO_STORE_KEY = 'yingji.demo.v1';
@@ -5081,7 +5081,7 @@ function accountChartCard(am) {
       '<div class="metric"><div class="lab">区间收益金额</div><div class="val ' + pnlClass(psPnl) + '">' + pnlText(psPnl, { compact: true, currency: a.currency }) + '</div><div class="sub">金额</div></div>' +
       '<div class="metric"><div class="lab">区间收益率（时间加权）</div><div class="val ' + pnlClass(tw.totalReturn) + '">' + fmtPct(tw.totalReturn, 2) + '</div><div class="sub">时间加权</div></div>' +
       '<div class="metric"><div class="lab">最大回撤率</div><div class="val loss">' + fmtPct(tw.maxDrawdown, 2) + '</div><div class="sub">回撤</div></div>' +
-      '<div class="metric"><div class="lab">年化收益率（时间加权）</div><div class="val ' + pnlClass(tw.annualized) + '">' + fmtPct(tw.annualized, 1) + '</div><div class="sub">时间加权</div></div>' +
+      '<div class="metric"><div class="lab">年化收益率（时间加权）</div><div class="val ' + pnlClass(tw.annualized) + '">' + fmtPct(tw.annualized, 2) + '</div><div class="sub">时间加权</div></div>' +
     '</div>';
   } else {
     chartHTML = chartEmptyHTML('还没有足够的历史数据', 174);
@@ -5368,7 +5368,7 @@ function statsGroupRows(gb, retMap, scheme) {
       '<span class="main"><span class="t">' + esc(it.name) + (!auto && it.status === 'high' ? ' <span style="font-size:8px;color:var(--gain)">超配</span>' : !auto && it.status === 'low' ? ' <span style="font-size:8px;color:var(--blue)">低配</span>' : '') + '</span>' +
         '<span class="s">' + fmtMoney(it.value, { compact: true }) + (auto ? ' · 自动分组' : ' · 目标 ' + (it.id === '__ungrouped' ? '—' : it.normalizedTarget.toFixed(1) + '%')) + '</span></span>' +
       '<span class="val"><b>' + (gb.total > 0 ? (it.pct * 100).toFixed(1) + '%' : '—') + '</b>' +
-        '<span class="' + (ret ? pnlClass(ret.returnPct) : 'faint') + '">' + (ret ? fmtPct(ret.returnPct, 1) : '—') + ' · 近一年</span></span>' +
+        '<span class="' + (ret ? pnlClass(ret.returnPct) : 'faint') + '">' + (ret ? fmtPct(ret.returnPct, 2) : '—') + ' · 近一年</span></span>' +
       '<span class="chev">' + icon('chevronRight') + '</span></button>';
   }).join('') || '<div class="tiny" style="padding:20px;text-align:center">暂无分组数据</div>';
 }

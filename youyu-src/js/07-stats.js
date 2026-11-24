@@ -67,7 +67,7 @@ function statsGroupRows(gb, retMap, scheme) {
       '<span class="main"><span class="t">' + esc(it.name) + (!auto && it.status === 'high' ? ' <span style="font-size:8px;color:var(--gain)">超配</span>' : !auto && it.status === 'low' ? ' <span style="font-size:8px;color:var(--blue)">低配</span>' : '') + '</span>' +
         '<span class="s">' + fmtMoney(it.value, { compact: true }) + (auto ? ' · 自动分组' : ' · 目标 ' + (it.id === '__ungrouped' ? '—' : it.normalizedTarget.toFixed(1) + '%')) + '</span></span>' +
       '<span class="val"><b>' + (gb.total > 0 ? (it.pct * 100).toFixed(1) + '%' : '—') + '</b>' +
-        '<span class="' + (ret ? pnlClass(ret.returnPct) : 'faint') + '">' + (ret ? fmtPct(ret.returnPct, 1) : '—') + ' · 近一年</span></span>' +
+        '<span class="' + (ret ? pnlClass(ret.returnPct) : 'faint') + '">' + (ret ? fmtPct(ret.returnPct, 2) : '—') + ' · 近一年</span></span>' +
       '<span class="chev">' + icon('chevronRight') + '</span></button>';
   }).join('') || '<div class="tiny" style="padding:20px;text-align:center">暂无分组数据</div>';
 }
