@@ -123,6 +123,7 @@ function handleAction(action, el) {
     case 'select-stats-scheme': ui.statsSchemeId = d.id; ui.sankeyMode = ui.sankeyMode || 'account'; refreshPage(); return;
     case 'set-sankey-mode': ui.sankeyMode = d.value; refreshPage(); return;
     case 'select-rebalance-scheme': ui.rebalanceSchemeId = d.id; refreshPage(); return;
+    case 'toggle-rebalance-scheme': toggleRebalanceScheme(d.scheme); return;
     case 'select-calendar-scheme': ui.calendarSchemeId = d.id; ui.calendarGroupId = 'all'; refreshPage(); return;
     case 'select-calendar-group': ui.calendarGroupId = d.id; refreshPage(); return;
     case 'set-calendar-mode':
