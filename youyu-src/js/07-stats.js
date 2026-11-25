@@ -137,7 +137,7 @@ function openGroupDetailSheet(groupId, schemeId) {
       '<div class="bar-track"><div class="bar-fill" style="width:' + (pct * 100).toFixed(1) + '%;background:' + (c.instrument ? c.instrument.color : (c.account.color || '#8e9aaf')) + '"></div></div>' +
       '<div class="amt">' + fmtMoney(c.value) + (c.account ? ' · ' + esc(c.account.name) : '') + '</div></div>';
   }).join('') : '<div class="tiny" style="padding:16px 0">这个分组还没有资产</div>';
-  const body = '<div class="stat-hero" style="margin-bottom:0"><div><div class="eyebrow">' + esc(scheme.name) + ' · 分组构成</div><div class="big" style="font-size:25px">' + fmtMoney(total) + '</div><div class="cap">占组合 ' + (gb.total > 0 ? (total / gb.total * 100).toFixed(1) : '0') + '%（' + fmtMoney(total) + '）' + ((!builtin && rebalOn) ? ' · 目标 ' + rebalanceTargetFor(scheme, g).toFixed(0) + '%' : (builtin ? '' : ' · 未设目标')) + '</div></div>' +
+  const body = '<div class="stat-hero" style="margin-bottom:0"><div><div class="eyebrow">' + esc(scheme.name) + ' · 分组构成</div><div class="big" style="font-size:25px">' + fmtMoney(total) + '</div><div class="cap">占组合 ' + (gb.total > 0 ? (total / gb.total * 100).toFixed(1) : '0') + '%' + ((!builtin && rebalOn) ? ' · 目标 ' + rebalanceTargetFor(scheme, g).toFixed(0) + '%' : (builtin ? '' : ' · 未设目标')) + '</div></div>' +
     '<div class="right">近一年<b class="' + (ret ? pnlClass(ret.returnPct) : '') + '">' + (ret ? fmtPct(ret.returnPct, 2) : '—') + '</b><span>区间收益率</span></div></div>' +
     '<div class="bar-list" style="margin-top:16px">' + list + '</div>' +
     '<div style="height:8px"></div>';
