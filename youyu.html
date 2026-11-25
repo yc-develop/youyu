@@ -1540,7 +1540,7 @@ html[data-theme="light"] .acct-icon.brand{border-color:rgba(16,24,40,.1);box-sha
 'use strict';
 
 const APP_NAME = '有余';
-const APP_VERSION = '6.5.62';
+const APP_VERSION = '6.5.63';
 // 沿用旧存储键，避免改名后已有本地账本丢失
 const STORE_KEY = 'yingji.portfolio.v1';
 const DEMO_STORE_KEY = 'yingji.demo.v1';
@@ -2500,7 +2500,7 @@ function loadState() {
   return state;
 }
 
-function saveState(silent) {
+function persistState(silent) {
   try {
     state.meta = state.meta || {};
     state.meta.lastUpdated = nowISO();
@@ -2508,7 +2508,15 @@ function saveState(silent) {
   } catch (e) {
     if (!silent) console.warn('保存失败', e);
   }
+}
+/* 账本数据变了：落盘并作废全部派生缓存 */
+function saveState(silent) {
+  persistState(silent);
   invalidate();
+}
+/* 只改了显示类设置（主题、隐藏金额）：落盘即可，派生数据没有任何变化，不要作废缓存 */
+function saveSettings() {
+  persistState();
 }
 function invalidate() {
   dataRev++;
@@ -8291,13 +8299,13 @@ function handleAction(action, el) {
     case 'noop': return;
     case 'toggle-hide':
       state.settings.hideAmounts = !state.settings.hideAmounts;
-      saveState(); refreshPage(); return;
+      saveSettings(); refreshPage(); return;
     case 'toggle-hide-big':
       state.settings.hideBig = !state.settings.hideBig;
-      saveState(); refreshPage();
+      saveSettings(); refreshPage();
       toast(state.settings.hideBig ? '已只隐藏大数字' : '已显示大数字', 'success');
       return;
-    case 'toggle-theme': state.settings.theme = state.settings.theme === 'light' ? 'dark' : 'light'; try { localStorage.setItem(THEME_KEY, state.settings.theme); } catch (e) {} applyTheme(); saveState(); refreshPage(); toast(state.settings.theme === 'light' ? '已切换到日间模式' : '已切换到夜间模式', 'success'); return;
+    case 'toggle-theme': state.settings.theme = state.settings.theme === 'light' ? 'dark' : 'light'; try { localStorage.setItem(THEME_KEY, state.settings.theme); } catch (e) {} applyTheme(); saveSettings(); refreshPage(); toast(state.settings.theme === 'light' ? '已切换到日间模式' : '已切换到夜间模式', 'success'); return;
     case 'toggle-fx':
       state.settings.considerFx = !state.settings.considerFx;
       saveState();

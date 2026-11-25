@@ -176,7 +176,7 @@ function loadState() {
   return state;
 }
 
-function saveState(silent) {
+function persistState(silent) {
   try {
     state.meta = state.meta || {};
     state.meta.lastUpdated = nowISO();
@@ -184,7 +184,15 @@ function saveState(silent) {
   } catch (e) {
     if (!silent) console.warn('保存失败', e);
   }
+}
+/* 账本数据变了：落盘并作废全部派生缓存 */
+function saveState(silent) {
+  persistState(silent);
   invalidate();
+}
+/* 只改了显示类设置（主题、隐藏金额）：落盘即可，派生数据没有任何变化，不要作废缓存 */
+function saveSettings() {
+  persistState();
 }
 function invalidate() {
   dataRev++;
