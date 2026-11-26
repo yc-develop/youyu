@@ -1573,7 +1573,7 @@ html[data-theme="light"] .acct-icon.brand{border-color:rgba(16,24,40,.1);box-sha
 'use strict';
 
 const APP_NAME = '有余';
-const APP_VERSION = '6.5.70';
+const APP_VERSION = '6.5.71';
 // 沿用旧存储键，避免改名后已有本地账本丢失
 const STORE_KEY = 'yingji.portfolio.v1';
 const DEMO_STORE_KEY = 'yingji.demo.v1';
@@ -6078,7 +6078,7 @@ function openTargetEditor(sid) {
     if (scheme.builtin) {
       state.rebalance.targets[scheme.id] = Object.assign({}, state.rebalance.targets[scheme.id] || {}, values);
     } else {
-      scheme.groups.forEach(g => { g.target = values[g.gid]; });
+      scheme.groups.forEach(g => { g.target = Number(values[g.id]) || 0; });
     }
     // 写回标的的预期年化（这是账本数据，不是试算）
     groups.forEach(g => {

@@ -300,7 +300,7 @@ function openTargetEditor(sid) {
     if (scheme.builtin) {
       state.rebalance.targets[scheme.id] = Object.assign({}, state.rebalance.targets[scheme.id] || {}, values);
     } else {
-      scheme.groups.forEach(g => { g.target = values[g.gid]; });
+      scheme.groups.forEach(g => { g.target = Number(values[g.id]) || 0; });
     }
     // 写回标的的预期年化（这是账本数据，不是试算）
     groups.forEach(g => {
