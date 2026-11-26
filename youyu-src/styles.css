@@ -604,10 +604,10 @@ button.reb-row:active{opacity:.8}
 .reb-target{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--ink);border-radius:2px;box-shadow:0 0 0 2px rgba(0,0,0,.24)}
 .reb-meta{display:flex;align-items:center;justify-content:space-between;margin-top:7px;font-size:8.5px;color:var(--faint)}
 /* 调整目标配置：分组 / 目标比例 / 预期收益（两行式，适配窄屏） */
-.reb-target-head{display:grid;grid-template-columns:minmax(0,1fr) 74px 84px;gap:9px;padding:0 0 7px;font-size:8px;color:var(--faint);letter-spacing:.02em}
+.reb-target-head{display:grid;grid-template-columns:minmax(0,1fr) 84px;gap:9px;padding:0 0 7px;font-size:8px;color:var(--faint);letter-spacing:.02em}
 .reb-target-head span:nth-child(n+2){text-align:right}
-.reb-target-list{display:flex;flex-direction:column;gap:13px}
-.reb-target-row{display:grid;grid-template-columns:minmax(0,1fr) 74px 84px;gap:9px;align-items:center}
+.reb-target-list{display:flex;flex-direction:column;gap:11px}
+.reb-target-row{display:grid;grid-template-columns:minmax(0,1fr) 84px;gap:9px;align-items:center}
 .reb-target-name{display:flex;align-items:center;gap:7px;min-width:0}
 .reb-target-name .dot{width:8px;height:8px;border-radius:3px;flex:0 0 8px}
 .reb-target-name .nm{font-size:12px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -650,7 +650,7 @@ button.reb-row:active{opacity:.8}
 .cmp-row.cmp-diff .lbl{color:var(--ink-2)}
 .cmp-warn{margin-top:7px;font-size:8.5px;line-height:1.5;color:var(--warning)}
 @media (max-width:374px){
-  .reb-target-head,.reb-target-row{grid-template-columns:minmax(0,1fr) 66px 76px;gap:7px}
+  .reb-target-head,.reb-target-row{grid-template-columns:minmax(0,1fr) 76px;gap:7px}
   .reb-target-name .nm{font-size:11px}
 }
 .reb-meta b{font-weight:550;font-variant-numeric:tabular-nums}
@@ -1500,4 +1500,37 @@ html[data-theme="light"] .acct-icon.brand{border-color:rgba(16,24,40,.1);box-sha
 
 @media (max-width:520px){
   .detail-chart-card .metrics{grid-template-columns:repeat(2,1fr)}
+}
+
+/* 调整目标 · 调仓试算表 */
+.plan-note{margin:0 0 13px;font-size:9px;line-height:1.65;color:var(--faint)}
+.plan-block{margin-bottom:17px}
+.plan-group{display:flex;align-items:center;gap:7px;margin-bottom:7px;font-size:9px;color:var(--faint)}
+.plan-group .dot{width:8px;height:8px;border-radius:3px;flex:0 0 8px}
+.plan-gname{font-weight:650;font-size:11px;color:var(--ink);flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.plan-gstat{white-space:nowrap;display:inline-flex;align-items:center;gap:2px}
+.plan-gstat b{color:var(--ink-2);font-weight:600;font-variant-numeric:tabular-nums}
+.plan-gstat i{font-style:normal}
+.plan-table{display:flex;flex-direction:column;gap:3px}
+.plan-head,.plan-row{display:grid;grid-template-columns:minmax(0,1fr) 48px 52px 50px 44px 52px;gap:5px;align-items:center}
+.plan-head{font-size:7.5px;color:var(--faint);padding-bottom:5px;border-bottom:1px solid var(--line);letter-spacing:.02em}
+.plan-head span:nth-child(n+2){text-align:right}
+.plan-row{padding:1px 0}
+.plan-name{font-size:9.5px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.plan-num{text-align:right;font-size:9.5px;color:var(--ink-2);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.plan-amt{height:27px;padding:0 5px;text-align:right;font-size:10.5px;font-variant-numeric:tabular-nums;border-radius:7px;width:100%;min-width:0}
+.plan-rate{display:flex;align-items:center;gap:1px;min-width:0}
+.plan-rate .plan-amt{font-size:10px;flex:1 1 auto}
+.plan-rate i{font-style:normal;font-size:8px;color:var(--faint);flex:0 0 auto}
+.plan-target{width:36px;height:21px;padding:0 3px;font-size:9.5px;display:inline-block;border-radius:6px}
+.plan-text{height:26px;padding:0 6px;font-size:10px;width:100%;min-width:0}
+.plan-add{margin-top:8px;height:28px;border-radius:8px;border:1px dashed var(--line);background:none;color:var(--faint);font-size:9px;cursor:pointer}
+.plan-summary .plan-head,.plan-summary .plan-row{grid-template-columns:minmax(0,1fr) 76px 64px 76px}
+.plan-summary .plan-head{border-bottom:1px solid var(--line)}
+.plan-summary .plan-row{border-bottom:1px solid rgba(127,127,127,.08)}
+.plan-summary .plan-name{font-size:10px;color:var(--faint)}
+.plan-summary .plan-num{font-size:10.5px;font-weight:600}
+@media (max-width:374px){
+  .plan-head,.plan-row{grid-template-columns:minmax(0,1fr) 44px 48px 46px 40px 48px;gap:4px}
+  .plan-summary .plan-head,.plan-summary .plan-row{grid-template-columns:minmax(0,1fr) 70px 58px 70px}
 }

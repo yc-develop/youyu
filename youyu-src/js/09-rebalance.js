@@ -99,169 +99,213 @@ function openTargetEditor(sid) {
   const scheme = schemeById(sid || rebalanceSchemeId());
   if (!scheme || !rebalanceEnabled(scheme)) { toast('请先在分组管理中开启再平衡', 'error'); return; }
   const tolerance = Number(state.settings.tolerance) || 0;
-  const assets = groupBreakdown(scheme.id).total;
-  const stats = {};
-  scheme.groups.forEach(g => { stats[g.id] = groupExpectedStats(scheme.id, g.id); });
-  const rateLabel = s => s.weighted == null ? '<span class="reb-unset">未设</span>' : s.weighted.toFixed(2) + '%';
-  const rangeLine = s => {
-    if (!s.parts.length) return '这个分组目前没有持仓';
-    if (s.weighted == null) return '持仓都还没有填写「预期年化」';
-    const rated = s.parts.filter(p => p.rate != null).length;
-    const span = s.minRate === s.maxRate
-      ? s.minRate.toFixed(2) + '%'
-      : s.minRate.toFixed(2) + '% – ' + s.maxRate.toFixed(2) + '%';
-    let out = '年化区间 ' + span + ' · 加权来自 ' + rated + ' 项';
-    if (s.missingCount) out += ' · <b>' + s.missingCount + ' 项未设</b>（' + fmtMoney(s.missingValue, { compact: true }) + '）';
-    return out;
+  const groups = scheme.groups.map(g => {
+    const comps = groupComponents(scheme.id, g.id);
+    const rows = comps.map(c => {
+      const inst = c.instrument || null;
+      const key = inst ? inst.id : 'cash_' + (c.account ? c.account.id : 'x');
+      return {
+        key,
+        name: c.name,
+        isNew: false,
+        current: Number(c.value) || 0,
+        op: 0,
+        rate: inst ? instrumentExpectedRate(inst) : accountExpectedRate(c.account)
+      };
+    });
+    return {
+      gid: g.id, name: g.name, color: g.color,
+      target: rebalanceTargetFor(scheme, g),
+      rows,
+      fresh: []
+    };
+  });
+
+  const rateOf = row => row.rate;
+  const adjOf = row => row.current + (Number(row.op) || 0);
+  const allRows = () => groups.reduce((a, g) => a.concat(g.rows, g.fresh), []);
+  const groupNow = g => sum(g.rows, r => r.current);
+  const groupAdj = g => sum(g.rows.concat(g.fresh), r => adjOf(r));
+  const totalNow = () => sum(groups, groupNow);
+  const totalAdj = () => sum(groups, groupAdj);
+  const incomeNow = () => sum(groups, g => sum(g.rows, r => (rateOf(r) == null ? 0 : r.current * rateOf(r) / 100)));
+  const incomeAdj = () => sum(groups, g => sum(g.rows.concat(g.fresh), r => (rateOf(r) == null ? 0 : adjOf(r) * rateOf(r) / 100)));
+  const unrated = () => {
+    let n = 0, v = 0;
+    allRows().forEach(r => { if (rateOf(r) == null && Math.abs(adjOf(r)) > 0.005) { n++; v += adjOf(r); } });
+    return { n, v };
   };
-  const partsHTML = s => s.parts.length
-    ? '<div class="reb-parts-head"><span>构成</span><span>金额</span><span>年化</span></div>' + s.parts.map(p =>
-        '<div class="reb-parts-row"><span class="nm">' + esc(p.name) + '</span><span>' + fmtMoney(p.value, { compact: true }) + '</span>' +
-        '<span class="' + (p.rate == null ? 'reb-unset' : '') + '">' + (p.rate == null ? '未设' : p.rate.toFixed(2) + '%') + '</span></div>').join('')
-    : '<div class="reb-parts-row"><span class="nm">这个分组目前没有持仓</span><span></span><span></span></div>';
+  const pct = (a, b) => (b > 0 ? (a / b * 100) : 0);
+  const money = v => {
+    const neg = v < -0.005;
+    const a = Math.abs(v);
+    const body = a >= 10000 ? (a / 10000).toFixed(2) + '万' : String(Math.round(a));
+    return (neg ? '−' : '') + '¥' + body;
+  };
+  const signMoney = v => (Math.abs(v) < 0.005 ? '—' : (v > 0 ? '+' : '−') + money(Math.abs(v)));
+
+  const rowHTML = (g, r, idPrefix) => {
+    const adj = adjOf(r);
+    const rate = rateOf(r);
+    return '<div class="plan-row" data-row="' + esc(idPrefix) + '">' +
+      '<div class="plan-name" title="' + esc(r.name) + '">' + (r.isNew ? '<input class="input plan-text" data-f="name" data-g="' + esc(g.gid) + '" data-r="' + esc(idPrefix) + '" value="' + esc(r.name) + '" placeholder="标的名称">' : esc(r.name)) + '</div>' +
+      '<div class="plan-num">' + (r.isNew ? '—' : money(r.current)) + '</div>' +
+      '<div class="plan-num plan-op"><input class="input plan-amt" inputmode="decimal" data-f="op" data-g="' + esc(g.gid) + '" data-r="' + esc(idPrefix) + '" value="' + (r.op ? r.op : '') + '" placeholder="0"></div>' +
+      '<div class="plan-num" data-cell="adj:' + esc(idPrefix) + '">' + money(adj) + '</div>' +
+      '<div class="plan-num plan-rate"><input class="input plan-amt" inputmode="decimal" data-f="rate" data-g="' + esc(g.gid) + '" data-r="' + esc(idPrefix) + '" value="' + (rate == null ? '' : rate) + '" placeholder="—"><i>%</i></div>' +
+      '<div class="plan-num" data-cell="inc:' + esc(idPrefix) + '">' + (rate == null ? '—' : money(adj * rate / 100)) + '</div>' +
+    '</div>';
+  };
+
+  const groupsHTML = groups.map(g => {
+    const now = groupNow(g);
+    return '<div class="plan-block" data-group="' + esc(g.gid) + '">' +
+      '<div class="plan-group">' +
+        '<span class="dot" style="background:' + g.color + '"></span>' +
+        '<span class="plan-gname">' + esc(g.name) + '</span>' +
+        '<span class="plan-gstat">当前 <b>' + pct(now, totalNow()).toFixed(1) + '%</b></span>' +
+        '<span class="plan-gstat">目标 <input class="input plan-amt plan-target" inputmode="decimal" data-f="target" data-g="' + esc(g.gid) + '" value="' + g.target + '"><i>%</i></span>' +
+        '<span class="plan-gstat">调整后 <b data-cell="gpct:' + esc(g.gid) + '">' + pct(groupAdj(g), totalAdj() || 1).toFixed(1) + '%</b></span>' +
+      '</div>' +
+      '<div class="plan-table">' +
+        '<div class="plan-head"><span>标的</span><span>当前</span><span>操作</span><span>调整后</span><span>年化</span><span>年收益</span></div>' +
+        g.rows.map(r => rowHTML(g, r, g.gid + ':' + r.key)).join('') +
+        '<div data-fresh="' + esc(g.gid) + '">' + g.fresh.map((r, i) => rowHTML(g, r, g.gid + ':new' + i)).join('') + '</div>' +
+        '<button class="plan-add" data-f="add" data-g="' + esc(g.gid) + '">+ 新增标的</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+
   const body = '<form id="target-form">' +
-    '<div class="info-banner" style="margin-top:0">' + icon('target') + '<div>分组年化来自<b>当前持仓</b>加权。调整后收益 = 目标金额 × 该分组当前加权年化（假设桶内构成不变）。允许 ±' + tolerance.toFixed(1) + '% 的偏离。</div></div>' +
-    '<div class="form-section">分组目标</div>' +
-    '<div class="reb-target-head"><span>分组</span><span>目标 %</span><span>调整后收益/年</span></div>' +
-    '<div class="reb-target-list">' +
-      scheme.groups.map(g => {
-        const s = stats[g.id];
-        return '<div class="reb-target-row">' +
-          '<div class="reb-target-name"><span class="dot" style="background:' + g.color + '"></span><span class="nm">' + esc(g.name) + '</span>' +
-            '<button type="button" class="reb-expand" data-expand="' + esc(g.id) + '" aria-label="展开构成">' + icon('chevronDown') + '</button></div>' +
-          '<div class="reb-target-pct"><input class="input reb-num" type="text" inputmode="decimal" name="target_' + esc(g.id) + '" id="target_' + esc(g.id) + '" value="' + rebalanceTargetFor(scheme, g) + '" placeholder="0" aria-label="目标占比"><span class="unit">%</span></div>' +
-          '<div class="reb-target-amt reb-target-income" data-amount="' + esc(g.id) + '">—</div>' +
-        '</div>' +
-        '<div class="reb-target-meta" data-meta="' + esc(g.id) + '"></div>' +
-        '<div class="reb-target-sub" data-sub="' + esc(g.id) + '">' + rangeLine(s) + '</div>' +
-        '<div class="reb-target-parts" data-parts="' + esc(g.id) + '" hidden>' + partsHTML(s) + '</div>';
-      }).join('') +
+    '<div class="plan-note">在「操作」列填金额（正数＝加仓／建仓，负数＝减仓），「调整后」和「年收益」会实时算出来。操作只是试算，不会写进账本。</div>' +
+    groupsHTML +
+    '<div class="form-section">汇总</div>' +
+    '<div class="plan-table plan-summary">' +
+      '<div class="plan-head plan-head-sum"><span></span><span>调整前</span><span>变更</span><span>调整后</span></div>' +
+      '<div class="plan-row"><div class="plan-name">总金额</div><div class="plan-num" data-cell="sum:now">' + money(totalNow()) + '</div><div class="plan-num" data-cell="sum:delta">—</div><div class="plan-num" data-cell="sum:adj">' + money(totalAdj()) + '</div></div>' +
+      '<div class="plan-row"><div class="plan-name">预期年化</div><div class="plan-num" data-cell="sum:rnow">—</div><div class="plan-num">—</div><div class="plan-num" data-cell="sum:radj">—</div></div>' +
+      '<div class="plan-row"><div class="plan-name">预期年收益</div><div class="plan-num" data-cell="sum:inow">—</div><div class="plan-num" data-cell="sum:idelta">—</div><div class="plan-num" data-cell="sum:iadj">—</div></div>' +
     '</div>' +
-    '<div class="reb-target-sumline"><span>目标合计 <b id="target-total">' + schemeTargetTotal(scheme).toFixed(1) + '%</b></span><span>目标金额 <b id="goal-total">—</b></span></div>' +
-    '<div class="reb-target-cmp">' +
-      '<div class="cmp-head"><span></span><span>组合年化</span><span>年收益</span></div>' +
-      '<div class="cmp-row"><span class="lbl">现在</span><b id="cmp-now-rate">—</b><b id="cmp-now-inc">—</b></div>' +
-      '<div class="cmp-row"><span class="lbl">调整后</span><b id="cmp-adj-rate">—</b><b id="cmp-adj-inc">—</b></div>' +
-      '<div class="cmp-row cmp-diff"><span class="lbl">变化</span><b id="cmp-diff-rate">—</b><b id="cmp-diff-inc">—</b></div>' +
-    '</div>' +
-    '<div class="cmp-warn" id="cmp-warn" hidden>目标合计不是 100%，年化可以比较，金额不可直接比较。</div>' +
-    '<div class="reb-target-note" id="expected-note" hidden></div>' +
+    '<div class="reb-target-note" id="plan-warn" hidden></div>' +
+    '<div class="reb-target-sumline"><span>目标合计 <b id="target-total">' + schemeTargetTotal(scheme).toFixed(1) + '%</b></span></div>' +
     '<div class="form-section">容忍带</div>' +
     '<div class="field" style="display:grid;grid-template-columns:1fr 98px;align-items:center;gap:10px"><div style="font-size:11px;color:var(--ink-2)">允许偏离目标</div><div class="amount-input"><input class="input" type="text" inputmode="decimal" name="tolerance" id="target-tolerance" value="' + tolerance + '"><span class="unit">%</span></div></div>' +
-    '<div class="hint" style="font-size:8px;color:var(--faint);margin-top:7px;padding-left:2px">容忍带越窄，再平衡提示越频繁。</div>' +
   '</form>';
+
   const wrap = openSheet({
-    title: '调整目标配置', sub: esc(scheme.name) + ' · 目标占比 · 预期年化', body,
-    footer: '<button class="btn ghost" data-sheet-close>取消</button><button class="btn primary" data-target-save>保存目标</button>'
+    title: '调整目标配置', sub: esc(scheme.name) + ' · 目标占比与调仓试算',
+    body, footer: '<button class="btn ghost" data-sheet-close>取消</button><button class="btn primary" data-target-save>保存目标</button>'
   });
   const form = wrap.querySelector('#target-form');
-  const setText = (id, txt) => { const el = form.querySelector('#' + id); if (el) el.textContent = txt; };
-  const pctText = v => (Math.abs(v - Math.round(v)) < 0.05 ? String(Math.round(v)) : v.toFixed(1));
-  const updateTotals = () => {
-    let totalPct = 0, curValue = 0, curIncome = 0, adjValue = 0, adjIncome = 0;
-    let ratedGroups = 0, missingValue = 0, missingCount = 0;
-    scheme.groups.forEach(g => {
-      const ti = form.querySelector('#target_' + g.id);
-      const t = clamp(parseNumber(ti ? ti.value : 0), 0, 100);
-      totalPct += t;
-      const s = stats[g.id];
-      const hasRate = s.weighted != null;
-      if (hasRate) ratedGroups += 1;
-      missingValue += s.missingValue;
-      missingCount += s.missingCount;
-      const goal = assets * (t / 100);
-      const amt = hasRate ? goal * (s.weighted / 100) : 0;
-      adjValue += goal;
-      adjIncome += amt;
-      curValue += s.totalValue;
-      curIncome += s.income;
-      const cell = form.querySelector('[data-amount="' + g.id + '"]');
-      if (cell) {
-        const show = t > 0 && hasRate;
-        cell.textContent = show ? fmtMoney(amt, { compact: true }) : '—';
-        cell.classList.toggle('on', show);
-      }
-      const meta = form.querySelector('[data-meta="' + g.id + '"]');
-      if (meta) {
-        const nowPct = assets > 0 ? s.totalValue / assets * 100 : 0;
-        const diff = amt - s.income;
-        const diffTxt = (hasRate && Math.abs(diff) >= 1)
-          ? ' · <b class="' + (diff > 0 ? 'gain' : 'loss') + '">' + (diff > 0 ? '+' : '−') + fmtMoney(Math.abs(diff), { compact: true }) + '</b>'
-          : '';
-        meta.innerHTML = '现在 ' + nowPct.toFixed(1) + '% → ' + pctText(t) + '%' +
-          ' · 年化 ' + rateLabel(s) +
-          ' · ' + fmtMoney(s.income, { compact: true }) + ' → ' + (hasRate ? fmtMoney(amt, { compact: true }) : '—') + diffTxt;
-      }
+
+  const findRow = (gid, rid) => {
+    const g = groups.find(x => x.gid === gid);
+    if (!g) return null;
+    const parts = rid.split(':');
+    if (/^new\d+$/.test(parts[1])) return g.fresh[Number(parts[1].slice(3))] || null;
+    return g.rows.find(r => r.key === parts[1]) || null;
+  };
+
+  const refresh = () => {
+    const tn = totalNow(), ta = totalAdj();
+    const inow = incomeNow(), iadj = incomeAdj();
+    groups.forEach(g => {
+      g.rows.concat(g.fresh).forEach((r, i) => {
+        const prefix = r.isNew ? (g.gid + ':new' + g.fresh.indexOf(r)) : (g.gid + ':' + r.key);
+        const adjCell = form.querySelector('[data-cell="adj:' + prefix + '"]');
+        if (adjCell) adjCell.textContent = money(adjOf(r));
+        const incCell = form.querySelector('[data-cell="inc:' + prefix + '"]');
+        if (incCell) incCell.textContent = rateOf(r) == null ? '—' : money(adjOf(r) * rateOf(r) / 100);
+      });
+      const gp = form.querySelector('[data-cell="gpct:' + g.gid + '"]');
+      if (gp) gp.textContent = pct(groupAdj(g), ta || 1).toFixed(1) + '%';
     });
-    const totalEl = form.querySelector('#target-total');
-    if (totalEl) {
-      totalEl.textContent = totalPct.toFixed(1) + '%';
-      totalEl.style.color = Math.abs(totalPct - 100) < 0.01 ? 'var(--loss)' : 'var(--warning)';
-    }
-    setText('goal-total', adjValue > 0 ? fmtMoney(adjValue, { compact: true }) : '—');
-    const ok = ratedGroups > 0 && curValue > 0;
-    const nowRate = ok ? curIncome / curValue * 100 : null;
-    const adjRate = ok && adjValue > 0 ? adjIncome / adjValue * 100 : null;
-    setText('cmp-now-rate', nowRate == null ? '—' : nowRate.toFixed(2) + '%');
-    setText('cmp-now-inc', ok ? fmtMoney(curIncome, { compact: true }) : '—');
-    setText('cmp-adj-rate', adjRate == null ? '—' : adjRate.toFixed(2) + '%');
-    setText('cmp-adj-inc', ok ? fmtMoney(adjIncome, { compact: true }) : '—');
-    const drEl = form.querySelector('#cmp-diff-rate');
-    const diEl = form.querySelector('#cmp-diff-inc');
-    if (drEl && diEl) {
-      if (nowRate == null || adjRate == null) {
-        drEl.textContent = '—'; diEl.textContent = '—';
-        drEl.style.color = ''; diEl.style.color = '';
-      } else {
-        const dr = adjRate - nowRate;
-        const di = adjIncome - curIncome;
-        drEl.textContent = (dr >= 0 ? '+' : '−') + Math.abs(dr).toFixed(2) + 'pp';
-        diEl.textContent = (di >= 0 ? '+' : '−') + fmtMoney(Math.abs(di), { compact: true });
-        const c = dr > 0.005 ? 'var(--gain)' : dr < -0.005 ? 'var(--loss)' : 'var(--faint)';
-        drEl.style.color = c; diEl.style.color = c;
-      }
-    }
-    const warnEl = form.querySelector('#cmp-warn');
-    if (warnEl) warnEl.hidden = Math.abs(totalPct - 100) < 0.01;
-    const noteEl = form.querySelector('#expected-note');
-    if (noteEl) {
-      if (missingCount > 0) {
-        noteEl.hidden = false;
-        noteEl.innerHTML = icon('alert') + '<span>' + missingCount + ' 项标的（合计 ' + fmtMoney(missingValue, { compact: true }) + '）还没有填写「预期年化」，这部分按 0 计入，两侧金额都偏低。</span>';
-      } else if (ratedGroups === 0) {
-        noteEl.hidden = false;
-        noteEl.innerHTML = icon('alert') + '<span>还没有任何标的填写「预期年化」。到标的或账户的编辑页填上，这里才能算出收益。</span>';
-      } else {
-        noteEl.hidden = true;
-        noteEl.innerHTML = '';
-      }
+    const set = (k, v) => { const el = form.querySelector('[data-cell="' + k + '"]'); if (el) el.textContent = v; };
+    set('sum:now', money(tn));
+    set('sum:adj', money(ta));
+    set('sum:delta', signMoney(ta - tn));
+    set('sum:rnow', tn > 0 ? (inow / tn * 100).toFixed(2) + '%' : '—');
+    set('sum:radj', ta > 0 ? (iadj / ta * 100).toFixed(2) + '%' : '—');
+    set('sum:inow', money(inow));
+    set('sum:iadj', money(iadj));
+    set('sum:idelta', signMoney(iadj - inow));
+    let totalPct = 0;
+    groups.forEach(g => {
+      const inp = form.querySelector('[data-f="target"][data-g="' + g.gid + '"]');
+      totalPct += clamp(parseNumber(inp ? inp.value : 0), 0, 100);
+    });
+    const tt = form.querySelector('#target-total');
+    if (tt) { tt.textContent = totalPct.toFixed(1) + '%'; tt.style.color = Math.abs(totalPct - 100) < 0.01 ? 'var(--ink-2)' : 'var(--warning)'; }
+    const warn = form.querySelector('#plan-warn');
+    const ur = unrated();
+    if (warn) {
+      if (ur.n > 0) {
+        warn.hidden = false;
+        warn.innerHTML = icon('alert') + '<span>' + ur.n + ' 项标的（' + money(ur.v) + '）没填预期年化，年化与年收益按 0 计入，汇总会偏低。</span>';
+      } else if (allRows().length === 0) {
+        warn.hidden = false;
+        warn.innerHTML = icon('alert') + '<span>这个分组还没有持仓。</span>';
+      } else { warn.hidden = true; warn.innerHTML = ''; }
     }
   };
-  form.addEventListener('input', updateTotals);
-  form.querySelectorAll('[data-expand]').forEach(btn => btn.addEventListener('click', () => {
-    const gid = btn.getAttribute('data-expand');
-    const parts = form.querySelector('[data-parts="' + gid + '"]');
-    if (!parts) return;
-    parts.hidden = !parts.hidden;
-    btn.classList.toggle('open', !parts.hidden);
-    btn.innerHTML = icon(parts.hidden ? 'chevronDown' : 'chevronUp');
-  }));
-  updateTotals();
+
+  form.addEventListener('input', ev => {
+    const el = ev.target;
+    const f = el.getAttribute && el.getAttribute('data-f');
+    if (!f) return;
+    const gid = el.getAttribute('data-g');
+    const rid = el.getAttribute('data-r');
+    const g = groups.find(x => x.gid === gid);
+    if (!g) return;
+    if (f === 'target') { g.target = clamp(parseNumber(el.value), 0, 100); refresh(); return; }
+    if (f === 'add') return;
+    const r = findRow(gid, rid);
+    if (!r) return;
+    if (f === 'op') r.op = parseNumber(el.value);
+    else if (f === 'rate') r.rate = el.value.trim() === '' ? null : parseNumber(el.value);
+    else if (f === 'name') r.name = el.value;
+    refresh();
+  });
+
+  form.addEventListener('click', ev => {
+    const btn = ev.target.closest ? ev.target.closest('[data-f="add"]') : null;
+    if (!btn) return;
+    ev.preventDefault();
+    const gid = btn.getAttribute('data-g');
+    const g = groups.find(x => x.gid === gid);
+    if (!g) return;
+    g.fresh.push({ key: 'n' + g.fresh.length, name: '', isNew: true, current: 0, op: 0, rate: null });
+    const holder = form.querySelector('[data-fresh="' + gid + '"]');
+    if (holder) holder.innerHTML = g.fresh.map((r, i) => rowHTML(g, r, gid + ':new' + i)).join('');
+    refresh();
+  });
+
+  refresh();
+
   wrap.querySelector('[data-target-save]').addEventListener('click', () => {
-    let total = 0;
     const values = {};
-    scheme.groups.forEach(g => {
-      const inp = form.querySelector('#target_' + g.id);
-      const v = clamp(parseNumber(inp ? inp.value : 0), 0, 100);
-      values[g.id] = v;
-      total += v;
-    });
+    groups.forEach(g => { values[g.gid] = g.target; });
     const tol = clamp(parseNumber(form.querySelector('#target-tolerance').value), 0.1, 30);
     if (scheme.builtin) {
       state.rebalance.targets[scheme.id] = Object.assign({}, state.rebalance.targets[scheme.id] || {}, values);
     } else {
-      scheme.groups.forEach(g => { g.target = values[g.id]; });
+      scheme.groups.forEach(g => { g.target = values[g.gid]; });
     }
+    // 写回标的的预期年化（这是账本数据，不是试算）
+    groups.forEach(g => {
+      g.rows.forEach(r => {
+        if (r.isNew) return;
+        if (r.key.indexOf('cash_') === 0) {
+          const acc = accountById(r.key.slice(5));
+          if (!acc) return;
+          if (r.rate == null) delete acc.expectedRate; else acc.expectedRate = r.rate;
+        } else {
+          const inst = instrumentById(r.key);
+          if (!inst) return;
+          if (r.rate == null) delete inst.expectedRate; else inst.expectedRate = r.rate;
+        }
+      });
+    });
     state.settings.tolerance = tol;
     saveState();
     closeSheet(wrap);
