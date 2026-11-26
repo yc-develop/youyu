@@ -69,7 +69,7 @@ function renderRebalancePage() {
     '<div class="reb-list">' + rebalanceRows(items, tolerance, sid) + '</div>' +
   '</section>' +
   '<div class="reb-actions"><button class="btn ghost" data-action="open-target-editor" data-scheme="' + esc(sid) + '">' + icon('sliders') + '调整目标</button>' +
-    '<button class="btn primary" data-action="open-rebalance-plan" data-scheme="' + esc(sid) + '">' + icon('sparkles') + '查看再平衡</button></div>' +
+    '<button class="btn primary" data-action="open-rebalance-plan" data-scheme="' + esc(sid) + '">' + icon('list') + '操作清单</button></div>' +
   '<div style="height:12px"></div>';
 }
 
@@ -341,51 +341,61 @@ function openTargetEditor(sid) {
 }
 
 /* ---------- rebalance plan ---------- */
-function buildRebalancePlan(sid) {
-  const gb = groupBreakdown(sid);
-  const scheme = gb.scheme;
-  const rows = [];
-  let buy = 0, sell = 0;
-  gb.items.forEach(it => {
-    if (it.id === '__ungrouped') return;
-    if (it.status !== 'high' && it.status !== 'low') return;
-    const delta = it.targetValue - it.value;
-    if (Math.abs(delta) < 1) return;
-    const side = delta > 0 ? 'buy' : 'sell';
-    if (side === 'buy') buy += delta; else sell += Math.abs(delta);
-    const comps = groupComponents(sid, it.id).filter(c => c.type === 'instrument' && c.instrument);
-    const totalComp = sum(comps, c => c.value) || 1;
-    const ops = comps.slice(0, 4).map(c => {
-      const amountBase = Math.abs(delta) * (c.value / totalComp);
-      const im = computeInstrumentMetrics(c.instrument.id);
-      const nativeAmount = amountBase / (im.curFx || 1);
-      const approxQty = im.price > 0 ? nativeAmount / im.price : 0;
-      return { name: c.instrument.name, amount: amountBase, nativeAmount, currency: c.instrument.currency, qty: approxQty };
+function openRebalancePlanSheet(sid) {
+  const scheme = schemeById(sid || rebalanceSchemeId());
+  if (!scheme) { toast('还没有开启再平衡的分组', 'error'); return; }
+  const plan = (state.rebalance.plans && state.rebalance.plans[scheme.id]) || {};
+  const ops = plan.ops || {};
+  const fresh = Array.isArray(plan.fresh) ? plan.fresh : [];
+  const items = [];
+  scheme.groups.forEach(g => {
+    groupComponents(scheme.id, g.id).forEach(c => {
+      const inst = c.instrument || null;
+      const key = inst ? inst.id : 'cash_' + (c.account ? c.account.id : 'x');
+      const amt = Number(ops[key]) || 0;
+      if (Math.abs(amt) < 0.005) return;
+      items.push({ gid: g.id, name: c.name, amount: amt, current: Number(c.value) || 0, isNew: false });
     });
-    if (!ops.length) {
-      rows.push({ side, name: it.name, color: it.color, delta: Math.abs(delta), ops: [], note: side === 'buy' ? '该分组暂无标的，可配置货币基金或现金' : '该分组暂无标的，可减少现金留存' });
-    } else {
-      rows.push({ side, name: it.name, color: it.color, delta: Math.abs(delta), ops });
-    }
   });
-  return { gb, scheme, rows, buy, sell };
+  fresh.forEach(f => {
+    if (!f || !scheme.groups.some(x => x.id === f.gid)) return;
+    const amt = Number(f.amount) || 0;
+    if (Math.abs(amt) < 0.005 && !String(f.name || '').trim()) return;
+    items.push({ gid: f.gid, name: String(f.name || '').trim() || '未命名标的', amount: amt, current: 0, isNew: true });
+  });
+
+  const buy = sum(items.filter(x => x.amount > 0), x => x.amount);
+  const sell = sum(items.filter(x => x.amount < 0), x => -x.amount);
+  const newRows = items.filter(x => x.isNew && x.amount > 0);
+  const newSum = sum(newRows, x => x.amount);
+
+  const blocks = scheme.groups.map(g => {
+    const list = items.filter(x => x.gid === g.id);
+    if (!list.length) return '';
+    return '<div class="plan-group" style="margin-top:14px"><span class="dot" style="background:' + g.color + '"></span><span class="plan-gname">' + esc(g.name) + '</span></div>' +
+      list.map(x => {
+        const side = x.amount >= 0 ? (x.isNew ? 'new' : 'buy') : 'sell';
+        const label = side === 'sell' ? '减仓' : side === 'new' ? '新建' : '加仓';
+        return '<div class="reb-plan-row"><span class="reb-plan-icon ' + (side === 'sell' ? 'sell' : 'buy') + '">' +
+          icon(side === 'sell' ? 'arrowUpRight' : 'arrowDownLeft') + '</span>' +
+          '<div class="reb-plan-main"><div class="t">' + esc(x.name) + '</div>' +
+            '<div class="s">' + label + (x.isNew ? ' · 当前没有持仓' : ' · 当前 ' + fmtMoney(x.current, { compact: true })) + '</div></div>' +
+          '<div class="reb-plan-val ' + (side === 'sell' ? 'loss' : 'gain') + '">' + (side === 'sell' ? '−' : '+') + fmtMoney(Math.abs(x.amount), { compact: true }) + '</div></div>';
+      }).join('');
+  }).join('');
+
+  const hero = '<div class="stat-hero" style="margin-bottom:0"><div><div class="eyebrow">操作清单</div>' +
+    '<div class="big" style="font-size:25px">' + fmtMoney(buy) + '</div>' +
+    '<div class="cap">加仓与新建合计' + (sell > 0.005 ? ' · 减仓 ' + fmtMoney(sell) : '') + '</div></div>' +
+    '<div class="right"><b>' + items.length + ' 笔</b><span>' + (newSum > 0.005 ? '其中新建 ' + fmtMoney(newSum, { compact: true }) : '按你的计划') + '</span></div></div>';
+
+  const body = items.length
+    ? hero + blocks + '<div class="info-banner" style="margin-top:14px">' + icon('info') + '<div>这份清单来自「调整目标」里填的操作金额，不会自动交易，也没有改动账本持仓。真买完之后记得回来把这行操作清零。</div></div>'
+    : hero + '<div class="empty-state" style="padding:30px 10px"><div class="ico">' + icon('sliders') + '</div><h3>还没有操作</h3><p>打开下方「调整目标」，在「操作」列填金额，或点「+ 新增标的」规划建仓。</p></div>';
+
+  openSheet({
+    title: '操作清单', sub: esc(scheme.name) + ' · 来自调整目标里的计划',
+    body, footer: '<button class="btn ghost" data-sheet-close>关闭</button><button class="btn primary" data-action="open-target-editor" data-scheme="' + esc(scheme.id) + '">调整目标</button>'
+  });
 }
 
-function openRebalancePlanSheet(sid) {
-  const plan = buildRebalancePlan(sid || rebalanceSchemeId());
-  if (!plan.scheme) { toast('请先开启再平衡', 'error'); return; }
-  const rows = plan.rows;
-  const body = '<div class="stat-hero" style="margin-bottom:0"><div><div class="eyebrow">建议调仓金额</div><div class="big" style="font-size:25px">' + fmtMoney(plan.buy) + '</div><div class="cap">买入总额 · 卖出 ' + fmtMoney(plan.sell) + '</div></div>' +
-    '<div class="right">需要调整<b>' + rows.length + ' 组</b><span>目标区间</span></div></div>' +
-    (rows.length ? rows.map(r => '<div class="reb-plan-row"><span class="reb-plan-icon ' + r.side + '">' + icon(r.side === 'buy' ? 'arrowDownLeft' : 'arrowUpRight') + '</span>' +
-      '<div class="reb-plan-main"><div class="t">' + esc(r.name) + ' · ' + (r.side === 'buy' ? '加仓' : '减仓') + '</div>' +
-        '<div class="s">' + (r.note || '按组内当前持仓比例分配') + '</div>' +
-        (r.ops && r.ops.length ? '<div class="ops">' + r.ops.map(o => '<span class="op">' + (r.side === 'buy' ? '买入 ' : '卖出 ') + esc(o.name) + ' <b>' + fmtMoney(o.amount, { compact: true }) + '</b></span>').join('') + '</div>' : '') +
-      '</div><div class="reb-plan-val ' + (r.side === 'buy' ? 'gain' : 'loss') + '">' + (r.side === 'buy' ? '+' : '−') + fmtMoney(r.delta, { compact: true }) + '</div></div>').join('') :
-      '<div class="empty-state" style="padding:34px 10px"><div class="ico">' + icon('check') + '</div><h3>配置很健康</h3><p>所有分组都在目标容忍带内，暂时不需要再平衡。</p></div>') +
-    (rows.length ? '<div class="info-banner" style="margin-top:12px">' + icon('info') + '<div>这只是按当前目标计算的建议，系统不会自动交易。实际买卖请结合税费、汇率和你的判断。</div></div>' : '');
-  openSheet({
-    title: '再平衡建议', sub: plan.scheme.name + ' · 按当前市值',
-    body, footer: '<button class="btn ghost" data-sheet-close>关闭</button><button class="btn primary" data-action="open-target-editor" data-scheme="' + esc(plan.scheme.id) + '">调整目标</button>'
-  });
-}
