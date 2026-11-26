@@ -99,6 +99,9 @@ function openTargetEditor(sid) {
   const scheme = schemeById(sid || rebalanceSchemeId());
   if (!scheme || !rebalanceEnabled(scheme)) { toast('请先在分组管理中开启再平衡', 'error'); return; }
   const tolerance = Number(state.settings.tolerance) || 0;
+  const savedPlan = (state.rebalance.plans && state.rebalance.plans[scheme.id]) || {};
+  const savedOps = savedPlan.ops || {};
+  const savedFresh = Array.isArray(savedPlan.fresh) ? savedPlan.fresh : [];
   const groups = scheme.groups.map(g => {
     const comps = groupComponents(scheme.id, g.id);
     const rows = comps.map(c => {
@@ -109,15 +112,23 @@ function openTargetEditor(sid) {
         name: c.name,
         isNew: false,
         current: Number(c.value) || 0,
-        op: 0,
+        op: Number(savedOps[key]) || 0,
         rate: inst ? instrumentExpectedRate(inst) : accountExpectedRate(c.account)
       };
     });
+    const fresh = savedFresh.filter(f => f && f.gid === g.id).map((f, i) => ({
+      key: 'n' + i,
+      name: f.name || '',
+      isNew: true,
+      current: 0,
+      op: Number(f.amount) || 0,
+      rate: f.rate == null ? null : Number(f.rate)
+    }));
     return {
       gid: g.id, name: g.name, color: g.color,
       target: rebalanceTargetFor(scheme, g),
       rows,
-      fresh: []
+      fresh
     };
   });
 
@@ -168,7 +179,7 @@ function openTargetEditor(sid) {
         '<span class="plan-gstat">调整后 <b data-cell="gpct:' + esc(g.gid) + '">' + pct(groupAdj(g), totalAdj() || 1).toFixed(1) + '%</b></span>' +
       '</div>' +
       '<div class="plan-table">' +
-        '<div class="plan-head"><span>标的</span><span>当前</span><span>操作</span><span>调整后</span><span>年化</span><span>年收益</span></div>' +
+        '<div class="plan-head"><span>标的</span><span>当前</span><span>操作</span><span>调整后</span><span>预期年化</span><span>预期年收益</span></div>' +
         g.rows.map(r => rowHTML(g, r, g.gid + ':' + r.key)).join('') +
         '<div data-fresh="' + esc(g.gid) + '">' + g.fresh.map((r, i) => rowHTML(g, r, g.gid + ':new' + i)).join('') + '</div>' +
         '<button class="plan-add" data-f="add" data-g="' + esc(g.gid) + '">+ 新增标的</button>' +
@@ -177,7 +188,7 @@ function openTargetEditor(sid) {
   }).join('');
 
   const body = '<form id="target-form">' +
-    '<div class="plan-note">在「操作」列填金额（正数＝加仓／建仓，负数＝减仓），「调整后」和「年收益」会实时算出来。操作只是试算，不会写进账本。</div>' +
+    '<div class="plan-note">在「操作」列填金额（正数＝加仓／建仓，负数＝减仓），「调整后」与「预期年收益」实时算出。点「保存目标」会把这份方案一并存下，但不会改动账本持仓。</div>' +
     groupsHTML +
     '<div class="form-section">汇总</div>' +
     '<div class="plan-table plan-summary">' +
@@ -306,10 +317,25 @@ function openTargetEditor(sid) {
         }
       });
     });
+    // 连带保存调仓方案（加减仓金额 + 计划新建的标的）
+    const ops = {};
+    const fresh = [];
+    groups.forEach(g => {
+      g.rows.forEach(r => {
+        const v = Number(r.op) || 0;
+        if (Math.abs(v) > 0.005) ops[r.key] = v;
+      });
+      g.fresh.forEach(r => {
+        if (!String(r.name || '').trim() && Math.abs(Number(r.op) || 0) < 0.005) return;
+        fresh.push({ gid: g.gid, name: r.name || '', amount: Number(r.op) || 0, rate: r.rate });
+      });
+    });
+    state.rebalance.plans = state.rebalance.plans || {};
+    state.rebalance.plans[scheme.id] = { ops, fresh };
     state.settings.tolerance = tol;
     saveState();
     closeSheet(wrap);
-    toast('目标配置已更新', 'success');
+    toast('目标与调仓方案已保存', 'success');
     refreshPage();
   });
 }

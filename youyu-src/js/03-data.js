@@ -107,6 +107,7 @@ function normalizeState(obj) {
   obj.rebalance.schemes = obj.rebalance.schemes && typeof obj.rebalance.schemes === 'object' ? obj.rebalance.schemes : {};
   obj.rebalance.targets = obj.rebalance.targets && typeof obj.rebalance.targets === 'object' ? obj.rebalance.targets : {};
   obj.rebalance.expectedRates = obj.rebalance.expectedRates && typeof obj.rebalance.expectedRates === 'object' ? obj.rebalance.expectedRates : {};
+  obj.rebalance.plans = obj.rebalance.plans && typeof obj.rebalance.plans === 'object' ? obj.rebalance.plans : {};
   if (!Array.isArray(obj.schemes) || !obj.schemes.length) obj.schemes = buildSeed().schemes;
   obj.schemes.forEach(s => {
     s.id = s.id || uid('sch');
