@@ -247,14 +247,30 @@ function openTargetEditor(sid) {
       if (gp) gp.textContent = pct(groupAdj(g), ta || 1).toFixed(1) + '%';
     });
     const set = (k, v) => { const el = form.querySelector('[data-cell="' + k + '"]'); if (el) el.textContent = v; };
+    const mark = (k, v) => {
+      const el = form.querySelector('[data-cell="' + k + '"]');
+      if (!el) return;
+      el.classList.remove('up', 'down');
+      if (Math.abs(v) > 0.005) el.classList.add(v > 0 ? 'up' : 'down');
+    };
+    const dAmt = ta - tn;
+    const rNow = tn > 0 ? inow / tn * 100 : null;
+    const rAdj = ta > 0 ? iadj / ta * 100 : null;
+    const dRate = (rNow == null || rAdj == null) ? 0 : rAdj - rNow;
+    const dInc = iadj - inow;
     set('sum:now', money(tn, 'CNY'));
     set('sum:adj', money(ta, 'CNY'));
-    set('sum:delta', signMoney(ta - tn));
-    set('sum:rnow', tn > 0 ? (inow / tn * 100).toFixed(2) + '%' : '—');
-    set('sum:radj', ta > 0 ? (iadj / ta * 100).toFixed(2) + '%' : '—');
+    set('sum:delta', signMoney(dAmt));
+    set('sum:rnow', rNow == null ? '—' : rNow.toFixed(2) + '%');
+    set('sum:radj', rAdj == null ? '—' : rAdj.toFixed(2) + '%');
     set('sum:inow', money(inow, 'CNY'));
     set('sum:iadj', money(iadj, 'CNY'));
-    set('sum:idelta', signMoney(iadj - inow));
+    set('sum:idelta', signMoney(dInc));
+    mark('sum:delta', dAmt);
+    mark('sum:adj', dAmt);
+    mark('sum:radj', dRate);
+    mark('sum:idelta', dInc);
+    mark('sum:iadj', dInc);
     let totalPct = 0;
     groups.forEach(g => {
       const inp = form.querySelector('[data-f="target"][data-g="' + g.gid + '"]');
