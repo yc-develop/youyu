@@ -1584,7 +1584,7 @@ html[data-theme="light"] .acct-icon.brand{border-color:rgba(16,24,40,.1);box-sha
 'use strict';
 
 const APP_NAME = '有余';
-const APP_VERSION = '6.5.76';
+const APP_VERSION = '6.5.77';
 // 沿用旧存储键，避免改名后已有本地账本丢失
 const STORE_KEY = 'yingji.portfolio.v1';
 const DEMO_STORE_KEY = 'yingji.demo.v1';
@@ -5903,7 +5903,7 @@ function openTargetEditor(sid) {
   const money = (v, ccy) => {
     const neg = v < -0.005;
     const a = Math.abs(v);
-    const body = a >= 10000 ? (a / 10000).toFixed(2) + '万' : Math.round(a).toLocaleString('en-US');
+    const body = Math.round(a).toLocaleString('en-US');
     return (neg ? '−' : '') + (CUR_SYM[ccy || 'CNY'] || '') + body;
   };
 

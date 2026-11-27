@@ -106,7 +106,7 @@ function openTargetEditor(sid) {
   const money = (v, ccy) => {
     const neg = v < -0.005;
     const a = Math.abs(v);
-    const body = a >= 10000 ? (a / 10000).toFixed(2) + '万' : Math.round(a).toLocaleString('en-US');
+    const body = Math.round(a).toLocaleString('en-US');
     return (neg ? '−' : '') + (CUR_SYM[ccy || 'CNY'] || '') + body;
   };
 
