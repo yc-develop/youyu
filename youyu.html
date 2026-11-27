@@ -1584,7 +1584,7 @@ html[data-theme="light"] .acct-icon.brand{border-color:rgba(16,24,40,.1);box-sha
 'use strict';
 
 const APP_NAME = '有余';
-const APP_VERSION = '6.5.77';
+const APP_VERSION = '6.5.78';
 // 沿用旧存储键，避免改名后已有本地账本丢失
 const STORE_KEY = 'yingji.portfolio.v1';
 const DEMO_STORE_KEY = 'yingji.demo.v1';
@@ -5795,6 +5795,14 @@ function openCalendarDaySheet(date) {
 }
 
 
+/* 调仓试算与操作清单统一用千分位、原币符号 */
+const PLAN_CUR_SYM = { CNY: '¥', USD: '$', HKD: 'HK$', JPY: 'JP¥', EUR: '€', GBP: '£', USDT: '$' };
+function planMoney(v, ccy) {
+  const neg = v < -0.005;
+  const a = Math.abs(v);
+  return (neg ? '−' : '') + (PLAN_CUR_SYM[ccy || 'CNY'] || '') + Math.round(a).toLocaleString('en-US');
+}
+
 /* =========================================================
    09 · 再平衡 / 目标配置
    ========================================================= */
@@ -5899,13 +5907,7 @@ function openTargetEditor(sid) {
   const savedPlan = (state.rebalance.plans && state.rebalance.plans[scheme.id]) || {};
   const savedOps = savedPlan.ops || {};
   const savedFresh = Array.isArray(savedPlan.fresh) ? savedPlan.fresh : [];
-  const CUR_SYM = { CNY: '¥', USD: '$', HKD: 'HK$', JPY: 'JP¥', EUR: '€', GBP: '£', USDT: '$' };
-  const money = (v, ccy) => {
-    const neg = v < -0.005;
-    const a = Math.abs(v);
-    const body = Math.round(a).toLocaleString('en-US');
-    return (neg ? '−' : '') + (CUR_SYM[ccy || 'CNY'] || '') + body;
-  };
+  const money = planMoney;
 
   const groups = scheme.groups.map(g => {
     const rows = groupComponents(scheme.id, g.id).map(c => {
@@ -6182,20 +6184,27 @@ function openRebalancePlanSheet(sid) {
       const key = inst ? inst.id : 'cash_' + (c.account ? c.account.id : 'x');
       const amt = Number(ops[key]) || 0;
       if (Math.abs(amt) < 0.005) return;
-      items.push({ gid: g.id, name: c.name, amount: amt, current: Number(c.value) || 0, isNew: false });
+      const ccy = c.currency || baseCurrency();
+      const fx = fxToBase(ccy) || 1;
+      items.push({
+        gid: g.id, name: c.name, isNew: false, ccy, fx,
+        amount: amt / fx,
+        current: Number(c.native) || 0
+      });
     });
   });
   fresh.forEach(f => {
     if (!f || !scheme.groups.some(x => x.id === f.gid)) return;
     const amt = Number(f.amount) || 0;
     if (Math.abs(amt) < 0.005 && !String(f.name || '').trim()) return;
-    items.push({ gid: f.gid, name: String(f.name || '').trim() || '未命名标的', amount: amt, current: 0, isNew: true });
+    items.push({ gid: f.gid, name: String(f.name || '').trim() || '未命名标的', isNew: true, ccy: baseCurrency(), fx: 1, amount: amt, current: 0 });
   });
 
-  const buy = sum(items.filter(x => x.amount > 0), x => x.amount);
-  const sell = sum(items.filter(x => x.amount < 0), x => -x.amount);
+  const baseAmt = x => x.amount * x.fx;
+  const buy = sum(items.filter(x => x.amount > 0), baseAmt);
+  const sell = sum(items.filter(x => x.amount < 0), x => -baseAmt(x));
   const newRows = items.filter(x => x.isNew && x.amount > 0);
-  const newSum = sum(newRows, x => x.amount);
+  const newSum = sum(newRows, baseAmt);
 
   const blocks = scheme.groups.map(g => {
     const list = items.filter(x => x.gid === g.id);
@@ -6207,15 +6216,15 @@ function openRebalancePlanSheet(sid) {
         return '<div class="reb-plan-row"><span class="reb-plan-icon ' + (side === 'sell' ? 'sell' : 'buy') + '">' +
           icon(side === 'sell' ? 'arrowUpRight' : 'arrowDownLeft') + '</span>' +
           '<div class="reb-plan-main"><div class="t">' + esc(x.name) + '</div>' +
-            '<div class="s">' + label + (x.isNew ? ' · 当前没有持仓' : ' · 当前 ' + fmtMoney(x.current, { compact: true })) + '</div></div>' +
-          '<div class="reb-plan-val ' + (side === 'sell' ? 'loss' : 'gain') + '">' + (side === 'sell' ? '−' : '+') + fmtMoney(Math.abs(x.amount), { compact: true }) + '</div></div>';
+            '<div class="s">' + label + (x.isNew ? ' · 当前没有持仓' : ' · 当前 ' + planMoney(x.current, x.ccy)) + '</div></div>' +
+          '<div class="reb-plan-val ' + (side === 'sell' ? 'loss' : 'gain') + '">' + (side === 'sell' ? '−' : '+') + planMoney(Math.abs(x.amount), x.ccy) + '</div></div>';
       }).join('');
   }).join('');
 
   const hero = '<div class="stat-hero" style="margin-bottom:0"><div><div class="eyebrow">操作清单</div>' +
-    '<div class="big" style="font-size:25px">' + fmtMoney(buy) + '</div>' +
-    '<div class="cap">加仓与新建合计' + (sell > 0.005 ? ' · 减仓 ' + fmtMoney(sell) : '') + '</div></div>' +
-    '<div class="right"><b>' + items.length + ' 笔</b><span>' + (newSum > 0.005 ? '其中新建 ' + fmtMoney(newSum, { compact: true }) : '按你的计划') + '</span></div></div>';
+    '<div class="big" style="font-size:25px">' + planMoney(buy, 'CNY') + '</div>' +
+    '<div class="cap">加仓与新建合计' + (sell > 0.005 ? ' · 减仓 ' + planMoney(sell, 'CNY') : '') + '</div></div>' +
+    '<div class="right"><b>' + items.length + ' 笔</b><span>' + (newSum > 0.005 ? '其中新建 ' + planMoney(newSum, 'CNY') : '按你的计划') + '</span></div></div>';
 
   const body = items.length
     ? hero + blocks + '<div class="info-banner" style="margin-top:14px">' + icon('info') + '<div>这份清单来自「调整目标」里填的操作金额，不会自动交易，也没有改动账本持仓。真买完之后记得回来把这行操作清零。</div></div>'
