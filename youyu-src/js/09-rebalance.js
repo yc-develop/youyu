@@ -194,6 +194,7 @@ function openTargetEditor(sid) {
 
   const body = '<form id="target-form">' +
     '<div class="plan-note">直接改「调整后」那一列：比当前大就是加仓，比当前小就是减仓，新标的把「调整后」填上就是建仓。点分组名可以折叠。外币标的按原币显示。</div>' +
+    '<div class="reb-target-sumline" style="margin-top:0;padding-top:0;border-top:0;margin-bottom:14px"><span>目标合计 <b id="target-total">' + schemeTargetTotal(scheme).toFixed(1) + '%</b></span></div>' +
     groupsHTML +
     '<div class="form-section">汇总</div>' +
     '<div class="plan-table plan-summary">' +
@@ -203,7 +204,6 @@ function openTargetEditor(sid) {
       '<div class="plan-row"><div class="plan-name">预期年收益</div><div class="plan-num" data-cell="sum:inow">—</div><div class="plan-num" data-cell="sum:idelta">—</div><div class="plan-num" data-cell="sum:iadj">—</div></div>' +
     '</div>' +
     '<div class="reb-target-note" id="plan-warn" hidden></div>' +
-    '<div class="reb-target-sumline"><span>目标合计 <b id="target-total">' + schemeTargetTotal(scheme).toFixed(1) + '%</b></span></div>' +
     '<div class="form-section">容忍带</div>' +
     '<div class="field" style="display:grid;grid-template-columns:1fr 98px;align-items:center;gap:10px"><div style="font-size:11px;color:var(--ink-2)">允许偏离目标</div><div class="amount-input"><input class="input" type="text" inputmode="decimal" name="tolerance" id="target-tolerance" value="' + tolerance + '"><span class="unit">%</span></div></div>' +
   '</form>';
