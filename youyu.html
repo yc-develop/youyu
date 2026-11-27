@@ -1523,14 +1523,18 @@ html[data-theme="light"] .acct-icon.brand{border-color:rgba(16,24,40,.1);box-sha
 /* 调整目标 · 调仓试算表 */
 .plan-note{margin:0 0 13px;font-size:9px;line-height:1.65;color:var(--faint)}
 .plan-block{margin-bottom:17px}
-.plan-group{display:flex;align-items:center;gap:7px;margin-bottom:7px;font-size:9px;color:var(--faint)}
+.plan-group{display:flex;align-items:center;gap:6px;margin-bottom:7px;font-size:9px;color:var(--faint);cursor:pointer;user-select:none}
+.plan-fold{width:13px;height:13px;flex:0 0 13px;display:inline-flex;align-items:center;justify-content:center;color:var(--faint);transition:transform .16s ease}
+.plan-fold svg{width:11px;height:11px}
+.plan-block.collapsed .plan-table{display:none}
+.plan-block.collapsed .plan-fold{transform:rotate(-90deg)}
 .plan-group .dot{width:8px;height:8px;border-radius:3px;flex:0 0 8px}
 .plan-gname{font-weight:650;font-size:11px;color:var(--ink);flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .plan-gstat{white-space:nowrap;display:inline-flex;align-items:center;gap:2px}
 .plan-gstat b{color:var(--ink-2);font-weight:600;font-variant-numeric:tabular-nums}
 .plan-gstat i{font-style:normal}
 .plan-table{display:flex;flex-direction:column;gap:3px}
-.plan-head,.plan-row{display:grid;grid-template-columns:minmax(0,1fr) 48px 52px 50px 44px 52px;gap:5px;align-items:center}
+.plan-head,.plan-row{display:grid;grid-template-columns:minmax(0,1fr) 62px 62px 44px 62px;gap:5px;align-items:center}
 .plan-head{font-size:7.5px;color:var(--faint);padding-bottom:5px;border-bottom:1px solid var(--line);letter-spacing:.02em}
 .plan-head span:nth-child(n+2){text-align:right}
 .plan-row{padding:1px 0}
@@ -1549,9 +1553,16 @@ html[data-theme="light"] .acct-icon.brand{border-color:rgba(16,24,40,.1);box-sha
 .plan-summary .plan-name{font-size:10px;color:var(--faint)}
 .plan-summary .plan-num{font-size:10.5px;font-weight:600}
 @media (max-width:374px){
-  .plan-head,.plan-row{grid-template-columns:minmax(0,1fr) 44px 48px 46px 40px 48px;gap:4px}
+  .plan-head,.plan-row{grid-template-columns:minmax(0,1fr) 56px 56px 40px 56px;gap:4px}
   .plan-summary .plan-head,.plan-summary .plan-row{grid-template-columns:minmax(0,1fr) 70px 58px 70px}
 }
+
+/* 调仓试算：涨红跌绿 */
+.plan-adj.up .plan-amt,.plan-num.up{color:#ff5d6c}
+.plan-num.up{color:#ff5d6c}
+.plan-num.down{color:#35d39a}
+.plan-adj.up .plan-amt{border-color:rgba(255,93,108,.45)}
+.plan-adj.down .plan-amt{border-color:rgba(53,211,154,.45)}
 
 </style>
 </head>
@@ -1573,7 +1584,7 @@ html[data-theme="light"] .acct-icon.brand{border-color:rgba(16,24,40,.1);box-sha
 'use strict';
 
 const APP_NAME = '有余';
-const APP_VERSION = '6.5.71';
+const APP_VERSION = '6.5.72';
 // 沿用旧存储键，避免改名后已有本地账本丢失
 const STORE_KEY = 'yingji.portfolio.v1';
 const DEMO_STORE_KEY = 'yingji.demo.v1';
@@ -3746,13 +3757,13 @@ function groupComponents(schemeId, groupId) {
     const cashGroup = resolveGroupId(scheme, account, null);
     if (cashGroup === groupId) {
       const am = computeAccountMetrics(account.id);
-      out.push({ type: 'cash', account, name: account.name + ' · 可用现金', value: am.cashBase });
+      out.push({ type: 'cash', account, name: account.name + ' · 可用现金', value: am.cashBase, native: am.cashNative, currency: account.currency });
     }
     instrumentsOf(account).forEach(inst => {
       const gid = resolveGroupId(scheme, account, inst);
       if (gid === groupId) {
         const im = computeInstrumentMetrics(inst.id);
-        if (im.qty > 0.000001) out.push({ type: 'instrument', account, instrument: inst, name: inst.name, value: im.marketBase });
+        if (im.qty > 0.000001) out.push({ type: 'instrument', account, instrument: inst, name: inst.name, value: im.marketBase, native: im.marketNative, currency: inst.currency });
       }
     });
   });
@@ -5880,17 +5891,26 @@ function openTargetEditor(sid) {
   const savedPlan = (state.rebalance.plans && state.rebalance.plans[scheme.id]) || {};
   const savedOps = savedPlan.ops || {};
   const savedFresh = Array.isArray(savedPlan.fresh) ? savedPlan.fresh : [];
+  const CUR_SYM = { CNY: '¥', USD: '$', HKD: 'HK$', JPY: 'JP¥', EUR: '€', GBP: '£', USDT: '$' };
+  const money = (v, ccy) => {
+    const neg = v < -0.005;
+    const a = Math.abs(v);
+    const body = a >= 10000 ? (a / 10000).toFixed(2) + '万' : Math.round(a).toLocaleString('en-US');
+    return (neg ? '−' : '') + (CUR_SYM[ccy || 'CNY'] || '') + body;
+  };
+
   const groups = scheme.groups.map(g => {
-    const comps = groupComponents(scheme.id, g.id);
-    const rows = comps.map(c => {
+    const rows = groupComponents(scheme.id, g.id).map(c => {
       const inst = c.instrument || null;
       const key = inst ? inst.id : 'cash_' + (c.account ? c.account.id : 'x');
+      const ccy = c.currency || baseCurrency();
+      const fx = fxToBase(ccy) || 1;
+      const curNative = Number(c.native) || 0;
+      const opBase = Number(savedOps[key]) || 0;
       return {
-        key,
-        name: c.name,
-        isNew: false,
-        current: Number(c.value) || 0,
-        op: Number(savedOps[key]) || 0,
+        key, name: c.name, isNew: false, currency: ccy, fx,
+        curNative,
+        adjNative: curNative + opBase / fx,
         rate: inst ? instrumentExpectedRate(inst) : accountExpectedRate(c.account)
       };
     });
@@ -5898,66 +5918,62 @@ function openTargetEditor(sid) {
       key: 'n' + i,
       name: f.name || '',
       isNew: true,
-      current: 0,
-      op: Number(f.amount) || 0,
+      currency: baseCurrency(),
+      fx: 1,
+      curNative: 0,
+      adjNative: Number(f.amount) || 0,
       rate: f.rate == null ? null : Number(f.rate)
     }));
-    return {
-      gid: g.id, name: g.name, color: g.color,
-      target: rebalanceTargetFor(scheme, g),
-      rows,
-      fresh
-    };
+    return { gid: g.id, name: g.name, color: g.color, target: rebalanceTargetFor(scheme, g), rows, fresh, open: true };
   });
 
-  const rateOf = row => row.rate;
-  const adjOf = row => row.current + (Number(row.op) || 0);
-  const allRows = () => groups.reduce((a, g) => a.concat(g.rows, g.fresh), []);
-  const groupNow = g => sum(g.rows, r => r.current);
-  const groupAdj = g => sum(g.rows.concat(g.fresh), r => adjOf(r));
+  const rateOf = r => r.rate;
+  const curBase = r => r.curNative * r.fx;
+  const adjBase = r => r.adjNative * r.fx;
+  const opBase = r => (r.adjNative - r.curNative) * r.fx;
+  const rowsOf = g => g.rows.concat(g.fresh);
+  const groupNow = g => sum(g.rows, curBase);
+  const groupAdj = g => sum(rowsOf(g), adjBase);
   const totalNow = () => sum(groups, groupNow);
   const totalAdj = () => sum(groups, groupAdj);
-  const incomeNow = () => sum(groups, g => sum(g.rows, r => (rateOf(r) == null ? 0 : r.current * rateOf(r) / 100)));
-  const incomeAdj = () => sum(groups, g => sum(g.rows.concat(g.fresh), r => (rateOf(r) == null ? 0 : adjOf(r) * rateOf(r) / 100)));
+  const incomeNow = () => sum(groups, g => sum(g.rows, r => (rateOf(r) == null ? 0 : curBase(r) * rateOf(r) / 100)));
+  const incomeAdj = () => sum(groups, g => sum(rowsOf(g), r => (rateOf(r) == null ? 0 : adjBase(r) * rateOf(r) / 100)));
   const unrated = () => {
     let n = 0, v = 0;
-    allRows().forEach(r => { if (rateOf(r) == null && Math.abs(adjOf(r)) > 0.005) { n++; v += adjOf(r); } });
+    groups.forEach(g => rowsOf(g).forEach(r => {
+      if (rateOf(r) == null && Math.abs(adjBase(r)) > 0.005) { n++; v += adjBase(r); }
+    }));
     return { n, v };
   };
   const pct = (a, b) => (b > 0 ? (a / b * 100) : 0);
-  const money = v => {
-    const neg = v < -0.005;
-    const a = Math.abs(v);
-    const body = a >= 10000 ? (a / 10000).toFixed(2) + '万' : String(Math.round(a));
-    return (neg ? '−' : '') + '¥' + body;
-  };
-  const signMoney = v => (Math.abs(v) < 0.005 ? '—' : (v > 0 ? '+' : '−') + money(Math.abs(v)));
+  const signMoney = v => (Math.abs(v) < 0.005 ? '—' : (v > 0 ? '+' : '−') + money(Math.abs(v), 'CNY'));
 
-  const rowHTML = (g, r, idPrefix) => {
-    const adj = adjOf(r);
-    const rate = rateOf(r);
-    return '<div class="plan-row" data-row="' + esc(idPrefix) + '">' +
-      '<div class="plan-name" title="' + esc(r.name) + '">' + (r.isNew ? '<input class="input plan-text" data-f="name" data-g="' + esc(g.gid) + '" data-r="' + esc(idPrefix) + '" value="' + esc(r.name) + '" placeholder="标的名称">' : esc(r.name)) + '</div>' +
-      '<div class="plan-num">' + (r.isNew ? '—' : money(r.current)) + '</div>' +
-      '<div class="plan-num plan-op"><input class="input plan-amt" inputmode="decimal" data-f="op" data-g="' + esc(g.gid) + '" data-r="' + esc(idPrefix) + '" value="' + (r.op ? r.op : '') + '" placeholder="0"></div>' +
-      '<div class="plan-num" data-cell="adj:' + esc(idPrefix) + '">' + money(adj) + '</div>' +
-      '<div class="plan-num plan-rate"><input class="input plan-amt" inputmode="decimal" data-f="rate" data-g="' + esc(g.gid) + '" data-r="' + esc(idPrefix) + '" value="' + (rate == null ? '' : rate) + '" placeholder="—"><i>%</i></div>' +
-      '<div class="plan-num" data-cell="inc:' + esc(idPrefix) + '">' + (rate == null ? '—' : money(adj * rate / 100)) + '</div>' +
+  const rowHTML = (g, r, rid) => {
+    const diff = r.adjNative - r.curNative;
+    const cls = diff > 0.005 ? 'up' : diff < -0.005 ? 'down' : '';
+    return '<div class="plan-row" data-row="' + esc(rid) + '">' +
+      '<div class="plan-name" title="' + esc(r.name) + '">' + (r.isNew
+        ? '<input class="input plan-text" data-f="name" data-g="' + esc(g.gid) + '" data-r="' + esc(rid) + '" value="' + esc(r.name) + '" placeholder="标的名称">'
+        : esc(r.name)) + '</div>' +
+      '<div class="plan-num">' + (r.isNew ? '—' : money(r.curNative, r.currency)) + '</div>' +
+      '<div class="plan-num plan-adj ' + cls + '"><input class="input plan-amt" inputmode="decimal" data-f="adj" data-g="' + esc(g.gid) + '" data-r="' + esc(rid) + '" value="' + (Math.abs(r.adjNative - r.curNative) < 0.005 && !r.isNew ? '' : r.adjNative) + '" placeholder="' + (r.isNew ? '0' : '不变') + '"></div>' +
+      '<div class="plan-num plan-rate"><input class="input plan-amt" inputmode="decimal" data-f="rate" data-g="' + esc(g.gid) + '" data-r="' + esc(rid) + '" value="' + (rateOf(r) == null ? '' : rateOf(r)) + '" placeholder="—"><i>%</i></div>' +
+      '<div class="plan-num ' + cls + '" data-cell="inc:' + esc(rid) + '">' + (rateOf(r) == null ? '—' : money(r.adjNative * rateOf(r) / 100, r.currency)) + '</div>' +
     '</div>';
   };
 
   const groupsHTML = groups.map(g => {
-    const now = groupNow(g);
     return '<div class="plan-block" data-group="' + esc(g.gid) + '">' +
-      '<div class="plan-group">' +
+      '<div class="plan-group" data-f="fold" data-g="' + esc(g.gid) + '">' +
+        '<span class="plan-fold">' + icon('chevronDown') + '</span>' +
         '<span class="dot" style="background:' + g.color + '"></span>' +
         '<span class="plan-gname">' + esc(g.name) + '</span>' +
-        '<span class="plan-gstat">当前 <b>' + pct(now, totalNow()).toFixed(1) + '%</b></span>' +
+        '<span class="plan-gstat">当前 <b>' + pct(groupNow(g), totalNow()).toFixed(1) + '%</b></span>' +
         '<span class="plan-gstat">目标 <input class="input plan-amt plan-target" inputmode="decimal" data-f="target" data-g="' + esc(g.gid) + '" value="' + g.target + '"><i>%</i></span>' +
         '<span class="plan-gstat">调整后 <b data-cell="gpct:' + esc(g.gid) + '">' + pct(groupAdj(g), totalAdj() || 1).toFixed(1) + '%</b></span>' +
       '</div>' +
       '<div class="plan-table">' +
-        '<div class="plan-head"><span>标的</span><span>当前</span><span>操作</span><span>调整后</span><span>预期年化</span><span>预期年收益</span></div>' +
+        '<div class="plan-head"><span>标的</span><span>当前</span><span>调整后</span><span>预期年化</span><span>预期年收益</span></div>' +
         g.rows.map(r => rowHTML(g, r, g.gid + ':' + r.key)).join('') +
         '<div data-fresh="' + esc(g.gid) + '">' + g.fresh.map((r, i) => rowHTML(g, r, g.gid + ':new' + i)).join('') + '</div>' +
         '<button class="plan-add" data-f="add" data-g="' + esc(g.gid) + '">+ 新增标的</button>' +
@@ -5966,12 +5982,12 @@ function openTargetEditor(sid) {
   }).join('');
 
   const body = '<form id="target-form">' +
-    '<div class="plan-note">在「操作」列填金额（正数＝加仓／建仓，负数＝减仓），「调整后」与「预期年收益」实时算出。点「保存目标」会把这份方案一并存下，但不会改动账本持仓。</div>' +
+    '<div class="plan-note">直接改「调整后」那一列：比当前大就是加仓，比当前小就是减仓，新标的把「调整后」填上就是建仓。点分组名可以折叠。外币标的按原币显示。</div>' +
     groupsHTML +
     '<div class="form-section">汇总</div>' +
     '<div class="plan-table plan-summary">' +
       '<div class="plan-head plan-head-sum"><span></span><span>调整前</span><span>变更</span><span>调整后</span></div>' +
-      '<div class="plan-row"><div class="plan-name">总金额</div><div class="plan-num" data-cell="sum:now">' + money(totalNow()) + '</div><div class="plan-num" data-cell="sum:delta">—</div><div class="plan-num" data-cell="sum:adj">' + money(totalAdj()) + '</div></div>' +
+      '<div class="plan-row"><div class="plan-name">总金额</div><div class="plan-num" data-cell="sum:now">—</div><div class="plan-num" data-cell="sum:delta">—</div><div class="plan-num" data-cell="sum:adj">—</div></div>' +
       '<div class="plan-row"><div class="plan-name">预期年化</div><div class="plan-num" data-cell="sum:rnow">—</div><div class="plan-num">—</div><div class="plan-num" data-cell="sum:radj">—</div></div>' +
       '<div class="plan-row"><div class="plan-name">预期年收益</div><div class="plan-num" data-cell="sum:inow">—</div><div class="plan-num" data-cell="sum:idelta">—</div><div class="plan-num" data-cell="sum:iadj">—</div></div>' +
     '</div>' +
@@ -5990,33 +6006,43 @@ function openTargetEditor(sid) {
   const findRow = (gid, rid) => {
     const g = groups.find(x => x.gid === gid);
     if (!g) return null;
-    const parts = rid.split(':');
-    if (/^new\d+$/.test(parts[1])) return g.fresh[Number(parts[1].slice(3))] || null;
-    return g.rows.find(r => r.key === parts[1]) || null;
+    const key = rid.slice(gid.length + 1);
+    if (/^new\d+$/.test(key)) return g.fresh[Number(key.slice(3))] || null;
+    return g.rows.find(r => r.key === key) || null;
+  };
+  const rowCurrency = (gid, rid) => {
+    const r = findRow(gid, rid);
+    return r ? r.currency : 'CNY';
   };
 
   const refresh = () => {
     const tn = totalNow(), ta = totalAdj();
     const inow = incomeNow(), iadj = incomeAdj();
     groups.forEach(g => {
-      g.rows.concat(g.fresh).forEach((r, i) => {
-        const prefix = r.isNew ? (g.gid + ':new' + g.fresh.indexOf(r)) : (g.gid + ':' + r.key);
-        const adjCell = form.querySelector('[data-cell="adj:' + prefix + '"]');
-        if (adjCell) adjCell.textContent = money(adjOf(r));
-        const incCell = form.querySelector('[data-cell="inc:' + prefix + '"]');
-        if (incCell) incCell.textContent = rateOf(r) == null ? '—' : money(adjOf(r) * rateOf(r) / 100);
+      rowsOf(g).forEach(r => {
+        const rid = r.isNew ? (g.gid + ':new' + g.fresh.indexOf(r)) : (g.gid + ':' + r.key);
+        const incCell = form.querySelector('[data-cell="inc:' + rid + '"]');
+        if (incCell) incCell.textContent = rateOf(r) == null ? '—' : money(r.adjNative * rateOf(r) / 100, r.currency);
+        const rowEl = form.querySelector('[data-row="' + rid + '"]');
+        if (rowEl) {
+          const diff = r.adjNative - r.curNative;
+          const cls = diff > 0.005 ? 'up' : diff < -0.005 ? 'down' : '';
+          const adjWrap = rowEl.querySelector('.plan-adj');
+          if (adjWrap) adjWrap.className = 'plan-num plan-adj ' + cls;
+          if (incCell) incCell.className = 'plan-num ' + cls;
+        }
       });
       const gp = form.querySelector('[data-cell="gpct:' + g.gid + '"]');
       if (gp) gp.textContent = pct(groupAdj(g), ta || 1).toFixed(1) + '%';
     });
     const set = (k, v) => { const el = form.querySelector('[data-cell="' + k + '"]'); if (el) el.textContent = v; };
-    set('sum:now', money(tn));
-    set('sum:adj', money(ta));
+    set('sum:now', money(tn, 'CNY'));
+    set('sum:adj', money(ta, 'CNY'));
     set('sum:delta', signMoney(ta - tn));
     set('sum:rnow', tn > 0 ? (inow / tn * 100).toFixed(2) + '%' : '—');
     set('sum:radj', ta > 0 ? (iadj / ta * 100).toFixed(2) + '%' : '—');
-    set('sum:inow', money(inow));
-    set('sum:iadj', money(iadj));
+    set('sum:inow', money(inow, 'CNY'));
+    set('sum:iadj', money(iadj, 'CNY'));
     set('sum:idelta', signMoney(iadj - inow));
     let totalPct = 0;
     groups.forEach(g => {
@@ -6030,10 +6056,7 @@ function openTargetEditor(sid) {
     if (warn) {
       if (ur.n > 0) {
         warn.hidden = false;
-        warn.innerHTML = icon('alert') + '<span>' + ur.n + ' 项标的（' + money(ur.v) + '）没填预期年化，年化与年收益按 0 计入，汇总会偏低。</span>';
-      } else if (allRows().length === 0) {
-        warn.hidden = false;
-        warn.innerHTML = icon('alert') + '<span>这个分组还没有持仓。</span>';
+        warn.innerHTML = icon('alert') + '<span>' + ur.n + ' 项标的（' + money(ur.v, 'CNY') + '）没填预期年化，年化与年收益按 0 计入，汇总会偏低。</span>';
       } else { warn.hidden = true; warn.innerHTML = ''; }
     }
   };
@@ -6047,26 +6070,39 @@ function openTargetEditor(sid) {
     const g = groups.find(x => x.gid === gid);
     if (!g) return;
     if (f === 'target') { g.target = clamp(parseNumber(el.value), 0, 100); refresh(); return; }
-    if (f === 'add') return;
     const r = findRow(gid, rid);
     if (!r) return;
-    if (f === 'op') r.op = parseNumber(el.value);
-    else if (f === 'rate') r.rate = el.value.trim() === '' ? null : parseNumber(el.value);
-    else if (f === 'name') r.name = el.value;
+    if (f === 'adj') {
+      const v = String(el.value).trim();
+      r.adjNative = v === '' ? r.curNative : parseNumber(v);
+    } else if (f === 'rate') {
+      r.rate = String(el.value).trim() === '' ? null : parseNumber(el.value);
+    } else if (f === 'name') {
+      r.name = el.value;
+    }
     refresh();
   });
 
   form.addEventListener('click', ev => {
-    const btn = ev.target.closest ? ev.target.closest('[data-f="add"]') : null;
-    if (!btn) return;
-    ev.preventDefault();
-    const gid = btn.getAttribute('data-g');
+    const el = ev.target.closest ? ev.target.closest('[data-f]') : null;
+    if (!el) return;
+    const f = el.getAttribute('data-f');
+    const gid = el.getAttribute('data-g');
     const g = groups.find(x => x.gid === gid);
     if (!g) return;
-    g.fresh.push({ key: 'n' + g.fresh.length, name: '', isNew: true, current: 0, op: 0, rate: null });
-    const holder = form.querySelector('[data-fresh="' + gid + '"]');
-    if (holder) holder.innerHTML = g.fresh.map((r, i) => rowHTML(g, r, gid + ':new' + i)).join('');
-    refresh();
+    if (f === 'fold') {
+      g.open = !g.open;
+      const block = form.querySelector('[data-group="' + gid + '"]');
+      if (block) block.classList.toggle('collapsed', !g.open);
+      return;
+    }
+    if (f === 'add') {
+      ev.preventDefault();
+      g.fresh.push({ key: 'n' + g.fresh.length, name: '', isNew: true, currency: baseCurrency(), fx: 1, curNative: 0, adjNative: 0, rate: null });
+      const holder = form.querySelector('[data-fresh="' + gid + '"]');
+      if (holder) holder.innerHTML = g.fresh.map((r, i) => rowHTML(g, r, gid + ':new' + i)).join('');
+      refresh();
+    }
   });
 
   refresh();
@@ -6080,32 +6116,23 @@ function openTargetEditor(sid) {
     } else {
       scheme.groups.forEach(g => { g.target = Number(values[g.id]) || 0; });
     }
-    // 写回标的的预期年化（这是账本数据，不是试算）
-    groups.forEach(g => {
-      g.rows.forEach(r => {
-        if (r.isNew) return;
-        if (r.key.indexOf('cash_') === 0) {
-          const acc = accountById(r.key.slice(5));
-          if (!acc) return;
-          if (r.rate == null) delete acc.expectedRate; else acc.expectedRate = r.rate;
-        } else {
-          const inst = instrumentById(r.key);
-          if (!inst) return;
-          if (r.rate == null) delete inst.expectedRate; else inst.expectedRate = r.rate;
-        }
-      });
-    });
-    // 连带保存调仓方案（加减仓金额 + 计划新建的标的）
     const ops = {};
     const fresh = [];
     groups.forEach(g => {
       g.rows.forEach(r => {
-        const v = Number(r.op) || 0;
+        const v = Math.round(opBase(r) * 100) / 100;
         if (Math.abs(v) > 0.005) ops[r.key] = v;
+        if (r.key.indexOf('cash_') === 0) {
+          const acc = accountById(r.key.slice(5));
+          if (acc) { if (r.rate == null) delete acc.expectedRate; else acc.expectedRate = r.rate; }
+        } else {
+          const inst = instrumentById(r.key);
+          if (inst) { if (r.rate == null) delete inst.expectedRate; else inst.expectedRate = r.rate; }
+        }
       });
       g.fresh.forEach(r => {
-        if (!String(r.name || '').trim() && Math.abs(Number(r.op) || 0) < 0.005) return;
-        fresh.push({ gid: g.gid, name: r.name || '', amount: Number(r.op) || 0, rate: r.rate });
+        if (!String(r.name || '').trim() && Math.abs(r.adjNative) < 0.005) return;
+        fresh.push({ gid: g.gid, name: r.name || '', amount: r.adjNative, rate: r.rate });
       });
     });
     state.rebalance.plans = state.rebalance.plans || {};
@@ -6118,7 +6145,6 @@ function openTargetEditor(sid) {
   });
 }
 
-/* ---------- rebalance plan ---------- */
 function openRebalancePlanSheet(sid) {
   const scheme = schemeById(sid || rebalanceSchemeId());
   if (!scheme) { toast('还没有开启再平衡的分组', 'error'); return; }

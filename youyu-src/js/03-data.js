@@ -1389,13 +1389,13 @@ function groupComponents(schemeId, groupId) {
     const cashGroup = resolveGroupId(scheme, account, null);
     if (cashGroup === groupId) {
       const am = computeAccountMetrics(account.id);
-      out.push({ type: 'cash', account, name: account.name + ' · 可用现金', value: am.cashBase });
+      out.push({ type: 'cash', account, name: account.name + ' · 可用现金', value: am.cashBase, native: am.cashNative, currency: account.currency });
     }
     instrumentsOf(account).forEach(inst => {
       const gid = resolveGroupId(scheme, account, inst);
       if (gid === groupId) {
         const im = computeInstrumentMetrics(inst.id);
-        if (im.qty > 0.000001) out.push({ type: 'instrument', account, instrument: inst, name: inst.name, value: im.marketBase });
+        if (im.qty > 0.000001) out.push({ type: 'instrument', account, instrument: inst, name: inst.name, value: im.marketBase, native: im.marketNative, currency: inst.currency });
       }
     });
   });

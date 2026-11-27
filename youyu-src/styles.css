@@ -1505,14 +1505,18 @@ html[data-theme="light"] .acct-icon.brand{border-color:rgba(16,24,40,.1);box-sha
 /* 调整目标 · 调仓试算表 */
 .plan-note{margin:0 0 13px;font-size:9px;line-height:1.65;color:var(--faint)}
 .plan-block{margin-bottom:17px}
-.plan-group{display:flex;align-items:center;gap:7px;margin-bottom:7px;font-size:9px;color:var(--faint)}
+.plan-group{display:flex;align-items:center;gap:6px;margin-bottom:7px;font-size:9px;color:var(--faint);cursor:pointer;user-select:none}
+.plan-fold{width:13px;height:13px;flex:0 0 13px;display:inline-flex;align-items:center;justify-content:center;color:var(--faint);transition:transform .16s ease}
+.plan-fold svg{width:11px;height:11px}
+.plan-block.collapsed .plan-table{display:none}
+.plan-block.collapsed .plan-fold{transform:rotate(-90deg)}
 .plan-group .dot{width:8px;height:8px;border-radius:3px;flex:0 0 8px}
 .plan-gname{font-weight:650;font-size:11px;color:var(--ink);flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .plan-gstat{white-space:nowrap;display:inline-flex;align-items:center;gap:2px}
 .plan-gstat b{color:var(--ink-2);font-weight:600;font-variant-numeric:tabular-nums}
 .plan-gstat i{font-style:normal}
 .plan-table{display:flex;flex-direction:column;gap:3px}
-.plan-head,.plan-row{display:grid;grid-template-columns:minmax(0,1fr) 48px 52px 50px 44px 52px;gap:5px;align-items:center}
+.plan-head,.plan-row{display:grid;grid-template-columns:minmax(0,1fr) 62px 62px 44px 62px;gap:5px;align-items:center}
 .plan-head{font-size:7.5px;color:var(--faint);padding-bottom:5px;border-bottom:1px solid var(--line);letter-spacing:.02em}
 .plan-head span:nth-child(n+2){text-align:right}
 .plan-row{padding:1px 0}
@@ -1531,6 +1535,13 @@ html[data-theme="light"] .acct-icon.brand{border-color:rgba(16,24,40,.1);box-sha
 .plan-summary .plan-name{font-size:10px;color:var(--faint)}
 .plan-summary .plan-num{font-size:10.5px;font-weight:600}
 @media (max-width:374px){
-  .plan-head,.plan-row{grid-template-columns:minmax(0,1fr) 44px 48px 46px 40px 48px;gap:4px}
+  .plan-head,.plan-row{grid-template-columns:minmax(0,1fr) 56px 56px 40px 56px;gap:4px}
   .plan-summary .plan-head,.plan-summary .plan-row{grid-template-columns:minmax(0,1fr) 70px 58px 70px}
 }
+
+/* 调仓试算：涨红跌绿 */
+.plan-adj.up .plan-amt,.plan-num.up{color:#ff5d6c}
+.plan-num.up{color:#ff5d6c}
+.plan-num.down{color:#35d39a}
+.plan-adj.up .plan-amt{border-color:rgba(255,93,108,.45)}
+.plan-adj.down .plan-amt{border-color:rgba(53,211,154,.45)}
