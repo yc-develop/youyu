@@ -116,12 +116,12 @@ function openTargetEditor(sid) {
       const key = inst ? inst.id : 'cash_' + (c.account ? c.account.id : 'x');
       const ccy = c.currency || baseCurrency();
       const fx = fxToBase(ccy) || 1;
-      const curNative = Number(c.native) || 0;
+      const curNative = round(Number(c.native) || 0, 2);
       const opBase = Number(savedOps[key]) || 0;
       return {
         key, name: c.name, isNew: false, currency: ccy, fx,
         curNative,
-        adjNative: curNative + opBase / fx,
+        adjNative: round(curNative + opBase / fx, 2),
         rate: inst ? instrumentExpectedRate(inst) : accountExpectedRate(c.account)
       };
     });
@@ -167,7 +167,7 @@ function openTargetEditor(sid) {
         ? '<input class="input plan-text" data-f="name" data-g="' + esc(g.gid) + '" data-r="' + esc(rid) + '" value="' + esc(r.name) + '" placeholder="标的名称">'
         : esc(r.name)) + '</div>' +
       '<div class="plan-num">' + (r.isNew ? '—' : money(r.curNative, r.currency)) + '</div>' +
-      '<div class="plan-num plan-adj ' + cls + '"><input class="input plan-amt" inputmode="decimal" data-f="adj" data-g="' + esc(g.gid) + '" data-r="' + esc(rid) + '" value="' + (Math.abs(r.adjNative - r.curNative) < 0.005 && !r.isNew ? '' : r.adjNative) + '" placeholder="' + (r.isNew ? '0' : '不变') + '"></div>' +
+      '<div class="plan-num plan-adj ' + cls + '"><input class="input plan-amt" inputmode="decimal" data-f="adj" data-g="' + esc(g.gid) + '" data-r="' + esc(rid) + '" value="' + (Math.abs(r.adjNative - r.curNative) < 0.005 && !r.isNew ? '' : round(r.adjNative, 2)) + '" placeholder="' + (r.isNew ? '0' : '不变') + '"></div>' +
       '<div class="plan-num plan-rate"><input class="input plan-amt" inputmode="decimal" data-f="rate" data-g="' + esc(g.gid) + '" data-r="' + esc(rid) + '" value="' + (rateOf(r) == null ? '' : rateOf(r)) + '" placeholder="—"><i>%</i></div>' +
       '<div class="plan-num ' + cls + '" data-cell="inc:' + esc(rid) + '">' + (rateOf(r) == null ? '—' : money(r.adjNative * rateOf(r) / 100, r.currency)) + '</div>' +
     '</div>';
