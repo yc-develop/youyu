@@ -1584,7 +1584,7 @@ html[data-theme="light"] .acct-icon.brand{border-color:rgba(16,24,40,.1);box-sha
 'use strict';
 
 const APP_NAME = '有余';
-const APP_VERSION = '6.5.72';
+const APP_VERSION = '6.5.73';
 // 沿用旧存储键，避免改名后已有本地账本丢失
 const STORE_KEY = 'yingji.portfolio.v1';
 const DEMO_STORE_KEY = 'yingji.demo.v1';
@@ -2745,6 +2745,14 @@ function instrumentById(id) {
   for (const a of accounts()) {
     const i = (a.instruments || []).find(x => x.id === id);
     if (i) return Object.assign({}, i, { accountId: a.id, account: a });
+  }
+  return null;
+}
+/* 需要就地改标的字段时用它：instrumentById 返回的是副本，写回去会丢 */
+function liveInstrumentById(id) {
+  for (const a of accounts()) {
+    const i = (a.instruments || []).find(x => x.id === id);
+    if (i) return i;
   }
   return null;
 }
@@ -5924,7 +5932,7 @@ function openTargetEditor(sid) {
       adjNative: Number(f.amount) || 0,
       rate: f.rate == null ? null : Number(f.rate)
     }));
-    return { gid: g.id, name: g.name, color: g.color, target: rebalanceTargetFor(scheme, g), rows, fresh, open: true };
+    return { gid: g.id, name: g.name, color: g.color, target: rebalanceTargetFor(scheme, g), rows, fresh, open: false };
   });
 
   const rateOf = r => r.rate;
@@ -5963,7 +5971,7 @@ function openTargetEditor(sid) {
   };
 
   const groupsHTML = groups.map(g => {
-    return '<div class="plan-block" data-group="' + esc(g.gid) + '">' +
+    return '<div class="plan-block' + (g.open ? '' : ' collapsed') + '" data-group="' + esc(g.gid) + '">' +
       '<div class="plan-group" data-f="fold" data-g="' + esc(g.gid) + '">' +
         '<span class="plan-fold">' + icon('chevronDown') + '</span>' +
         '<span class="dot" style="background:' + g.color + '"></span>' +
@@ -6126,7 +6134,7 @@ function openTargetEditor(sid) {
           const acc = accountById(r.key.slice(5));
           if (acc) { if (r.rate == null) delete acc.expectedRate; else acc.expectedRate = r.rate; }
         } else {
-          const inst = instrumentById(r.key);
+          const inst = liveInstrumentById(r.key);
           if (inst) { if (r.rate == null) delete inst.expectedRate; else inst.expectedRate = r.rate; }
         }
       });

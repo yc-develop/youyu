@@ -135,7 +135,7 @@ function openTargetEditor(sid) {
       adjNative: Number(f.amount) || 0,
       rate: f.rate == null ? null : Number(f.rate)
     }));
-    return { gid: g.id, name: g.name, color: g.color, target: rebalanceTargetFor(scheme, g), rows, fresh, open: true };
+    return { gid: g.id, name: g.name, color: g.color, target: rebalanceTargetFor(scheme, g), rows, fresh, open: false };
   });
 
   const rateOf = r => r.rate;
@@ -174,7 +174,7 @@ function openTargetEditor(sid) {
   };
 
   const groupsHTML = groups.map(g => {
-    return '<div class="plan-block" data-group="' + esc(g.gid) + '">' +
+    return '<div class="plan-block' + (g.open ? '' : ' collapsed') + '" data-group="' + esc(g.gid) + '">' +
       '<div class="plan-group" data-f="fold" data-g="' + esc(g.gid) + '">' +
         '<span class="plan-fold">' + icon('chevronDown') + '</span>' +
         '<span class="dot" style="background:' + g.color + '"></span>' +
@@ -337,7 +337,7 @@ function openTargetEditor(sid) {
           const acc = accountById(r.key.slice(5));
           if (acc) { if (r.rate == null) delete acc.expectedRate; else acc.expectedRate = r.rate; }
         } else {
-          const inst = instrumentById(r.key);
+          const inst = liveInstrumentById(r.key);
           if (inst) { if (r.rate == null) delete inst.expectedRate; else inst.expectedRate = r.rate; }
         }
       });

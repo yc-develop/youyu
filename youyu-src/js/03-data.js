@@ -380,6 +380,14 @@ function instrumentById(id) {
   }
   return null;
 }
+/* 需要就地改标的字段时用它：instrumentById 返回的是副本，写回去会丢 */
+function liveInstrumentById(id) {
+  for (const a of accounts()) {
+    const i = (a.instruments || []).find(x => x.id === id);
+    if (i) return i;
+  }
+  return null;
+}
 function instrumentsOf(account) { return (account && account.instruments) || []; }
 function recordsSorted() {
   return (state.records || []).slice().sort((a, b) => {
