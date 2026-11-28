@@ -122,7 +122,7 @@ function normalizeState(obj) {
       g.includeClasses = Array.isArray(g.includeClasses) ? g.includeClasses : [];
       g.includeInstruments = Array.isArray(g.includeInstruments) ? g.includeInstruments : [];
     });
-    // 目标方案：一套方案 = 一套 {分组id: 目标%}，group.target 始终镜像当前方案
+    // 目标方案：一套方案 = 目标% + 该方案自己的调仓明细（标的级目标金额、新建标的）
     s.plans = Array.isArray(s.plans) ? s.plans : [];
     s.plans = s.plans.filter(p => p && typeof p === 'object').map((p, pi) => {
       const src = (p.targets && typeof p.targets === 'object') ? p.targets : {};
@@ -131,19 +131,56 @@ function normalizeState(obj) {
         const v = Number(src[g.id]);
         if (Number.isFinite(v)) targets[g.id] = clamp(v, 0, 100);
       });
+      const ops = {};
+      if (p.ops && typeof p.ops === 'object') {
+        Object.keys(p.ops).forEach(k => {
+          const v = Number(p.ops[k]);
+          if (Number.isFinite(v) && Math.abs(v) > 0.005) ops[k] = v;
+        });
+      }
+      const groupIds = new Set(s.groups.map(g => g.id));
+      const fresh = (Array.isArray(p.fresh) ? p.fresh : [])
+        .filter(f => f && typeof f === 'object' && groupIds.has(String(f.gid || '')))
+        .map(f => ({
+          gid: String(f.gid || ''),
+          name: String(f.name || '').slice(0, 40),
+          amount: Number(f.amount) || 0,
+          rate: f.rate == null || f.rate === '' ? null : Number(f.rate)
+        }))
+        .filter(f => Math.abs(f.amount) > 0.005 || f.name);
       return {
         id: String(p.id || ('plan_' + pi)),
         name: String(p.name || ('方案 ' + (pi + 1))).slice(0, 20),
-        targets
+        targets, ops, fresh
       };
     });
     if (!s.plans.length) {
       const targets = {};
       s.groups.forEach(g => { targets[g.id] = clamp(Number(g.target) || 0, 0, 100); });
-      s.plans = [{ id: 'plan_default', name: '默认方案', targets }];
+      s.plans = [{ id: 'plan_default', name: '默认方案', targets, ops: {}, fresh: [] }];
     }
     const planIds = new Set(s.plans.map(p => p.id));
     if (!planIds.has(s.activePlan)) s.activePlan = s.plans[0].id;
+    // 旧版只有一套调仓明细，迁移到当时生效的方案上
+    const legacyPlan = obj.rebalance.plans && obj.rebalance.plans[s.id];
+    if (legacyPlan && typeof legacyPlan === 'object') {
+      const ap = s.plans.find(p => p.id === s.activePlan) || s.plans[0];
+      if (ap && !Object.keys(ap.ops).length && !ap.fresh.length) {
+        if (legacyPlan.ops && typeof legacyPlan.ops === 'object') {
+          Object.keys(legacyPlan.ops).forEach(k => {
+            const v = Number(legacyPlan.ops[k]);
+            if (Number.isFinite(v) && Math.abs(v) > 0.005) ap.ops[k] = v;
+          });
+        }
+        const gids = new Set(s.groups.map(g => g.id));
+        if (Array.isArray(legacyPlan.fresh)) {
+          ap.fresh = legacyPlan.fresh
+            .filter(f => f && gids.has(String(f.gid || '')))
+            .map(f => ({ gid: String(f.gid), name: String(f.name || '').slice(0, 40), amount: Number(f.amount) || 0, rate: f.rate == null || f.rate === '' ? null : Number(f.rate) }))
+            .filter(f => Math.abs(f.amount) > 0.005 || f.name);
+        }
+      }
+    }
     s.groups.forEach(g => {
       const active = s.plans.find(p => p.id === s.activePlan);
       if (active && Number.isFinite(Number(active.targets[g.id]))) g.target = Number(active.targets[g.id]);

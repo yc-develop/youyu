@@ -109,10 +109,8 @@ function openTargetEditor(sid) {
   const tolerance = Number(state.settings.tolerance) || 0;
   const plans = ensureSchemePlans(scheme);
   let activePlanId = scheme.activePlan;
-  const savedPlan = (state.rebalance.plans && state.rebalance.plans[scheme.id]) || {};
-  const savedOps = savedPlan.ops || {};
-  const savedFresh = Array.isArray(savedPlan.fresh) ? savedPlan.fresh : [];
   const money = planMoney;
+  const planOf = () => activeSchemePlan(scheme);
 
   const groups = scheme.groups.map(g => {
     const rows = groupComponents(scheme.id, g.id).map(c => {
@@ -121,26 +119,36 @@ function openTargetEditor(sid) {
       const ccy = c.currency || baseCurrency();
       const fx = fxToBase(ccy) || 1;
       const curNative = round(Number(c.native) || 0, 2);
-      const opBase = Number(savedOps[key]) || 0;
       return {
         key, name: c.name, isNew: false, currency: ccy, fx,
         curNative,
-        adjNative: round(curNative + opBase / fx, 2),
+        adjNative: curNative,
         rate: inst ? instrumentExpectedRate(inst) : accountExpectedRate(c.account)
       };
     });
-    const fresh = savedFresh.filter(f => f && f.gid === g.id).map((f, i) => ({
-      key: 'n' + i,
-      name: f.name || '',
-      isNew: true,
-      currency: baseCurrency(),
-      fx: 1,
-      curNative: 0,
-      adjNative: Number(f.amount) || 0,
-      rate: f.rate == null ? null : Number(f.rate)
-    }));
-    return { gid: g.id, name: g.name, color: g.color, target: rebalanceTargetFor(scheme, g), rows, fresh, open: false };
+    return { gid: g.id, name: g.name, color: g.color, target: rebalanceTargetFor(scheme, g), rows, fresh: [], open: false };
   });
+  /* 把某个方案的调仓明细套到行上：调整后 = 当前 + 计划增量 */
+  const applyPlanOps = () => {
+    const p = planOf();
+    const ops = (p && p.ops) || {};
+    groups.forEach(g => {
+      g.rows.forEach(r => {
+        r.adjNative = round(r.curNative + (Number(ops[r.key]) || 0) / r.fx, 2);
+      });
+      g.fresh = (((p && p.fresh) || []).filter(f => f.gid === g.gid)).map((f, i) => ({
+        key: 'n' + i,
+        name: f.name || '',
+        isNew: true,
+        currency: baseCurrency(),
+        fx: 1,
+        curNative: 0,
+        adjNative: Number(f.amount) || 0,
+        rate: f.rate == null ? null : Number(f.rate)
+      }));
+    });
+  };
+  applyPlanOps();
 
   const rateOf = r => r.rate;
   const curBase = r => r.curNative * r.fx;
@@ -329,13 +337,26 @@ function openTargetEditor(sid) {
       if (inp) inp.value = g.target;
     });
   };
+  const syncRowsToDOM = () => {
+    groups.forEach(g => {
+      g.rows.forEach(r => {
+        const rid = g.gid + ':' + r.key;
+        const el = form.querySelector('[data-f="adj"][data-r="' + rid + '"]');
+        if (el) el.value = (Math.abs(r.adjNative - r.curNative) < 0.005 && !r.isNew ? '' : round(r.adjNative, 2));
+      });
+      const holder = form.querySelector('[data-fresh="' + g.gid + '"]');
+      if (holder) holder.innerHTML = g.fresh.map((r, i) => rowHTML(g, r, g.gid + ':new' + i)).join('');
+    });
+  };
   const switchPlan = planId => {
     if (!planId || planId === activePlanId) return;
     if (!setActiveSchemePlan(scheme, planId)) return;
     activePlanId = scheme.activePlan;
     const plan = activeSchemePlan(scheme);
     groups.forEach(g => { g.target = planTargetFor(plan, g.gid); });
+    applyPlanOps();
     applyTargetsToDOM();
+    syncRowsToDOM();
     const holder = form.querySelector('#plan-tabs');
     if (holder) holder.innerHTML = tabsHTML();
     refresh();
@@ -343,13 +364,18 @@ function openTargetEditor(sid) {
   const addPlan = () => {
     const cur = activeSchemePlan(scheme);
     const id = uid('plan');
-    plans.push({ id, name: '方案 ' + (plans.length + 1), targets: Object.assign({}, cur.targets) });
+    plans.push({
+      id, name: '方案 ' + (plans.length + 1),
+      targets: Object.assign({}, cur.targets),
+      ops: Object.assign({}, cur.ops || {}),
+      fresh: (cur.fresh || []).map(f => Object.assign({}, f))
+    });
     scheme.activePlan = id;
     activePlanId = id;
     const holder = form.querySelector('#plan-tabs');
     if (holder) holder.innerHTML = tabsHTML();
     refresh();
-    toast('已复制当前配比为「方案 ' + plans.length + '」', 'success');
+    toast('已复制「' + cur.name + '」为新方案', 'success');
   };
   const openPlanManager = () => {
     const rowsHTML = () => plans.map(p => {
@@ -490,6 +516,10 @@ function openTargetEditor(sid) {
         fresh.push({ gid: g.gid, name: r.name || '', amount: r.adjNative, rate: r.rate });
       });
     });
+    const plan = activeSchemePlan(scheme);
+    plan.ops = ops;
+    plan.fresh = fresh;
+    // 旧字段保持同步，操作清单等入口还能读到
     state.rebalance.plans = state.rebalance.plans || {};
     state.rebalance.plans[scheme.id] = { ops, fresh };
     state.settings.tolerance = tol;
@@ -503,9 +533,9 @@ function openTargetEditor(sid) {
 function openRebalancePlanSheet(sid) {
   const scheme = schemeById(sid || rebalanceSchemeId());
   if (!scheme) { toast('还没有开启再平衡的分组', 'error'); return; }
-  const plan = (state.rebalance.plans && state.rebalance.plans[scheme.id]) || {};
-  const ops = plan.ops || {};
-  const fresh = Array.isArray(plan.fresh) ? plan.fresh : [];
+  const ap = scheme.builtin ? ((state.rebalance.plans && state.rebalance.plans[scheme.id]) || {}) : activeSchemePlan(scheme);
+  const ops = (ap && ap.ops) || {};
+  const fresh = (ap && Array.isArray(ap.fresh)) ? ap.fresh : [];
   const items = [];
   scheme.groups.forEach(g => {
     groupComponents(scheme.id, g.id).forEach(c => {

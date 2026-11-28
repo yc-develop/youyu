@@ -1602,7 +1602,7 @@ html[data-theme="light"] .acct-icon.brand{border-color:rgba(16,24,40,.1);box-sha
 'use strict';
 
 const APP_NAME = '有余';
-const APP_VERSION = '6.5.79';
+const APP_VERSION = '6.5.80';
 // 沿用旧存储键，避免改名后已有本地账本丢失
 const STORE_KEY = 'yingji.portfolio.v1';
 const DEMO_STORE_KEY = 'yingji.demo.v1';
@@ -2508,7 +2508,7 @@ function normalizeState(obj) {
       g.includeClasses = Array.isArray(g.includeClasses) ? g.includeClasses : [];
       g.includeInstruments = Array.isArray(g.includeInstruments) ? g.includeInstruments : [];
     });
-    // 目标方案：一套方案 = 一套 {分组id: 目标%}，group.target 始终镜像当前方案
+    // 目标方案：一套方案 = 目标% + 该方案自己的调仓明细（标的级目标金额、新建标的）
     s.plans = Array.isArray(s.plans) ? s.plans : [];
     s.plans = s.plans.filter(p => p && typeof p === 'object').map((p, pi) => {
       const src = (p.targets && typeof p.targets === 'object') ? p.targets : {};
@@ -2517,19 +2517,56 @@ function normalizeState(obj) {
         const v = Number(src[g.id]);
         if (Number.isFinite(v)) targets[g.id] = clamp(v, 0, 100);
       });
+      const ops = {};
+      if (p.ops && typeof p.ops === 'object') {
+        Object.keys(p.ops).forEach(k => {
+          const v = Number(p.ops[k]);
+          if (Number.isFinite(v) && Math.abs(v) > 0.005) ops[k] = v;
+        });
+      }
+      const groupIds = new Set(s.groups.map(g => g.id));
+      const fresh = (Array.isArray(p.fresh) ? p.fresh : [])
+        .filter(f => f && typeof f === 'object' && groupIds.has(String(f.gid || '')))
+        .map(f => ({
+          gid: String(f.gid || ''),
+          name: String(f.name || '').slice(0, 40),
+          amount: Number(f.amount) || 0,
+          rate: f.rate == null || f.rate === '' ? null : Number(f.rate)
+        }))
+        .filter(f => Math.abs(f.amount) > 0.005 || f.name);
       return {
         id: String(p.id || ('plan_' + pi)),
         name: String(p.name || ('方案 ' + (pi + 1))).slice(0, 20),
-        targets
+        targets, ops, fresh
       };
     });
     if (!s.plans.length) {
       const targets = {};
       s.groups.forEach(g => { targets[g.id] = clamp(Number(g.target) || 0, 0, 100); });
-      s.plans = [{ id: 'plan_default', name: '默认方案', targets }];
+      s.plans = [{ id: 'plan_default', name: '默认方案', targets, ops: {}, fresh: [] }];
     }
     const planIds = new Set(s.plans.map(p => p.id));
     if (!planIds.has(s.activePlan)) s.activePlan = s.plans[0].id;
+    // 旧版只有一套调仓明细，迁移到当时生效的方案上
+    const legacyPlan = obj.rebalance.plans && obj.rebalance.plans[s.id];
+    if (legacyPlan && typeof legacyPlan === 'object') {
+      const ap = s.plans.find(p => p.id === s.activePlan) || s.plans[0];
+      if (ap && !Object.keys(ap.ops).length && !ap.fresh.length) {
+        if (legacyPlan.ops && typeof legacyPlan.ops === 'object') {
+          Object.keys(legacyPlan.ops).forEach(k => {
+            const v = Number(legacyPlan.ops[k]);
+            if (Number.isFinite(v) && Math.abs(v) > 0.005) ap.ops[k] = v;
+          });
+        }
+        const gids = new Set(s.groups.map(g => g.id));
+        if (Array.isArray(legacyPlan.fresh)) {
+          ap.fresh = legacyPlan.fresh
+            .filter(f => f && gids.has(String(f.gid || '')))
+            .map(f => ({ gid: String(f.gid), name: String(f.name || '').slice(0, 40), amount: Number(f.amount) || 0, rate: f.rate == null || f.rate === '' ? null : Number(f.rate) }))
+            .filter(f => Math.abs(f.amount) > 0.005 || f.name);
+        }
+      }
+    }
     s.groups.forEach(g => {
       const active = s.plans.find(p => p.id === s.activePlan);
       if (active && Number.isFinite(Number(active.targets[g.id]))) g.target = Number(active.targets[g.id]);
@@ -6014,10 +6051,8 @@ function openTargetEditor(sid) {
   const tolerance = Number(state.settings.tolerance) || 0;
   const plans = ensureSchemePlans(scheme);
   let activePlanId = scheme.activePlan;
-  const savedPlan = (state.rebalance.plans && state.rebalance.plans[scheme.id]) || {};
-  const savedOps = savedPlan.ops || {};
-  const savedFresh = Array.isArray(savedPlan.fresh) ? savedPlan.fresh : [];
   const money = planMoney;
+  const planOf = () => activeSchemePlan(scheme);
 
   const groups = scheme.groups.map(g => {
     const rows = groupComponents(scheme.id, g.id).map(c => {
@@ -6026,26 +6061,36 @@ function openTargetEditor(sid) {
       const ccy = c.currency || baseCurrency();
       const fx = fxToBase(ccy) || 1;
       const curNative = round(Number(c.native) || 0, 2);
-      const opBase = Number(savedOps[key]) || 0;
       return {
         key, name: c.name, isNew: false, currency: ccy, fx,
         curNative,
-        adjNative: round(curNative + opBase / fx, 2),
+        adjNative: curNative,
         rate: inst ? instrumentExpectedRate(inst) : accountExpectedRate(c.account)
       };
     });
-    const fresh = savedFresh.filter(f => f && f.gid === g.id).map((f, i) => ({
-      key: 'n' + i,
-      name: f.name || '',
-      isNew: true,
-      currency: baseCurrency(),
-      fx: 1,
-      curNative: 0,
-      adjNative: Number(f.amount) || 0,
-      rate: f.rate == null ? null : Number(f.rate)
-    }));
-    return { gid: g.id, name: g.name, color: g.color, target: rebalanceTargetFor(scheme, g), rows, fresh, open: false };
+    return { gid: g.id, name: g.name, color: g.color, target: rebalanceTargetFor(scheme, g), rows, fresh: [], open: false };
   });
+  /* 把某个方案的调仓明细套到行上：调整后 = 当前 + 计划增量 */
+  const applyPlanOps = () => {
+    const p = planOf();
+    const ops = (p && p.ops) || {};
+    groups.forEach(g => {
+      g.rows.forEach(r => {
+        r.adjNative = round(r.curNative + (Number(ops[r.key]) || 0) / r.fx, 2);
+      });
+      g.fresh = (((p && p.fresh) || []).filter(f => f.gid === g.gid)).map((f, i) => ({
+        key: 'n' + i,
+        name: f.name || '',
+        isNew: true,
+        currency: baseCurrency(),
+        fx: 1,
+        curNative: 0,
+        adjNative: Number(f.amount) || 0,
+        rate: f.rate == null ? null : Number(f.rate)
+      }));
+    });
+  };
+  applyPlanOps();
 
   const rateOf = r => r.rate;
   const curBase = r => r.curNative * r.fx;
@@ -6234,13 +6279,26 @@ function openTargetEditor(sid) {
       if (inp) inp.value = g.target;
     });
   };
+  const syncRowsToDOM = () => {
+    groups.forEach(g => {
+      g.rows.forEach(r => {
+        const rid = g.gid + ':' + r.key;
+        const el = form.querySelector('[data-f="adj"][data-r="' + rid + '"]');
+        if (el) el.value = (Math.abs(r.adjNative - r.curNative) < 0.005 && !r.isNew ? '' : round(r.adjNative, 2));
+      });
+      const holder = form.querySelector('[data-fresh="' + g.gid + '"]');
+      if (holder) holder.innerHTML = g.fresh.map((r, i) => rowHTML(g, r, g.gid + ':new' + i)).join('');
+    });
+  };
   const switchPlan = planId => {
     if (!planId || planId === activePlanId) return;
     if (!setActiveSchemePlan(scheme, planId)) return;
     activePlanId = scheme.activePlan;
     const plan = activeSchemePlan(scheme);
     groups.forEach(g => { g.target = planTargetFor(plan, g.gid); });
+    applyPlanOps();
     applyTargetsToDOM();
+    syncRowsToDOM();
     const holder = form.querySelector('#plan-tabs');
     if (holder) holder.innerHTML = tabsHTML();
     refresh();
@@ -6248,13 +6306,18 @@ function openTargetEditor(sid) {
   const addPlan = () => {
     const cur = activeSchemePlan(scheme);
     const id = uid('plan');
-    plans.push({ id, name: '方案 ' + (plans.length + 1), targets: Object.assign({}, cur.targets) });
+    plans.push({
+      id, name: '方案 ' + (plans.length + 1),
+      targets: Object.assign({}, cur.targets),
+      ops: Object.assign({}, cur.ops || {}),
+      fresh: (cur.fresh || []).map(f => Object.assign({}, f))
+    });
     scheme.activePlan = id;
     activePlanId = id;
     const holder = form.querySelector('#plan-tabs');
     if (holder) holder.innerHTML = tabsHTML();
     refresh();
-    toast('已复制当前配比为「方案 ' + plans.length + '」', 'success');
+    toast('已复制「' + cur.name + '」为新方案', 'success');
   };
   const openPlanManager = () => {
     const rowsHTML = () => plans.map(p => {
@@ -6395,6 +6458,10 @@ function openTargetEditor(sid) {
         fresh.push({ gid: g.gid, name: r.name || '', amount: r.adjNative, rate: r.rate });
       });
     });
+    const plan = activeSchemePlan(scheme);
+    plan.ops = ops;
+    plan.fresh = fresh;
+    // 旧字段保持同步，操作清单等入口还能读到
     state.rebalance.plans = state.rebalance.plans || {};
     state.rebalance.plans[scheme.id] = { ops, fresh };
     state.settings.tolerance = tol;
@@ -6408,9 +6475,9 @@ function openTargetEditor(sid) {
 function openRebalancePlanSheet(sid) {
   const scheme = schemeById(sid || rebalanceSchemeId());
   if (!scheme) { toast('还没有开启再平衡的分组', 'error'); return; }
-  const plan = (state.rebalance.plans && state.rebalance.plans[scheme.id]) || {};
-  const ops = plan.ops || {};
-  const fresh = Array.isArray(plan.fresh) ? plan.fresh : [];
+  const ap = scheme.builtin ? ((state.rebalance.plans && state.rebalance.plans[scheme.id]) || {}) : activeSchemePlan(scheme);
+  const ops = (ap && ap.ops) || {};
+  const fresh = (ap && Array.isArray(ap.fresh)) ? ap.fresh : [];
   const items = [];
   scheme.groups.forEach(g => {
     groupComponents(scheme.id, g.id).forEach(c => {
