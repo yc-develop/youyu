@@ -138,6 +138,13 @@ function normalizeState(obj) {
           if (Number.isFinite(v) && Math.abs(v) > 0.005) ops[k] = v;
         });
       }
+      const amounts = {};
+      if (p.amounts && typeof p.amounts === 'object') {
+        Object.keys(p.amounts).forEach(k => {
+          const v = Number(p.amounts[k]);
+          if (Number.isFinite(v)) amounts[k] = v;
+        });
+      }
       const groupIds = new Set(s.groups.map(g => g.id));
       const fresh = (Array.isArray(p.fresh) ? p.fresh : [])
         .filter(f => f && typeof f === 'object' && groupIds.has(String(f.gid || '')))
@@ -151,7 +158,7 @@ function normalizeState(obj) {
       return {
         id: String(p.id || ('plan_' + pi)),
         name: String(p.name || ('方案 ' + (pi + 1))).slice(0, 20),
-        targets, ops, fresh
+        targets, amounts, ops, fresh
       };
     });
     if (!s.plans.length) {

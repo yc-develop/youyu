@@ -156,13 +156,19 @@ function openTargetEditor(sid) {
     });
     return { gid: g.id, name: g.name, color: g.color, target: rebalanceTargetFor(scheme, g), rows, fresh: [], open: false };
   });
-  /* 把某个方案的调仓明细套到行上：调整后 = 当前 + 计划增量 */
+  /* 把某个方案的明细套到行上：调整后 = 方案里钉死的绝对目标金额（老方案没有 targets 才退回增量）
+     这样改了账单以后目标不会跟着余额漂。 */
   const applyPlanOps = () => {
     const p = planOf();
     const ops = (p && p.ops) || {};
+    const tgts = (p && p.amounts) || {};
     groups.forEach(g => {
       g.rows.forEach(r => {
-        r.adjNative = round(r.curNative + (Number(ops[r.key]) || 0) / r.fx, 2);
+        const has = tgts && Object.prototype.hasOwnProperty.call(tgts, r.key) && tgts[r.key] !== null;
+        const base = has
+          ? Number(tgts[r.key]) || 0
+          : r.curNative * r.fx + (Number(ops[r.key]) || 0);
+        r.adjNative = round(base / r.fx, 2);
       });
       g.fresh = (((p && p.fresh) || []).filter(f => f.gid === g.gid)).map((f, i) => ({
         key: 'n' + i,
@@ -529,9 +535,11 @@ function openTargetEditor(sid) {
       syncSchemeGroupTargets(scheme);
     }
     const ops = {};
+    const amounts = {};
     const fresh = [];
     groups.forEach(g => {
       g.rows.forEach(r => {
+        amounts[r.key] = Math.round(r.adjNative * r.fx * 100) / 100;
         const v = Math.round(opBase(r) * 100) / 100;
         if (Math.abs(v) > 0.005) ops[r.key] = v;
         if (r.key.indexOf('cash_') === 0) {
@@ -548,6 +556,7 @@ function openTargetEditor(sid) {
       });
     });
     const plan = activeSchemePlan(scheme);
+    plan.amounts = amounts;
     plan.ops = ops;
     plan.fresh = fresh;
     // 旧字段保持同步，操作清单等入口还能读到
