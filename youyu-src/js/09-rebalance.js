@@ -62,7 +62,7 @@ function renderRebalancePage() {
   }) +
   schemeChipsHTML(sid, 'select-rebalance-scheme', schemesForRebalance()) +
   '<section class="card" style="padding:16px 14px 14px;margin-top:2px">' +
-    '<div class="card-head" style="padding:0"><div><h2>当前 vs 目标</h2><div class="sub">' + esc(scheme ? scheme.name : '') + (scheme && !scheme.builtin ? ' · ' + esc(activeSchemePlan(scheme).name) : '') + ' · 目标为 ' + baseCurrency() + ' 口径</div></div><span class="tiny">±' + tolerance.toFixed(1) + '% 容忍</span></div>' +
+    '<div class="card-head" style="padding:0"><div><h2>当前 vs 目标</h2></div><span class="tiny">±' + tolerance.toFixed(1) + '% 容忍</span></div>' +
     '<div class="donut-pair" style="margin-top:16px">' +
       '<div class="donut-mini-wrap">' + donutCurrent + '<div class="cap"><b>当前配置</b>' + fmtMoney(gb.total, { compact: true }) + '</div></div>' +
       '<div class="donut-mini-wrap">' + donutTarget + '<div class="cap"><b>目标配置</b>' + (schemeTargetTotal(scheme) || 0).toFixed(0) + '%</div></div>' +

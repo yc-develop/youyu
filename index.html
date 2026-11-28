@@ -1602,7 +1602,7 @@ html[data-theme="light"] .acct-icon.brand{border-color:rgba(16,24,40,.1);box-sha
 'use strict';
 
 const APP_NAME = '有余';
-const APP_VERSION = '6.5.89';
+const APP_VERSION = '6.5.90';
 // 沿用旧存储键，避免改名后已有本地账本丢失
 const STORE_KEY = 'yingji.portfolio.v1';
 const DEMO_STORE_KEY = 'yingji.demo.v1';
@@ -6032,7 +6032,7 @@ function renderRebalancePage() {
   }) +
   schemeChipsHTML(sid, 'select-rebalance-scheme', schemesForRebalance()) +
   '<section class="card" style="padding:16px 14px 14px;margin-top:2px">' +
-    '<div class="card-head" style="padding:0"><div><h2>当前 vs 目标</h2><div class="sub">' + esc(scheme ? scheme.name : '') + (scheme && !scheme.builtin ? ' · ' + esc(activeSchemePlan(scheme).name) : '') + ' · 目标为 ' + baseCurrency() + ' 口径</div></div><span class="tiny">±' + tolerance.toFixed(1) + '% 容忍</span></div>' +
+    '<div class="card-head" style="padding:0"><div><h2>当前 vs 目标</h2></div><span class="tiny">±' + tolerance.toFixed(1) + '% 容忍</span></div>' +
     '<div class="donut-pair" style="margin-top:16px">' +
       '<div class="donut-mini-wrap">' + donutCurrent + '<div class="cap"><b>当前配置</b>' + fmtMoney(gb.total, { compact: true }) + '</div></div>' +
       '<div class="donut-mini-wrap">' + donutTarget + '<div class="cap"><b>目标配置</b>' + (schemeTargetTotal(scheme) || 0).toFixed(0) + '%</div></div>' +
