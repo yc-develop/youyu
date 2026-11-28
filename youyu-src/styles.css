@@ -1512,8 +1512,6 @@ html[data-theme="light"] .acct-icon.brand{border-color:rgba(16,24,40,.1);box-sha
 .plan-tab i{font-style:normal;font-size:9px;color:var(--faint);font-variant-numeric:tabular-nums}
 .plan-tab.on{background:var(--accent-soft);border-color:rgba(255,159,69,.38);color:var(--ink)}
 .plan-tab.on i{color:var(--accent)}
-.plan-tab.est b,.plan-tab.est i{opacity:.72}
-.plan-tab.est i{font-style:italic}
 .plan-tab-add{align-items:center;justify-content:center;padding:7px 10px;color:var(--faint)}
 .plan-tab-add .icon{width:13px;height:13px}
 .plan-eff-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 13px}

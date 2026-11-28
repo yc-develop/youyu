@@ -408,30 +408,6 @@ function setActiveSchemePlan(scheme, planId) {
   syncSchemeGroupTargets(scheme);
   return true;
 }
-/* 方案效果：按目标比例重排后，用各分组当前的持仓加权年化估算
-   假设：只改各桶比例，不动桶内标的构成 —— 所以桶年化沿用当前值 */
-function schemePlanEffect(schemeId, plan) {
-  const scheme = schemeById(schemeId);
-  if (!scheme || !plan) return null;
-  const rows = (scheme.groups || []).map(g => {
-    const st = groupExpectedStats(schemeId, g.id);
-    return { g, target: planTargetFor(plan, g.id), value: st.totalValue, rate: st.weighted, missing: st.missingCount };
-  });
-  const totalTarget = sum(rows, x => x.target);
-  const totalValue = sum(rows, x => x.value);
-  if (!(totalTarget > 0)) return { totalTarget, annual: null, income: null, totalValue, weights: rows.map(x => ({ name: x.g.name, pct: 0 })) };
-  let annual = 0, income = 0, missingCount = 0;
-  rows.forEach(x => {
-    const w = x.target / totalTarget;
-    if (x.rate == null) { missingCount += x.missing; return; }
-    annual += w * x.rate;
-    income += w * totalValue * x.rate / 100;
-  });
-  return {
-    totalTarget, annual, income, totalValue, missingCount,
-    weights: rows.map(x => ({ name: x.g.name, pct: x.target / totalTarget * 100, target: x.target, rate: x.rate }))
-  };
-}
 /* 方案按「标的级明细」算的年化：调整后金额 × 各标的年化 / 总金额
    和调仓试算表底部的「汇总」用同一套口径 */
 function schemePlanIncome(schemeId, plan) {
