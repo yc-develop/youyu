@@ -421,17 +421,33 @@ function schemePlanIncome(schemeId, plan) {
   const scheme = schemeById(schemeId);
   if (!scheme || !plan) return null;
   const ops = plan.ops || {};
+  const amts = plan.amounts || {};
   const fresh = plan.fresh || [];
   let income = 0, total = 0, unrated = 0;
+  const covered = new Set();
   (scheme.groups || []).forEach(g => {
     groupComponents(schemeId, g.id).forEach(c => {
       const inst = c.instrument || null;
       const key = inst ? inst.id : 'cash_' + (c.account ? c.account.id : 'x');
+      covered.add(key);
       const fx = fxToBase(c.currency || baseCurrency()) || 1;
-      const adj = (Number(c.native) || 0) + (Number(ops[key]) || 0) / fx;
-      const base = adj * fx;
+      const base = Object.prototype.hasOwnProperty.call(amts, key)
+        ? (Number(amts[key]) || 0)
+        : ((Number(c.native) || 0) * fx + (Number(ops[key]) || 0));
       const rate = inst ? instrumentExpectedRate(inst) : accountExpectedRate(c.account);
       total += base;
+      if (rate == null) { if (Math.abs(base) > 0.005) unrated += base; return; }
+      income += base * rate / 100;
+    });
+    // 当前没份额、但方案里目标 > 0 的标的（要新建仓的）
+    Object.keys(amts).forEach(key => {
+      if (covered.has(key)) return;
+      const inst = instrumentById(key);
+      if (!inst || !groupMatches(g, accountById(inst.accountId) || {}, inst)) return;
+      covered.add(key);
+      const base = Number(amts[key]) || 0;
+      total += base;
+      const rate = instrumentExpectedRate(inst);
       if (rate == null) { if (Math.abs(base) > 0.005) unrated += base; return; }
       income += base * rate / 100;
     });

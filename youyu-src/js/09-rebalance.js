@@ -154,6 +154,19 @@ function openTargetEditor(sid) {
         rate: inst ? instrumentExpectedRate(inst) : accountExpectedRate(c.account)
       };
     });
+    // 当前没份额、但方案里目标 > 0 的标的也要成行，否则买了没地方显示目标
+    const covered = new Set(rows.map(r => r.key));
+    const wanted = new Set();
+    plans.forEach(pl => Object.keys((pl && pl.amounts) || {}).forEach(k => { if ((Number(pl.amounts[k]) || 0) > 0.005) wanted.add(k); }));
+    accounts().forEach(acct => (acct.instruments || []).forEach(inst => {
+      if (covered.has(inst.id) || !wanted.has(inst.id)) return;
+      if (!groupMatches(g, acct, inst)) return;
+      const fx = fxToBase(inst.currency) || 1;
+      rows.push({
+        key: inst.id, name: inst.name, isNew: false, currency: inst.currency, fx,
+        curNative: 0, adjNative: 0, rate: instrumentExpectedRate(inst)
+      });
+    }));
     return { gid: g.id, name: g.name, color: g.color, target: rebalanceTargetFor(scheme, g), rows, fresh: [], open: false };
   });
   /* 把某个方案的明细套到行上：调整后 = 方案里钉死的绝对目标金额（老方案没有 targets 才退回增量）
