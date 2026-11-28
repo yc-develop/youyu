@@ -588,22 +588,36 @@ function openRebalancePlanSheet(sid) {
   if (!scheme) { toast('还没有开启再平衡的分组', 'error'); return; }
   const ap = scheme.builtin ? ((state.rebalance.plans && state.rebalance.plans[scheme.id]) || {}) : activeSchemePlan(scheme);
   const ops = (ap && ap.ops) || {};
+  const amts = (ap && ap.amounts) || {};
   const fresh = (ap && Array.isArray(ap.fresh)) ? ap.fresh : [];
   const items = [];
+  // 和调仓试算表同源：有绝对目标就用「目标 − 当前」，没有才退回旧的增量
+  const deltaOf = (key, curNative, fx) => Object.prototype.hasOwnProperty.call(amts, key)
+    ? (Number(amts[key]) || 0) - curNative * fx
+    : (Number(ops[key]) || 0);
   scheme.groups.forEach(g => {
+    const seen = new Set();
     groupComponents(scheme.id, g.id).forEach(c => {
       const inst = c.instrument || null;
       const key = inst ? inst.id : 'cash_' + (c.account ? c.account.id : 'x');
-      const amt = Number(ops[key]) || 0;
-      if (Math.abs(amt) < 0.005) return;
       const ccy = c.currency || baseCurrency();
       const fx = fxToBase(ccy) || 1;
-      items.push({
-        gid: g.id, name: c.name, isNew: false, ccy, fx,
-        amount: amt / fx,
-        current: Number(c.native) || 0
-      });
+      const curNative = Number(c.native) || 0;
+      seen.add(key);
+      const amt = deltaOf(key, curNative, fx);
+      if (Math.abs(amt) < 0.005) return;
+      items.push({ gid: g.id, name: c.name, isNew: false, ccy, fx, amount: amt / fx, current: curNative });
     });
+    // 当前没份额、但方案里设了目标的标的（要新建仓的）
+    accounts().forEach(acct => (acct.instruments || []).forEach(inst => {
+      if (seen.has(inst.id) || !groupMatches(g, acct, inst)) return;
+      if (!Object.prototype.hasOwnProperty.call(amts, inst.id)) return;
+      const ccy = inst.currency || baseCurrency();
+      const fx = fxToBase(ccy) || 1;
+      const amt = deltaOf(inst.id, 0, fx);
+      if (Math.abs(amt) < 0.005) return;
+      items.push({ gid: g.id, name: inst.name, isNew: false, ccy, fx, amount: amt / fx, current: 0 });
+    }));
   });
   fresh.forEach(f => {
     if (!f || !scheme.groups.some(x => x.id === f.gid)) return;
