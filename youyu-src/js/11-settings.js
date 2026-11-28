@@ -195,14 +195,22 @@ function handleImportFile(file) {
           try {
             importData(String(reader.result || ''));
             closeAllSheets();
-            toast('账本导入成功，网络历史行情将重新拉取', 'success');
             navigate('#/assets', true);
             renderPage();
+            // 备份不带网络行情，导入后必须整体拉一次，否则没有手工价格点的标的市值会显示 0
+            const hasMarket = accounts().some(a => (a.instruments || []).some(i => i.market && i.market.code));
+            if (!hasMarket || typeof refreshAllMarketQuotes !== 'function') {
+              toast('账本导入成功', 'success');
+              return;
+            }
+            if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+              toast('账本已导入，当前离线，联网后请手动刷新行情', 'error');
+              return;
+            }
+            toast('账本导入成功，正在恢复行情…', 'success');
             setTimeout(() => {
-              if (typeof autoRefreshMarketQuotes === 'function') {
-                autoRefreshMarketQuotes().catch(() => {});
-              }
-            }, 600);
+              refreshAllMarketQuotes().catch(() => toast('行情恢复失败，请手动点「刷新全部行情」', 'error'));
+            }, 500);
           } catch (e) {
             toast('导入失败：' + e.message, 'error');
           }
