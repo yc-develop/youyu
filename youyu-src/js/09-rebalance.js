@@ -103,6 +103,34 @@ function rebalanceRows(items, tolerance, schemeId) {
   }).join('');
 }
 
+/* 调仓试算的金额输入框：显示带千分位，输入时保持光标位置 */
+function amtDisplay(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return '';
+  const s = round(Math.abs(n), 2).toFixed(2);
+  const [ip, fp] = s.split('.');
+  return ip.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (fp === '00' ? '' : '.' + fp);
+}
+function amtFormatInPlace(el) {
+  if (!el) return;
+  const raw = String(el.value || '');
+  const caret = el.selectionStart == null ? raw.length : el.selectionStart;
+  const digitsBefore = raw.slice(0, caret).replace(/[^\d]/g, '').length;
+  const cleaned = raw.replace(/[^\d.]/g, '');
+  if (!cleaned) { el.value = ''; return; }
+  const parts = cleaned.split('.');
+  const ip = parts[0].replace(/^0+(?=\d)/, '');
+  const fp = parts.length > 1 ? '.' + parts.slice(1).join('').slice(0, 2) : '';
+  el.value = ip.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + fp;
+  if (digitsBefore > 0) {
+    let count = 0, pos = el.value.length;
+    for (let i = 0; i < el.value.length; i++) {
+      if (/\d/.test(el.value[i])) { count += 1; if (count === digitsBefore) { pos = i + 1; break; } }
+    }
+    try { el.setSelectionRange(pos, pos); } catch (e) {}
+  }
+}
+
 function openTargetEditor(sid) {
   const scheme = schemeById(sid || rebalanceSchemeId());
   if (!scheme || !rebalanceEnabled(scheme)) { toast('请先在分组管理中开启再平衡', 'error'); return; }
@@ -209,7 +237,7 @@ function openTargetEditor(sid) {
         ? '<input class="input plan-text" data-f="name" data-g="' + esc(g.gid) + '" data-r="' + esc(rid) + '" value="' + esc(r.name) + '" placeholder="标的名称">'
         : esc(r.name)) + '</div>' +
       '<div class="plan-num">' + (r.isNew ? '—' : money(r.curNative, r.currency)) + '</div>' +
-      '<div class="plan-num plan-adj ' + cls + '"><input class="input plan-amt" inputmode="decimal" data-f="adj" data-g="' + esc(g.gid) + '" data-r="' + esc(rid) + '" value="' + (Math.abs(r.adjNative - r.curNative) < 0.005 && !r.isNew ? '' : round(r.adjNative, 2)) + '" placeholder="' + (r.isNew ? '0' : '不变') + '"></div>' +
+      '<div class="plan-num plan-adj ' + cls + '"><input class="input plan-amt" inputmode="decimal" data-f="adj" data-g="' + esc(g.gid) + '" data-r="' + esc(rid) + '" value="' + (Math.abs(r.adjNative - r.curNative) < 0.005 && !r.isNew ? '' : amtDisplay(r.adjNative)) + '" placeholder="' + (r.isNew ? '0' : '不变') + '"></div>' +
       '<div class="plan-num plan-rate"><input class="input plan-amt" inputmode="decimal" data-f="rate" data-g="' + esc(g.gid) + '" data-r="' + esc(rid) + '" value="' + (rateOf(r) == null ? '' : rateOf(r)) + '" placeholder="—"><i>%</i></div>' +
       '<div class="plan-num ' + cls + '" data-cell="inc:' + esc(rid) + '">' + (rateOf(r) == null ? '—' : money(r.adjNative * rateOf(r) / 100, r.currency)) + '</div>' +
     '</div>';
@@ -344,7 +372,7 @@ function openTargetEditor(sid) {
       g.rows.forEach(r => {
         const rid = g.gid + ':' + r.key;
         const el = form.querySelector('[data-f="adj"][data-r="' + rid + '"]');
-        if (el) el.value = (Math.abs(r.adjNative - r.curNative) < 0.005 && !r.isNew ? '' : round(r.adjNative, 2));
+        if (el) el.value = (Math.abs(r.adjNative - r.curNative) < 0.005 && !r.isNew ? '' : amtDisplay(r.adjNative));
       });
       const holder = form.querySelector('[data-fresh="' + g.gid + '"]');
       if (holder) holder.innerHTML = g.fresh.map((r, i) => rowHTML(g, r, g.gid + ':new' + i)).join('');
@@ -450,6 +478,7 @@ function openTargetEditor(sid) {
     const r = findRow(gid, rid);
     if (!r) return;
     if (f === 'adj') {
+      amtFormatInPlace(el);
       const v = String(el.value).trim();
       r.adjNative = v === '' ? r.curNative : parseNumber(v);
     } else if (f === 'rate') {
