@@ -432,6 +432,35 @@ function schemePlanEffect(schemeId, plan) {
     weights: rows.map(x => ({ name: x.g.name, pct: x.target / totalTarget * 100, target: x.target, rate: x.rate }))
   };
 }
+/* 方案按「标的级明细」算的年化：调整后金额 × 各标的年化 / 总金额
+   和调仓试算表底部的「汇总」用同一套口径 */
+function schemePlanIncome(schemeId, plan) {
+  const scheme = schemeById(schemeId);
+  if (!scheme || !plan) return null;
+  const ops = plan.ops || {};
+  const fresh = plan.fresh || [];
+  let income = 0, total = 0, unrated = 0;
+  (scheme.groups || []).forEach(g => {
+    groupComponents(schemeId, g.id).forEach(c => {
+      const inst = c.instrument || null;
+      const key = inst ? inst.id : 'cash_' + (c.account ? c.account.id : 'x');
+      const fx = fxToBase(c.currency || baseCurrency()) || 1;
+      const adj = (Number(c.native) || 0) + (Number(ops[key]) || 0) / fx;
+      const base = adj * fx;
+      const rate = inst ? instrumentExpectedRate(inst) : accountExpectedRate(c.account);
+      total += base;
+      if (rate == null) { if (Math.abs(base) > 0.005) unrated += base; return; }
+      income += base * rate / 100;
+    });
+    fresh.filter(f => f.gid === g.id).forEach(f => {
+      const amt = Number(f.amount) || 0;
+      total += amt;
+      if (f.rate == null || f.rate === '') { if (Math.abs(amt) > 0.005) unrated += amt; return; }
+      income += amt * Number(f.rate) / 100;
+    });
+  });
+  return { income, total, unrated, annual: total > 0 ? income / total * 100 : null };
+}
 function rebalanceTargetFor(scheme, group) {
   if (!scheme || !group) return 0;
   if (scheme.builtin) {

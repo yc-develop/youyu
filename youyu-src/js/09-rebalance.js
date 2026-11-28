@@ -171,32 +171,35 @@ function openTargetEditor(sid) {
   const pct = (a, b) => (b > 0 ? (a / b * 100) : 0);
   const signMoney = v => (Math.abs(v) < 0.005 ? '—' : (v > 0 ? '+' : '−') + money(Math.abs(v), 'CNY'));
 
-  /* 当前编辑中的配比会算出的年化（只改各桶比例，桶内构成不变） */
-  const liveEffect = () => {
-    const tt = sum(groups, g => g.target);
-    if (!(tt > 0)) return null;
-    const base = totalNow();
-    let annual = 0;
-    groups.forEach(g => {
-      const st = groupExpectedStats(scheme.id, g.gid);
-      if (st.weighted == null) return;
-      annual += (g.target / tt) * st.weighted;
-    });
-    return { annual, income: base * annual / 100 };
+  /* 调整后年化：按「调整后金额 × 标的年化」，和底部汇总同一口径 */
+  const liveIncome = () => {
+    let inc = 0, tot = 0;
+    groups.forEach(g => rowsOf(g).forEach(r => {
+      const v = adjBase(r);
+      tot += v;
+      if (rateOf(r) != null) inc += v * rateOf(r) / 100;
+    }));
+    return { income: inc, total: tot, annual: tot > 0 ? inc / tot * 100 : null };
   };
   const tabsHTML = () => plans.map(p => {
     let annual = null;
-    if (p.id === activePlanId) { const le = liveEffect(); annual = le ? le.annual : null; }
-    else { const eff = schemePlanEffect(scheme.id, p); annual = eff && eff.annual != null ? eff.annual : null; }
+    if (p.id === activePlanId) {
+      const li = liveIncome();
+      annual = li.annual;
+    } else {
+      const hasDetail = Object.keys(p.ops || {}).length > 0 || (p.fresh || []).length > 0;
+      if (hasDetail) { const pi = schemePlanIncome(scheme.id, p); annual = pi ? pi.annual : null; }
+      else { const eff = schemePlanEffect(scheme.id, p); annual = eff && eff.annual != null ? eff.annual : null; }
+    }
     return '<button type="button" class="plan-tab' + (p.id === activePlanId ? ' on' : '') + '" data-f="plan" data-plan="' + esc(p.id) + '">' +
       '<b>' + esc(p.name) + '</b><i>' + (annual == null ? '—' : annual.toFixed(2) + '%') + '</i></button>';
   }).join('') + '<button type="button" class="plan-tab plan-tab-add" data-f="plan-add" aria-label="新建方案">' + icon('plus') + '</button>';
   const syncPlanUI = () => {
-    const le = liveEffect();
+    const li = liveIncome();
     const eff = form.querySelector('#plan-eff');
-    if (eff) eff.textContent = le ? '按这个配比 ≈ 年化 ' + le.annual.toFixed(2) + '%，年收益 ' + money(le.income, 'CNY') : '';
+    if (eff) eff.textContent = li.annual == null ? '' : '调整后 ≈ 年化 ' + li.annual.toFixed(2) + '%，年收益 ' + money(li.income, 'CNY');
     const active = form.querySelector('[data-f="plan"][data-plan="' + activePlanId + '"] i');
-    if (active) active.textContent = le ? le.annual.toFixed(2) + '%' : '—';
+    if (active) active.textContent = li.annual == null ? '—' : li.annual.toFixed(2) + '%';
   };
 
   const rowHTML = (g, r, rid) => {
