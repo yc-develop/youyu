@@ -182,17 +182,19 @@ function openTargetEditor(sid) {
     return { income: inc, total: tot, annual: tot > 0 ? inc / tot * 100 : null };
   };
   const tabsHTML = () => plans.map(p => {
-    let annual = null;
+    let annual = null, estimated = false;
     if (p.id === activePlanId) {
       const li = liveIncome();
       annual = li.annual;
     } else {
       const hasDetail = Object.keys(p.ops || {}).length > 0 || (p.fresh || []).length > 0;
       if (hasDetail) { const pi = schemePlanIncome(scheme.id, p); annual = pi ? pi.annual : null; }
-      else { const eff = schemePlanEffect(scheme.id, p); annual = eff && eff.annual != null ? eff.annual : null; }
+      else { const eff = schemePlanEffect(scheme.id, p); annual = eff && eff.annual != null ? eff.annual : null; estimated = true; }
     }
-    return '<button type="button" class="plan-tab' + (p.id === activePlanId ? ' on' : '') + '" data-f="plan" data-plan="' + esc(p.id) + '">' +
-      '<b>' + esc(p.name) + '</b><i>' + (annual == null ? '—' : annual.toFixed(2) + '%') + '</i></button>';
+    const label = annual == null ? '—' : (estimated ? '≈' : '') + annual.toFixed(2) + '%';
+    return '<button type="button" class="plan-tab' + (p.id === activePlanId ? ' on' : '') + (estimated ? ' est' : '') +
+      '" data-f="plan" data-plan="' + esc(p.id) + '"' + (estimated ? ' title="还没有标的级明细，按目标比例估算"' : '') + '>' +
+      '<b>' + esc(p.name) + '</b><i>' + label + '</i></button>';
   }).join('') + '<button type="button" class="plan-tab plan-tab-add" data-f="plan-add" aria-label="新建方案">' + icon('plus') + '</button>';
   const syncPlanUI = () => {
     const li = liveIncome();

@@ -1530,6 +1530,8 @@ html[data-theme="light"] .acct-icon.brand{border-color:rgba(16,24,40,.1);box-sha
 .plan-tab i{font-style:normal;font-size:9px;color:var(--faint);font-variant-numeric:tabular-nums}
 .plan-tab.on{background:var(--accent-soft);border-color:rgba(255,159,69,.38);color:var(--ink)}
 .plan-tab.on i{color:var(--accent)}
+.plan-tab.est b,.plan-tab.est i{opacity:.72}
+.plan-tab.est i{font-style:italic}
 .plan-tab-add{align-items:center;justify-content:center;padding:7px 10px;color:var(--faint)}
 .plan-tab-add .icon{width:13px;height:13px}
 .plan-eff-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 13px}
@@ -1602,7 +1604,7 @@ html[data-theme="light"] .acct-icon.brand{border-color:rgba(16,24,40,.1);box-sha
 'use strict';
 
 const APP_NAME = '有余';
-const APP_VERSION = '6.5.81';
+const APP_VERSION = '6.5.82';
 // 沿用旧存储键，避免改名后已有本地账本丢失
 const STORE_KEY = 'yingji.portfolio.v1';
 const DEMO_STORE_KEY = 'yingji.demo.v1';
@@ -6153,17 +6155,19 @@ function openTargetEditor(sid) {
     return { income: inc, total: tot, annual: tot > 0 ? inc / tot * 100 : null };
   };
   const tabsHTML = () => plans.map(p => {
-    let annual = null;
+    let annual = null, estimated = false;
     if (p.id === activePlanId) {
       const li = liveIncome();
       annual = li.annual;
     } else {
       const hasDetail = Object.keys(p.ops || {}).length > 0 || (p.fresh || []).length > 0;
       if (hasDetail) { const pi = schemePlanIncome(scheme.id, p); annual = pi ? pi.annual : null; }
-      else { const eff = schemePlanEffect(scheme.id, p); annual = eff && eff.annual != null ? eff.annual : null; }
+      else { const eff = schemePlanEffect(scheme.id, p); annual = eff && eff.annual != null ? eff.annual : null; estimated = true; }
     }
-    return '<button type="button" class="plan-tab' + (p.id === activePlanId ? ' on' : '') + '" data-f="plan" data-plan="' + esc(p.id) + '">' +
-      '<b>' + esc(p.name) + '</b><i>' + (annual == null ? '—' : annual.toFixed(2) + '%') + '</i></button>';
+    const label = annual == null ? '—' : (estimated ? '≈' : '') + annual.toFixed(2) + '%';
+    return '<button type="button" class="plan-tab' + (p.id === activePlanId ? ' on' : '') + (estimated ? ' est' : '') +
+      '" data-f="plan" data-plan="' + esc(p.id) + '"' + (estimated ? ' title="还没有标的级明细，按目标比例估算"' : '') + '>' +
+      '<b>' + esc(p.name) + '</b><i>' + label + '</i></button>';
   }).join('') + '<button type="button" class="plan-tab plan-tab-add" data-f="plan-add" aria-label="新建方案">' + icon('plus') + '</button>';
   const syncPlanUI = () => {
     const li = liveIncome();
