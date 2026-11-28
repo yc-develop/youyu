@@ -1522,6 +1522,24 @@ html[data-theme="light"] .acct-icon.brand{border-color:rgba(16,24,40,.1);box-sha
 
 /* 调整目标 · 调仓试算表 */
 .plan-note{margin:0 0 13px;font-size:9px;line-height:1.65;color:var(--faint)}
+/* 目标方案切换 */
+.plan-tabs{display:flex;gap:7px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:0 0 3px;margin:0 0 7px;scrollbar-width:none}
+.plan-tabs::-webkit-scrollbar{display:none}
+.plan-tab{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:7px 11px;border-radius:11px;border:1px solid var(--line);background:rgba(255,255,255,.03);color:var(--ink-2);cursor:pointer;transition:background .15s,border-color .15s}
+.plan-tab b{font-size:10.5px;font-weight:650;white-space:nowrap;max-width:112px;overflow:hidden;text-overflow:ellipsis}
+.plan-tab i{font-style:normal;font-size:9px;color:var(--faint);font-variant-numeric:tabular-nums}
+.plan-tab.on{background:var(--accent-soft);border-color:rgba(255,159,69,.38);color:var(--ink)}
+.plan-tab.on i{color:var(--accent)}
+.plan-tab-add{align-items:center;justify-content:center;padding:7px 10px;color:var(--faint)}
+.plan-tab-add .icon{width:13px;height:13px}
+.plan-eff-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 13px}
+.plan-eff-row #plan-eff{font-size:9.5px;color:var(--faint);font-variant-numeric:tabular-nums}
+.plan-eff-row .text-btn{font-size:9.5px;flex:0 0 auto}
+.plan-mg{display:flex;flex-direction:column;gap:9px}
+.plan-mg-row{display:flex;align-items:center;gap:9px}
+.plan-mg-name{flex:1 1 auto;min-width:0}
+.plan-mg-row .icon-btn{flex:0 0 auto}
+.icon-btn.danger{color:#ff5d6c;border-color:rgba(255,93,108,.24);background:rgba(255,93,108,.09)}
 .plan-block{margin-bottom:17px}
 .plan-group{display:flex;align-items:center;gap:6px;margin-bottom:7px;font-size:9px;color:var(--faint);cursor:pointer;user-select:none}
 .plan-fold{width:13px;height:13px;flex:0 0 13px;display:inline-flex;align-items:center;justify-content:center;color:var(--faint);transition:transform .16s ease}
@@ -1584,7 +1602,7 @@ html[data-theme="light"] .acct-icon.brand{border-color:rgba(16,24,40,.1);box-sha
 'use strict';
 
 const APP_NAME = '有余';
-const APP_VERSION = '6.5.78';
+const APP_VERSION = '6.5.79';
 // 沿用旧存储键，避免改名后已有本地账本丢失
 const STORE_KEY = 'yingji.portfolio.v1';
 const DEMO_STORE_KEY = 'yingji.demo.v1';
@@ -2490,6 +2508,32 @@ function normalizeState(obj) {
       g.includeClasses = Array.isArray(g.includeClasses) ? g.includeClasses : [];
       g.includeInstruments = Array.isArray(g.includeInstruments) ? g.includeInstruments : [];
     });
+    // 目标方案：一套方案 = 一套 {分组id: 目标%}，group.target 始终镜像当前方案
+    s.plans = Array.isArray(s.plans) ? s.plans : [];
+    s.plans = s.plans.filter(p => p && typeof p === 'object').map((p, pi) => {
+      const src = (p.targets && typeof p.targets === 'object') ? p.targets : {};
+      const targets = {};
+      s.groups.forEach(g => {
+        const v = Number(src[g.id]);
+        if (Number.isFinite(v)) targets[g.id] = clamp(v, 0, 100);
+      });
+      return {
+        id: String(p.id || ('plan_' + pi)),
+        name: String(p.name || ('方案 ' + (pi + 1))).slice(0, 20),
+        targets
+      };
+    });
+    if (!s.plans.length) {
+      const targets = {};
+      s.groups.forEach(g => { targets[g.id] = clamp(Number(g.target) || 0, 0, 100); });
+      s.plans = [{ id: 'plan_default', name: '默认方案', targets }];
+    }
+    const planIds = new Set(s.plans.map(p => p.id));
+    if (!planIds.has(s.activePlan)) s.activePlan = s.plans[0].id;
+    s.groups.forEach(g => {
+      const active = s.plans.find(p => p.id === s.activePlan);
+      if (active && Number.isFinite(Number(active.targets[g.id]))) g.target = Number(active.targets[g.id]);
+    });
   });
   const allInstruments = [];
   obj.accounts.forEach(a => (a.instruments || []).forEach(i => allInstruments.push(i)));
@@ -2679,11 +2723,75 @@ function setRebalanceEnabled(schemeId, enabled) {
   if (!state.rebalance.schemes) state.rebalance.schemes = {};
   state.rebalance.schemes[schemeId] = Object.assign({}, rebalanceConfig(schemeId), { enabled: !!enabled });
 }
+/* ---------- 目标方案（同一分组方式下的多套配比） ---------- */
+function ensureSchemePlans(scheme) {
+  if (!scheme) return [];
+  if (!Array.isArray(scheme.plans)) scheme.plans = [];
+  if (!scheme.plans.length) {
+    const targets = {};
+    (scheme.groups || []).forEach(g => { targets[g.id] = clamp(Number(g.target) || 0, 0, 100); });
+    scheme.plans = [{ id: 'plan_default', name: '默认方案', targets }];
+  }
+  if (!scheme.plans.some(p => p.id === scheme.activePlan)) scheme.activePlan = scheme.plans[0].id;
+  return scheme.plans;
+}
+function activeSchemePlan(scheme) {
+  const list = ensureSchemePlans(scheme);
+  return list.find(p => p.id === scheme.activePlan) || list[0];
+}
+function planTargetFor(plan, groupId) {
+  if (!plan || !plan.targets) return 0;
+  const v = Number(plan.targets[groupId]);
+  return Number.isFinite(v) ? v : 0;
+}
+function syncSchemeGroupTargets(scheme) {
+  if (!scheme || scheme.builtin) return;
+  const plan = activeSchemePlan(scheme);
+  (scheme.groups || []).forEach(g => { g.target = planTargetFor(plan, g.id); });
+}
+function setActiveSchemePlan(scheme, planId) {
+  if (!scheme) return false;
+  const list = ensureSchemePlans(scheme);
+  if (!list.some(p => p.id === planId)) return false;
+  scheme.activePlan = planId;
+  syncSchemeGroupTargets(scheme);
+  return true;
+}
+/* 方案效果：按目标比例重排后，用各分组当前的持仓加权年化估算
+   假设：只改各桶比例，不动桶内标的构成 —— 所以桶年化沿用当前值 */
+function schemePlanEffect(schemeId, plan) {
+  const scheme = schemeById(schemeId);
+  if (!scheme || !plan) return null;
+  const rows = (scheme.groups || []).map(g => {
+    const st = groupExpectedStats(schemeId, g.id);
+    return { g, target: planTargetFor(plan, g.id), value: st.totalValue, rate: st.weighted, missing: st.missingCount };
+  });
+  const totalTarget = sum(rows, x => x.target);
+  const totalValue = sum(rows, x => x.value);
+  if (!(totalTarget > 0)) return { totalTarget, annual: null, income: null, totalValue, weights: rows.map(x => ({ name: x.g.name, pct: 0 })) };
+  let annual = 0, income = 0, missingCount = 0;
+  rows.forEach(x => {
+    const w = x.target / totalTarget;
+    if (x.rate == null) { missingCount += x.missing; return; }
+    annual += w * x.rate;
+    income += w * totalValue * x.rate / 100;
+  });
+  return {
+    totalTarget, annual, income, totalValue, missingCount,
+    weights: rows.map(x => ({ name: x.g.name, pct: x.target / totalTarget * 100, target: x.target, rate: x.rate }))
+  };
+}
 function rebalanceTargetFor(scheme, group) {
   if (!scheme || !group) return 0;
-  if (!scheme.builtin) return Number(group.target) || 0;
-  const targets = (state.rebalance && state.rebalance.targets && state.rebalance.targets[scheme.id]) || {};
-  return Number(targets[group.id]) || 0;
+  if (scheme.builtin) {
+    const targets = (state.rebalance && state.rebalance.targets && state.rebalance.targets[scheme.id]) || {};
+    return Number(targets[group.id]) || 0;
+  }
+  const plan = activeSchemePlan(scheme);
+  if (plan && plan.targets && Object.prototype.hasOwnProperty.call(plan.targets, group.id)) {
+    return planTargetFor(plan, group.id);
+  }
+  return Number(group.target) || 0;
 }
 function groupTargetValue(scheme, group) { return rebalanceTargetFor(scheme, group); }
 /* 预期年化挂在标的（账户现金则为账户）上，分组年化由持仓加权算出，不再手填 */
@@ -5859,7 +5967,7 @@ function renderRebalancePage() {
   }) +
   schemeChipsHTML(sid, 'select-rebalance-scheme', schemesForRebalance()) +
   '<section class="card" style="padding:16px 14px 14px;margin-top:2px">' +
-    '<div class="card-head" style="padding:0"><div><h2>当前 vs 目标</h2><div class="sub">' + esc(scheme ? scheme.name : '') + ' · 目标为 ' + baseCurrency() + ' 口径</div></div><span class="tiny">±' + tolerance.toFixed(1) + '% 容忍</span></div>' +
+    '<div class="card-head" style="padding:0"><div><h2>当前 vs 目标</h2><div class="sub">' + esc(scheme ? scheme.name : '') + (scheme && !scheme.builtin ? ' · ' + esc(activeSchemePlan(scheme).name) : '') + ' · 目标为 ' + baseCurrency() + ' 口径</div></div><span class="tiny">±' + tolerance.toFixed(1) + '% 容忍</span></div>' +
     '<div class="donut-pair" style="margin-top:16px">' +
       '<div class="donut-mini-wrap">' + donutCurrent + '<div class="cap"><b>当前配置</b>' + fmtMoney(gb.total, { compact: true }) + '</div></div>' +
       '<div class="donut-mini-wrap">' + donutTarget + '<div class="cap"><b>目标配置</b>' + (schemeTargetTotal(scheme) || 0).toFixed(0) + '%</div></div>' +
@@ -5904,6 +6012,8 @@ function openTargetEditor(sid) {
   const scheme = schemeById(sid || rebalanceSchemeId());
   if (!scheme || !rebalanceEnabled(scheme)) { toast('请先在分组管理中开启再平衡', 'error'); return; }
   const tolerance = Number(state.settings.tolerance) || 0;
+  const plans = ensureSchemePlans(scheme);
+  let activePlanId = scheme.activePlan;
   const savedPlan = (state.rebalance.plans && state.rebalance.plans[scheme.id]) || {};
   const savedOps = savedPlan.ops || {};
   const savedFresh = Array.isArray(savedPlan.fresh) ? savedPlan.fresh : [];
@@ -5958,6 +6068,34 @@ function openTargetEditor(sid) {
   const pct = (a, b) => (b > 0 ? (a / b * 100) : 0);
   const signMoney = v => (Math.abs(v) < 0.005 ? '—' : (v > 0 ? '+' : '−') + money(Math.abs(v), 'CNY'));
 
+  /* 当前编辑中的配比会算出的年化（只改各桶比例，桶内构成不变） */
+  const liveEffect = () => {
+    const tt = sum(groups, g => g.target);
+    if (!(tt > 0)) return null;
+    const base = totalNow();
+    let annual = 0;
+    groups.forEach(g => {
+      const st = groupExpectedStats(scheme.id, g.gid);
+      if (st.weighted == null) return;
+      annual += (g.target / tt) * st.weighted;
+    });
+    return { annual, income: base * annual / 100 };
+  };
+  const tabsHTML = () => plans.map(p => {
+    let annual = null;
+    if (p.id === activePlanId) { const le = liveEffect(); annual = le ? le.annual : null; }
+    else { const eff = schemePlanEffect(scheme.id, p); annual = eff && eff.annual != null ? eff.annual : null; }
+    return '<button type="button" class="plan-tab' + (p.id === activePlanId ? ' on' : '') + '" data-f="plan" data-plan="' + esc(p.id) + '">' +
+      '<b>' + esc(p.name) + '</b><i>' + (annual == null ? '—' : annual.toFixed(2) + '%') + '</i></button>';
+  }).join('') + '<button type="button" class="plan-tab plan-tab-add" data-f="plan-add" aria-label="新建方案">' + icon('plus') + '</button>';
+  const syncPlanUI = () => {
+    const le = liveEffect();
+    const eff = form.querySelector('#plan-eff');
+    if (eff) eff.textContent = le ? '按这个配比 ≈ 年化 ' + le.annual.toFixed(2) + '%，年收益 ' + money(le.income, 'CNY') : '';
+    const active = form.querySelector('[data-f="plan"][data-plan="' + activePlanId + '"] i');
+    if (active) active.textContent = le ? le.annual.toFixed(2) + '%' : '—';
+  };
+
   const rowHTML = (g, r, rid) => {
     const diff = r.adjNative - r.curNative;
     const cls = diff > 0.005 ? 'up' : diff < -0.005 ? 'down' : '';
@@ -5993,6 +6131,8 @@ function openTargetEditor(sid) {
 
   const body = '<form id="target-form">' +
     '<div class="plan-note">直接改「调整后」那一列：比当前大就是加仓，比当前小就是减仓，新标的把「调整后」填上就是建仓。点分组名可以折叠。外币标的按原币显示。</div>' +
+    '<div class="plan-tabs" id="plan-tabs">' + tabsHTML() + '</div>' +
+    '<div class="plan-eff-row"><span id="plan-eff"></span><button type="button" class="text-btn" data-f="plan-menu">管理方案</button></div>' +
     '<div class="reb-target-sumline" style="margin-top:0;padding-top:0;border-top:0;margin-bottom:14px"><span>目标合计 <b id="target-total">' + schemeTargetTotal(scheme).toFixed(1) + '%</b></span></div>' +
     groupsHTML +
     '<div class="form-section">汇总</div>' +
@@ -6085,6 +6225,94 @@ function openTargetEditor(sid) {
         warn.innerHTML = icon('alert') + '<span>' + ur.n + ' 项标的（' + money(ur.v, 'CNY') + '）没填预期年化，年化与年收益按 0 计入，汇总会偏低。</span>';
       } else { warn.hidden = true; warn.innerHTML = ''; }
     }
+    syncPlanUI();
+  };
+
+  const applyTargetsToDOM = () => {
+    groups.forEach(g => {
+      const inp = form.querySelector('[data-f="target"][data-g="' + g.gid + '"]');
+      if (inp) inp.value = g.target;
+    });
+  };
+  const switchPlan = planId => {
+    if (!planId || planId === activePlanId) return;
+    if (!setActiveSchemePlan(scheme, planId)) return;
+    activePlanId = scheme.activePlan;
+    const plan = activeSchemePlan(scheme);
+    groups.forEach(g => { g.target = planTargetFor(plan, g.gid); });
+    applyTargetsToDOM();
+    const holder = form.querySelector('#plan-tabs');
+    if (holder) holder.innerHTML = tabsHTML();
+    refresh();
+  };
+  const addPlan = () => {
+    const cur = activeSchemePlan(scheme);
+    const id = uid('plan');
+    plans.push({ id, name: '方案 ' + (plans.length + 1), targets: Object.assign({}, cur.targets) });
+    scheme.activePlan = id;
+    activePlanId = id;
+    const holder = form.querySelector('#plan-tabs');
+    if (holder) holder.innerHTML = tabsHTML();
+    refresh();
+    toast('已复制当前配比为「方案 ' + plans.length + '」', 'success');
+  };
+  const openPlanManager = () => {
+    const rowsHTML = () => plans.map(p => {
+      const on = p.id === activePlanId;
+      return '<div class="plan-mg-row">' +
+        '<input class="input plan-mg-name" data-pf="name" data-plan="' + esc(p.id) + '" value="' + esc(p.name) + '" maxlength="20" placeholder="方案名">' +
+        '<span class="tiny" style="min-width:38px;text-align:right">' + (on ? '使用中' : '') + '</span>' +
+        '<button type="button" class="icon-btn danger" data-pf="del" data-plan="' + esc(p.id) + '"' + (plans.length < 2 ? ' disabled' : '') + ' aria-label="删除">' + icon('trash') + '</button>' +
+      '</div>';
+    }).join('');
+    const w = openSheet({
+      title: '管理方案', sub: '改名直接编辑 · 删除后不可恢复',
+      body: '<div class="plan-mg" id="plan-mg">' + rowsHTML() + '</div>',
+      footer: '<button class="btn ghost" data-sheet-close>关闭</button>'
+    });
+    w.addEventListener('input', ev => {
+      const el = ev.target;
+      if (!el || el.getAttribute('data-pf') !== 'name') return;
+      const p = plans.find(x => x.id === el.getAttribute('data-plan'));
+      if (p) p.name = String(el.value || '').slice(0, 20);
+    });
+    w.addEventListener('click', ev => {
+      const btn = ev.target.closest ? ev.target.closest('[data-pf="del"]') : null;
+      if (!btn) return;
+      const id = btn.getAttribute('data-plan');
+      if (plans.length < 2) return;
+      const p = plans.find(x => x.id === id);
+      confirmDialog({
+        title: '删除方案', message: '删除「' + esc(p ? p.name : '') + '」？只删这一套目标，不动账本。',
+        confirmText: '删除', danger: true,
+        onConfirm: () => {
+          plans.splice(plans.findIndex(x => x.id === id), 1);
+          if (activePlanId === id) {
+            activePlanId = plans[0].id;
+            scheme.activePlan = activePlanId;
+            const plan = activeSchemePlan(scheme);
+            groups.forEach(g => { g.target = planTargetFor(plan, g.gid); });
+            applyTargetsToDOM();
+          }
+          const mg = w.querySelector('#plan-mg');
+          if (mg) mg.innerHTML = rowsHTML();
+          const holder = form.querySelector('#plan-tabs');
+          if (holder) holder.innerHTML = tabsHTML();
+          refresh();
+          toast('已删除方案', 'success');
+        }
+      });
+    });
+    w.addEventListener('click', ev => {
+      const done = ev.target.closest ? ev.target.closest('[data-sheet-close]') : null;
+      if (!done) return;
+      if (scheme.activePlan !== activePlanId) switchPlan(scheme.activePlan);
+      else {
+        const holder = form.querySelector('#plan-tabs');
+        if (holder) holder.innerHTML = tabsHTML();
+        refresh();
+      }
+    });
   };
 
   form.addEventListener('input', ev => {
@@ -6113,6 +6341,9 @@ function openTargetEditor(sid) {
     const el = ev.target.closest ? ev.target.closest('[data-f]') : null;
     if (!el) return;
     const f = el.getAttribute('data-f');
+    if (f === 'plan') { ev.preventDefault(); switchPlan(el.getAttribute('data-plan')); return; }
+    if (f === 'plan-add') { ev.preventDefault(); addPlan(); return; }
+    if (f === 'plan-menu') { ev.preventDefault(); openPlanManager(); return; }
     const gid = el.getAttribute('data-g');
     const g = groups.find(x => x.gid === gid);
     if (!g) return;
@@ -6140,7 +6371,10 @@ function openTargetEditor(sid) {
     if (scheme.builtin) {
       state.rebalance.targets[scheme.id] = Object.assign({}, state.rebalance.targets[scheme.id] || {}, values);
     } else {
-      scheme.groups.forEach(g => { g.target = Number(values[g.id]) || 0; });
+      const plan = activeSchemePlan(scheme);
+      plan.targets = {};
+      scheme.groups.forEach(g => { plan.targets[g.id] = clamp(Number(values[g.id]) || 0, 0, 100); });
+      syncSchemeGroupTargets(scheme);
     }
     const ops = {};
     const fresh = [];

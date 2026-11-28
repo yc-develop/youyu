@@ -62,7 +62,7 @@ function renderRebalancePage() {
   }) +
   schemeChipsHTML(sid, 'select-rebalance-scheme', schemesForRebalance()) +
   '<section class="card" style="padding:16px 14px 14px;margin-top:2px">' +
-    '<div class="card-head" style="padding:0"><div><h2>当前 vs 目标</h2><div class="sub">' + esc(scheme ? scheme.name : '') + ' · 目标为 ' + baseCurrency() + ' 口径</div></div><span class="tiny">±' + tolerance.toFixed(1) + '% 容忍</span></div>' +
+    '<div class="card-head" style="padding:0"><div><h2>当前 vs 目标</h2><div class="sub">' + esc(scheme ? scheme.name : '') + (scheme && !scheme.builtin ? ' · ' + esc(activeSchemePlan(scheme).name) : '') + ' · 目标为 ' + baseCurrency() + ' 口径</div></div><span class="tiny">±' + tolerance.toFixed(1) + '% 容忍</span></div>' +
     '<div class="donut-pair" style="margin-top:16px">' +
       '<div class="donut-mini-wrap">' + donutCurrent + '<div class="cap"><b>当前配置</b>' + fmtMoney(gb.total, { compact: true }) + '</div></div>' +
       '<div class="donut-mini-wrap">' + donutTarget + '<div class="cap"><b>目标配置</b>' + (schemeTargetTotal(scheme) || 0).toFixed(0) + '%</div></div>' +
@@ -107,6 +107,8 @@ function openTargetEditor(sid) {
   const scheme = schemeById(sid || rebalanceSchemeId());
   if (!scheme || !rebalanceEnabled(scheme)) { toast('请先在分组管理中开启再平衡', 'error'); return; }
   const tolerance = Number(state.settings.tolerance) || 0;
+  const plans = ensureSchemePlans(scheme);
+  let activePlanId = scheme.activePlan;
   const savedPlan = (state.rebalance.plans && state.rebalance.plans[scheme.id]) || {};
   const savedOps = savedPlan.ops || {};
   const savedFresh = Array.isArray(savedPlan.fresh) ? savedPlan.fresh : [];
@@ -161,6 +163,34 @@ function openTargetEditor(sid) {
   const pct = (a, b) => (b > 0 ? (a / b * 100) : 0);
   const signMoney = v => (Math.abs(v) < 0.005 ? '—' : (v > 0 ? '+' : '−') + money(Math.abs(v), 'CNY'));
 
+  /* 当前编辑中的配比会算出的年化（只改各桶比例，桶内构成不变） */
+  const liveEffect = () => {
+    const tt = sum(groups, g => g.target);
+    if (!(tt > 0)) return null;
+    const base = totalNow();
+    let annual = 0;
+    groups.forEach(g => {
+      const st = groupExpectedStats(scheme.id, g.gid);
+      if (st.weighted == null) return;
+      annual += (g.target / tt) * st.weighted;
+    });
+    return { annual, income: base * annual / 100 };
+  };
+  const tabsHTML = () => plans.map(p => {
+    let annual = null;
+    if (p.id === activePlanId) { const le = liveEffect(); annual = le ? le.annual : null; }
+    else { const eff = schemePlanEffect(scheme.id, p); annual = eff && eff.annual != null ? eff.annual : null; }
+    return '<button type="button" class="plan-tab' + (p.id === activePlanId ? ' on' : '') + '" data-f="plan" data-plan="' + esc(p.id) + '">' +
+      '<b>' + esc(p.name) + '</b><i>' + (annual == null ? '—' : annual.toFixed(2) + '%') + '</i></button>';
+  }).join('') + '<button type="button" class="plan-tab plan-tab-add" data-f="plan-add" aria-label="新建方案">' + icon('plus') + '</button>';
+  const syncPlanUI = () => {
+    const le = liveEffect();
+    const eff = form.querySelector('#plan-eff');
+    if (eff) eff.textContent = le ? '按这个配比 ≈ 年化 ' + le.annual.toFixed(2) + '%，年收益 ' + money(le.income, 'CNY') : '';
+    const active = form.querySelector('[data-f="plan"][data-plan="' + activePlanId + '"] i');
+    if (active) active.textContent = le ? le.annual.toFixed(2) + '%' : '—';
+  };
+
   const rowHTML = (g, r, rid) => {
     const diff = r.adjNative - r.curNative;
     const cls = diff > 0.005 ? 'up' : diff < -0.005 ? 'down' : '';
@@ -196,6 +226,8 @@ function openTargetEditor(sid) {
 
   const body = '<form id="target-form">' +
     '<div class="plan-note">直接改「调整后」那一列：比当前大就是加仓，比当前小就是减仓，新标的把「调整后」填上就是建仓。点分组名可以折叠。外币标的按原币显示。</div>' +
+    '<div class="plan-tabs" id="plan-tabs">' + tabsHTML() + '</div>' +
+    '<div class="plan-eff-row"><span id="plan-eff"></span><button type="button" class="text-btn" data-f="plan-menu">管理方案</button></div>' +
     '<div class="reb-target-sumline" style="margin-top:0;padding-top:0;border-top:0;margin-bottom:14px"><span>目标合计 <b id="target-total">' + schemeTargetTotal(scheme).toFixed(1) + '%</b></span></div>' +
     groupsHTML +
     '<div class="form-section">汇总</div>' +
@@ -288,6 +320,94 @@ function openTargetEditor(sid) {
         warn.innerHTML = icon('alert') + '<span>' + ur.n + ' 项标的（' + money(ur.v, 'CNY') + '）没填预期年化，年化与年收益按 0 计入，汇总会偏低。</span>';
       } else { warn.hidden = true; warn.innerHTML = ''; }
     }
+    syncPlanUI();
+  };
+
+  const applyTargetsToDOM = () => {
+    groups.forEach(g => {
+      const inp = form.querySelector('[data-f="target"][data-g="' + g.gid + '"]');
+      if (inp) inp.value = g.target;
+    });
+  };
+  const switchPlan = planId => {
+    if (!planId || planId === activePlanId) return;
+    if (!setActiveSchemePlan(scheme, planId)) return;
+    activePlanId = scheme.activePlan;
+    const plan = activeSchemePlan(scheme);
+    groups.forEach(g => { g.target = planTargetFor(plan, g.gid); });
+    applyTargetsToDOM();
+    const holder = form.querySelector('#plan-tabs');
+    if (holder) holder.innerHTML = tabsHTML();
+    refresh();
+  };
+  const addPlan = () => {
+    const cur = activeSchemePlan(scheme);
+    const id = uid('plan');
+    plans.push({ id, name: '方案 ' + (plans.length + 1), targets: Object.assign({}, cur.targets) });
+    scheme.activePlan = id;
+    activePlanId = id;
+    const holder = form.querySelector('#plan-tabs');
+    if (holder) holder.innerHTML = tabsHTML();
+    refresh();
+    toast('已复制当前配比为「方案 ' + plans.length + '」', 'success');
+  };
+  const openPlanManager = () => {
+    const rowsHTML = () => plans.map(p => {
+      const on = p.id === activePlanId;
+      return '<div class="plan-mg-row">' +
+        '<input class="input plan-mg-name" data-pf="name" data-plan="' + esc(p.id) + '" value="' + esc(p.name) + '" maxlength="20" placeholder="方案名">' +
+        '<span class="tiny" style="min-width:38px;text-align:right">' + (on ? '使用中' : '') + '</span>' +
+        '<button type="button" class="icon-btn danger" data-pf="del" data-plan="' + esc(p.id) + '"' + (plans.length < 2 ? ' disabled' : '') + ' aria-label="删除">' + icon('trash') + '</button>' +
+      '</div>';
+    }).join('');
+    const w = openSheet({
+      title: '管理方案', sub: '改名直接编辑 · 删除后不可恢复',
+      body: '<div class="plan-mg" id="plan-mg">' + rowsHTML() + '</div>',
+      footer: '<button class="btn ghost" data-sheet-close>关闭</button>'
+    });
+    w.addEventListener('input', ev => {
+      const el = ev.target;
+      if (!el || el.getAttribute('data-pf') !== 'name') return;
+      const p = plans.find(x => x.id === el.getAttribute('data-plan'));
+      if (p) p.name = String(el.value || '').slice(0, 20);
+    });
+    w.addEventListener('click', ev => {
+      const btn = ev.target.closest ? ev.target.closest('[data-pf="del"]') : null;
+      if (!btn) return;
+      const id = btn.getAttribute('data-plan');
+      if (plans.length < 2) return;
+      const p = plans.find(x => x.id === id);
+      confirmDialog({
+        title: '删除方案', message: '删除「' + esc(p ? p.name : '') + '」？只删这一套目标，不动账本。',
+        confirmText: '删除', danger: true,
+        onConfirm: () => {
+          plans.splice(plans.findIndex(x => x.id === id), 1);
+          if (activePlanId === id) {
+            activePlanId = plans[0].id;
+            scheme.activePlan = activePlanId;
+            const plan = activeSchemePlan(scheme);
+            groups.forEach(g => { g.target = planTargetFor(plan, g.gid); });
+            applyTargetsToDOM();
+          }
+          const mg = w.querySelector('#plan-mg');
+          if (mg) mg.innerHTML = rowsHTML();
+          const holder = form.querySelector('#plan-tabs');
+          if (holder) holder.innerHTML = tabsHTML();
+          refresh();
+          toast('已删除方案', 'success');
+        }
+      });
+    });
+    w.addEventListener('click', ev => {
+      const done = ev.target.closest ? ev.target.closest('[data-sheet-close]') : null;
+      if (!done) return;
+      if (scheme.activePlan !== activePlanId) switchPlan(scheme.activePlan);
+      else {
+        const holder = form.querySelector('#plan-tabs');
+        if (holder) holder.innerHTML = tabsHTML();
+        refresh();
+      }
+    });
   };
 
   form.addEventListener('input', ev => {
@@ -316,6 +436,9 @@ function openTargetEditor(sid) {
     const el = ev.target.closest ? ev.target.closest('[data-f]') : null;
     if (!el) return;
     const f = el.getAttribute('data-f');
+    if (f === 'plan') { ev.preventDefault(); switchPlan(el.getAttribute('data-plan')); return; }
+    if (f === 'plan-add') { ev.preventDefault(); addPlan(); return; }
+    if (f === 'plan-menu') { ev.preventDefault(); openPlanManager(); return; }
     const gid = el.getAttribute('data-g');
     const g = groups.find(x => x.gid === gid);
     if (!g) return;
@@ -343,7 +466,10 @@ function openTargetEditor(sid) {
     if (scheme.builtin) {
       state.rebalance.targets[scheme.id] = Object.assign({}, state.rebalance.targets[scheme.id] || {}, values);
     } else {
-      scheme.groups.forEach(g => { g.target = Number(values[g.id]) || 0; });
+      const plan = activeSchemePlan(scheme);
+      plan.targets = {};
+      scheme.groups.forEach(g => { plan.targets[g.id] = clamp(Number(values[g.id]) || 0, 0, 100); });
+      syncSchemeGroupTargets(scheme);
     }
     const ops = {};
     const fresh = [];

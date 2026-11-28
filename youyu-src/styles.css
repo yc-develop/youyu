@@ -1504,6 +1504,24 @@ html[data-theme="light"] .acct-icon.brand{border-color:rgba(16,24,40,.1);box-sha
 
 /* 调整目标 · 调仓试算表 */
 .plan-note{margin:0 0 13px;font-size:9px;line-height:1.65;color:var(--faint)}
+/* 目标方案切换 */
+.plan-tabs{display:flex;gap:7px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:0 0 3px;margin:0 0 7px;scrollbar-width:none}
+.plan-tabs::-webkit-scrollbar{display:none}
+.plan-tab{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:7px 11px;border-radius:11px;border:1px solid var(--line);background:rgba(255,255,255,.03);color:var(--ink-2);cursor:pointer;transition:background .15s,border-color .15s}
+.plan-tab b{font-size:10.5px;font-weight:650;white-space:nowrap;max-width:112px;overflow:hidden;text-overflow:ellipsis}
+.plan-tab i{font-style:normal;font-size:9px;color:var(--faint);font-variant-numeric:tabular-nums}
+.plan-tab.on{background:var(--accent-soft);border-color:rgba(255,159,69,.38);color:var(--ink)}
+.plan-tab.on i{color:var(--accent)}
+.plan-tab-add{align-items:center;justify-content:center;padding:7px 10px;color:var(--faint)}
+.plan-tab-add .icon{width:13px;height:13px}
+.plan-eff-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 13px}
+.plan-eff-row #plan-eff{font-size:9.5px;color:var(--faint);font-variant-numeric:tabular-nums}
+.plan-eff-row .text-btn{font-size:9.5px;flex:0 0 auto}
+.plan-mg{display:flex;flex-direction:column;gap:9px}
+.plan-mg-row{display:flex;align-items:center;gap:9px}
+.plan-mg-name{flex:1 1 auto;min-width:0}
+.plan-mg-row .icon-btn{flex:0 0 auto}
+.icon-btn.danger{color:#ff5d6c;border-color:rgba(255,93,108,.24);background:rgba(255,93,108,.09)}
 .plan-block{margin-bottom:17px}
 .plan-group{display:flex;align-items:center;gap:6px;margin-bottom:7px;font-size:9px;color:var(--faint);cursor:pointer;user-select:none}
 .plan-fold{width:13px;height:13px;flex:0 0 13px;display:inline-flex;align-items:center;justify-content:center;color:var(--faint);transition:transform .16s ease}

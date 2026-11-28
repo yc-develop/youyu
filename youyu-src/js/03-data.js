@@ -122,6 +122,32 @@ function normalizeState(obj) {
       g.includeClasses = Array.isArray(g.includeClasses) ? g.includeClasses : [];
       g.includeInstruments = Array.isArray(g.includeInstruments) ? g.includeInstruments : [];
     });
+    // 目标方案：一套方案 = 一套 {分组id: 目标%}，group.target 始终镜像当前方案
+    s.plans = Array.isArray(s.plans) ? s.plans : [];
+    s.plans = s.plans.filter(p => p && typeof p === 'object').map((p, pi) => {
+      const src = (p.targets && typeof p.targets === 'object') ? p.targets : {};
+      const targets = {};
+      s.groups.forEach(g => {
+        const v = Number(src[g.id]);
+        if (Number.isFinite(v)) targets[g.id] = clamp(v, 0, 100);
+      });
+      return {
+        id: String(p.id || ('plan_' + pi)),
+        name: String(p.name || ('方案 ' + (pi + 1))).slice(0, 20),
+        targets
+      };
+    });
+    if (!s.plans.length) {
+      const targets = {};
+      s.groups.forEach(g => { targets[g.id] = clamp(Number(g.target) || 0, 0, 100); });
+      s.plans = [{ id: 'plan_default', name: '默认方案', targets }];
+    }
+    const planIds = new Set(s.plans.map(p => p.id));
+    if (!planIds.has(s.activePlan)) s.activePlan = s.plans[0].id;
+    s.groups.forEach(g => {
+      const active = s.plans.find(p => p.id === s.activePlan);
+      if (active && Number.isFinite(Number(active.targets[g.id]))) g.target = Number(active.targets[g.id]);
+    });
   });
   const allInstruments = [];
   obj.accounts.forEach(a => (a.instruments || []).forEach(i => allInstruments.push(i)));
@@ -311,11 +337,75 @@ function setRebalanceEnabled(schemeId, enabled) {
   if (!state.rebalance.schemes) state.rebalance.schemes = {};
   state.rebalance.schemes[schemeId] = Object.assign({}, rebalanceConfig(schemeId), { enabled: !!enabled });
 }
+/* ---------- 目标方案（同一分组方式下的多套配比） ---------- */
+function ensureSchemePlans(scheme) {
+  if (!scheme) return [];
+  if (!Array.isArray(scheme.plans)) scheme.plans = [];
+  if (!scheme.plans.length) {
+    const targets = {};
+    (scheme.groups || []).forEach(g => { targets[g.id] = clamp(Number(g.target) || 0, 0, 100); });
+    scheme.plans = [{ id: 'plan_default', name: '默认方案', targets }];
+  }
+  if (!scheme.plans.some(p => p.id === scheme.activePlan)) scheme.activePlan = scheme.plans[0].id;
+  return scheme.plans;
+}
+function activeSchemePlan(scheme) {
+  const list = ensureSchemePlans(scheme);
+  return list.find(p => p.id === scheme.activePlan) || list[0];
+}
+function planTargetFor(plan, groupId) {
+  if (!plan || !plan.targets) return 0;
+  const v = Number(plan.targets[groupId]);
+  return Number.isFinite(v) ? v : 0;
+}
+function syncSchemeGroupTargets(scheme) {
+  if (!scheme || scheme.builtin) return;
+  const plan = activeSchemePlan(scheme);
+  (scheme.groups || []).forEach(g => { g.target = planTargetFor(plan, g.id); });
+}
+function setActiveSchemePlan(scheme, planId) {
+  if (!scheme) return false;
+  const list = ensureSchemePlans(scheme);
+  if (!list.some(p => p.id === planId)) return false;
+  scheme.activePlan = planId;
+  syncSchemeGroupTargets(scheme);
+  return true;
+}
+/* 方案效果：按目标比例重排后，用各分组当前的持仓加权年化估算
+   假设：只改各桶比例，不动桶内标的构成 —— 所以桶年化沿用当前值 */
+function schemePlanEffect(schemeId, plan) {
+  const scheme = schemeById(schemeId);
+  if (!scheme || !plan) return null;
+  const rows = (scheme.groups || []).map(g => {
+    const st = groupExpectedStats(schemeId, g.id);
+    return { g, target: planTargetFor(plan, g.id), value: st.totalValue, rate: st.weighted, missing: st.missingCount };
+  });
+  const totalTarget = sum(rows, x => x.target);
+  const totalValue = sum(rows, x => x.value);
+  if (!(totalTarget > 0)) return { totalTarget, annual: null, income: null, totalValue, weights: rows.map(x => ({ name: x.g.name, pct: 0 })) };
+  let annual = 0, income = 0, missingCount = 0;
+  rows.forEach(x => {
+    const w = x.target / totalTarget;
+    if (x.rate == null) { missingCount += x.missing; return; }
+    annual += w * x.rate;
+    income += w * totalValue * x.rate / 100;
+  });
+  return {
+    totalTarget, annual, income, totalValue, missingCount,
+    weights: rows.map(x => ({ name: x.g.name, pct: x.target / totalTarget * 100, target: x.target, rate: x.rate }))
+  };
+}
 function rebalanceTargetFor(scheme, group) {
   if (!scheme || !group) return 0;
-  if (!scheme.builtin) return Number(group.target) || 0;
-  const targets = (state.rebalance && state.rebalance.targets && state.rebalance.targets[scheme.id]) || {};
-  return Number(targets[group.id]) || 0;
+  if (scheme.builtin) {
+    const targets = (state.rebalance && state.rebalance.targets && state.rebalance.targets[scheme.id]) || {};
+    return Number(targets[group.id]) || 0;
+  }
+  const plan = activeSchemePlan(scheme);
+  if (plan && plan.targets && Object.prototype.hasOwnProperty.call(plan.targets, group.id)) {
+    return planTargetFor(plan, group.id);
+  }
+  return Number(group.target) || 0;
 }
 function groupTargetValue(scheme, group) { return rebalanceTargetFor(scheme, group); }
 /* 预期年化挂在标的（账户现金则为账户）上，分组年化由持仓加权算出，不再手填 */
